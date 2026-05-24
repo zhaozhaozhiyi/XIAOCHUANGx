@@ -1,0 +1,55 @@
+{
+  "name": "@jlc/runtime-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Spawn Codex / Claude / Hermes CLI and parse stdout streams",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./agent-catalog": {
+      "types": "./dist/agent-catalog.d.ts",
+      "default": "./dist/agent-catalog.js"
+    },
+    "./simulated-activity": {
+      "types": "./dist/simulated-activity.d.ts",
+      "default": "./dist/simulated-activity.js"
+    },
+    "./simulated-deliverables": {
+      "types": "./dist/simulated-deliverables.d.ts",
+      "default": "./dist/simulated-deliverables.js"
+    },
+    "./map-tool-progress": {
+      "types": "./dist/map-tool-progress.d.ts",
+      "default": "./dist/map-tool-progress.js"
+    },
+    "./chat-mode": {
+      "types": "./dist/chat-mode.d.ts",
+      "default": "./dist/chat-mode.js"
+    },
+    "./agent-registry": {
+      "types": "./dist/agent-registry.d.ts",
+      "default": "./dist/agent-registry.js"
+    },
+    "./hermes-session": {
+      "types": "./dist/hermes-session.d.ts",
+      "default": "./dist/hermes-session.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@jlc/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2"
+  }
+}

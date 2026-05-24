@@ -1,0 +1,24 @@
+{
+  "name": "@jlcresearch/companion",
+  "version": "0.1.0",
+  "private": true,
+  "description": "小窗 — 本机 Companion（模式 B）",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fastify/cors": "^10.0.2",
+    "@jlc/contracts": "workspace:*",
+    "@jlc/runtime-core": "workspace:*",
+    "fastify": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

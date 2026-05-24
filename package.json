@@ -1,0 +1,30 @@
+{
+  "name": "jlc-research-platform",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "postinstall": "pnpm db:generate",
+    "dev:api": "pnpm --filter @jlc/api dev",
+    "build:api": "pnpm --filter @jlc/api build",
+    "db:generate": "pnpm --filter @jlc/api prisma:generate",
+    "db:migrate": "pnpm --filter @jlc/api prisma:migrate",
+    "db:push": "pnpm --filter @jlc/api prisma:push",
+    "contracts:build": "pnpm --filter @jlc/contracts build",
+    "runtime-core:build": "pnpm --filter @jlc/runtime-core build",
+    "skills:verify": "pnpm runtime-core:build && node --input-type=module -e \"import { composeRunPrompts, resolveChatOrchestration, verifyChatCatalog } from './packages/runtime-core/dist/index.js'; const o=resolveChatOrchestration({mode:'deep'}); const cat=verifyChatCatalog(); if(!cat.ok) throw new Error('catalog missing: '+cat.missingSlugs.join(',')); const r=composeRunPrompts({mode:'deep',userText:'test',processSkill:o.baseProcessSkill,platformNormSkill:o.platformNormSkill,chatCatalog:o.catalog}); if(!r.systemPrompt.includes('<available_skills>')) throw new Error('catalog not in system'); if(r.meta.orchestrationMode!=='hybrid-steer') throw new Error('orchestrationMode'); if(r.meta.injectedSlugs.length!==2) throw new Error('expected 2 injected slugs, got '+r.meta.injectedSlugs.length); console.log('ok', r.meta.catalogSlugs?.length, 'slugs', r.systemPrompt.length);\"",
+    "smoke:companion": "node scripts/smoke-companion-sse.mjs",
+    "mvp:verify": "pnpm skills:verify && pnpm smoke:companion",
+    "skills:sync-ppt": "node scripts/sync-open-design-ppt-skills.mjs --force",
+    "skills:verify-ppt": "pnpm skills:sync-ppt && pnpm runtime-core:build && node --input-type=module -e \"import { loadSkill, loadSkillBundle } from './packages/runtime-core/dist/index.js'; const b=loadSkillBundle({processSkill:'skill-ppt-pitch-deck',platformNormSkill:'skill-platform-research-norms'}); if(b.missing.length) throw new Error('missing: '+b.missing.join(',')); const deck=loadSkill('skill-ppt-deck'); const html=loadSkill('skill-ppt-html-studio'); if(!deck||!html) throw new Error('ppt skills not on disk'); console.log('ok ppt', b.process?.slug, 'refs', b.process?.referencePaths.length, 'html-studio', html.referencePaths.length);\"",
+    "companion:dev": "pnpm --filter @jlcresearch/companion dev",
+    "dev:web": "pnpm --filter web dev",
+    "desktop:icons": "node scripts/generate-brand-icons.mjs",
+    "desktop:dev": "pnpm --filter @jlc/desktop dev",
+    "desktop:build": "pnpm --filter @jlc/desktop build",
+    "desktop:pack": "pnpm desktop:icons && pnpm --filter web build && pnpm --filter @jlc/desktop pack",
+    "desktop:pack:dir": "pnpm desktop:icons && pnpm --filter web build && pnpm --filter @jlc/desktop pack:dir"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

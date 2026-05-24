@@ -1,0 +1,24 @@
+{
+  "version": "1",
+  "description": "对话模块可见 Skill 目录（仅摘要进入 system；全文由 Agent 按需经 Agent Kit 读取）。维护说明见 web/docs/chat-core-architecture.md",
+  "entries": [
+    {
+      "slug": "skill-ppt-deck",
+      "kind": "workflow",
+      "scope": ["chat", "ppt"],
+      "summary": "默认演示文稿结构与生成流程；用户要做 deck 且未指定模板时可参考"
+    },
+    {
+      "slug": "skill-ppt-pitch-deck",
+      "kind": "workflow",
+      "scope": ["chat", "ppt"],
+      "summary": "路演 Pitch 十页结构与叙事；融资/客户路演类问题可参考"
+    },
+    {
+      "slug": "skill-ppt-html-studio",
+      "kind": "tool",
+      "scope": ["chat", "ppt"],
+      "summary": "HTML 幻灯片/HTML 工作室工具说明；由 deck 类流程按需引用"
+    }
+  ]
+}

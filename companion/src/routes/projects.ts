@@ -1,0 +1,168 @@
+import type { FastifyInstance } from "fastify";
+import {
+  createProject,
+  ensureProject,
+  getProject,
+  importFolder,
+  listProjects,
+  resolveWorkspaceRoot,
+} from "../projects/store.js";
+import {
+  getProjectTree,
+  getProjectTreeChildren,
+  readProjectFile,
+} from "../projects/tree.js";
+import { listProjectFilePaths } from "../projects/files-index.js";
+import type { WorkspaceKind } from "../types.js";
+
+function isWorkspaceKind(v: string): v is WorkspaceKind {
+  return v === "sandbox" || v === "local_bound" || v === "cloud";
+}
+
+export async function projectRoutes(app: FastifyInstance): Promise<void> {
+  app.get("/v1/projects", async () => {
+    const projects = await listProjects();
+    return { projects };
+  });
+
+  app.post<{
+    Body: {
+      projectId?: string;
+      workspaceKind?: string;
+      name?: string;
+      baseDir?: string;
+    };
+  }>("/v1/projects/ensure", async (request, reply) => {
+    const { projectId, workspaceKind, name, baseDir } = request.body ?? {};
+    if (!projectId?.trim()) {
+      return reply.code(400).send({ error: "project_id_required" });
+    }
+    if (!workspaceKind || !isWorkspaceKind(workspaceKind)) {
+      return reply.code(400).send({ error: "invalid_workspace_kind" });
+    }
+    try {
+      const project = await ensureProject({
+        projectId: projectId.trim(),
+        workspaceKind,
+        name: name ?? "未命名项目",
+        baseDir,
+      });
+      return { project };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return reply.code(400).send({ error: msg });
+    }
+  });
+
+  app.post<{
+    Body: { name?: string; baseDir?: string };
+  }>("/v1/projects/import-folder", async (request, reply) => {
+    const { name, baseDir } = request.body ?? {};
+    if (!baseDir?.trim()) {
+      return reply.code(400).send({ error: "baseDir_required" });
+    }
+    try {
+      const project = await importFolder({ name, baseDir });
+      return reply.code(201).send(project);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return reply.code(400).send({ error: msg });
+    }
+  });
+
+  app.post<{
+    Body: { workspaceKind?: string; name?: string; baseDir?: string };
+  }>("/v1/projects", async (request, reply) => {
+    const { workspaceKind, name, baseDir } = request.body ?? {};
+    if (!workspaceKind || !isWorkspaceKind(workspaceKind)) {
+      return reply.code(400).send({ error: "invalid_workspace_kind" });
+    }
+    if (workspaceKind === "cloud") {
+      return reply.code(400).send({ error: "cloud_not_supported_locally" });
+    }
+    if (workspaceKind === "local_bound") {
+      return reply.code(400).send({
+        error: "use_import_folder",
+        message: "请使用 POST /v1/projects/import-folder 绑定本地目录",
+      });
+    }
+    try {
+      const project = await createProject({
+        workspaceKind: "sandbox",
+        name: name ?? "临时工作区",
+        baseDir,
+      });
+      return reply.code(201).send(project);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return reply.code(400).send({ error: msg });
+    }
+  });
+
+  app.get<{
+    Params: { projectId: string };
+    Querystring: { path?: string };
+  }>("/v1/projects/:projectId/tree", async (request, reply) => {
+    const project = await getProject(request.params.projectId);
+    if (!project) {
+      return reply.code(404).send({ error: "project_not_found" });
+    }
+    const root = await resolveWorkspaceRoot(project.projectId);
+    const relPath = (request.query.path ?? "").trim();
+    if (relPath) {
+      try {
+        const nodes = await getProjectTreeChildren(root, relPath);
+        return {
+          projectId: project.projectId,
+          root,
+          path: relPath,
+          nodes,
+        };
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        return reply.code(400).send({ error: msg });
+      }
+    }
+    const tree = await getProjectTree(root);
+    return { projectId: project.projectId, root, tree };
+  });
+
+  app.get<{
+    Params: { projectId: string };
+    Querystring: { q?: string };
+  }>("/v1/projects/:projectId/files-index", async (request, reply) => {
+    const project = await getProject(request.params.projectId);
+    if (!project) {
+      return reply.code(404).send({ error: "project_not_found" });
+    }
+    const root = await resolveWorkspaceRoot(project.projectId);
+    const q = (request.query.q ?? "").trim();
+    try {
+      const files = await listProjectFilePaths(root, q || undefined);
+      return { projectId: project.projectId, files, source: "rg_or_walk" };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return reply.code(500).send({ error: msg });
+    }
+  });
+
+  app.get<{
+    Params: { projectId: string };
+    Querystring: { path?: string };
+  }>("/v1/projects/:projectId/files", async (request, reply) => {
+    const rel = request.query.path ?? "";
+    if (!rel) return reply.code(400).send({ error: "path_required" });
+    const project = await getProject(request.params.projectId);
+    if (!project) {
+      return reply.code(404).send({ error: "project_not_found" });
+    }
+    try {
+      const root = await resolveWorkspaceRoot(project.projectId);
+      const file = await readProjectFile(root, rel);
+      return file;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return reply.code(400).send({ error: msg });
+    }
+  });
+}

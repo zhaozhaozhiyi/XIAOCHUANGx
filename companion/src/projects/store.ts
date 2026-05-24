@@ -1,0 +1,342 @@
+import {
+  mkdir,
+  readFile,
+  writeFile,
+  access,
+  constants,
+  realpath,
+} from "node:fs/promises";
+import {
+  join,
+  resolve,
+  normalize,
+  relative,
+  isAbsolute,
+  basename,
+  sep,
+} from "node:path";
+import { randomUUID } from "node:crypto";
+import { homedir } from "node:os";
+import type {
+  CompanionProjectSummary,
+  WorkspaceKind,
+} from "../types.js";
+import { config, projectsDir } from "../config.js";
+
+type ProjectRecord = CompanionProjectSummary & {
+  createdAt: string;
+};
+
+type ProjectsDb = {
+  projects: ProjectRecord[];
+};
+
+const DB_FILE = () => join(config.dataDir, "projects.json");
+
+const SANDBOX_DEFAULT_ID = "sandbox-default";
+
+async function ensureDataDir(): Promise<void> {
+  await mkdir(config.dataDir, { recursive: true });
+  await mkdir(projectsDir(), { recursive: true });
+}
+
+async function loadDb(): Promise<ProjectsDb> {
+  await ensureDataDir();
+  try {
+    const raw = await readFile(DB_FILE(), "utf8");
+    const parsed = JSON.parse(raw) as ProjectsDb;
+    if (!Array.isArray(parsed.projects)) return { projects: [] };
+    return parsed;
+  } catch {
+    return { projects: [] };
+  }
+}
+
+async function saveDb(db: ProjectsDb): Promise<void> {
+  await writeFile(DB_FILE(), JSON.stringify(db, null, 2), "utf8");
+}
+
+function toSummary(p: ProjectRecord): CompanionProjectSummary {
+  const { createdAt: _c, ...rest } = p;
+  return rest;
+}
+
+export async function ensureDefaultSandbox(): Promise<CompanionProjectSummary> {
+  const db = await loadDb();
+  let sandbox = db.projects.find((p) => p.projectId === SANDBOX_DEFAULT_ID);
+  if (!sandbox) {
+    const root = join(projectsDir(), SANDBOX_DEFAULT_ID);
+    await mkdir(root, { recursive: true });
+    sandbox = {
+      projectId: SANDBOX_DEFAULT_ID,
+      name: "临时工作区",
+      workspaceKind: "sandbox",
+      pathSummary: `${root}`,
+      createdAt: new Date().toISOString(),
+    };
+    db.projects.push(sandbox);
+    await saveDb(db);
+  } else {
+    await mkdir(resolveProjectRoot(sandbox), { recursive: true });
+  }
+  return toSummary(sandbox);
+}
+
+export async function listProjects(): Promise<CompanionProjectSummary[]> {
+  await ensureDefaultSandbox();
+  const db = await loadDb();
+  return db.projects.map(toSummary);
+}
+
+export async function getProject(
+  projectId: string,
+): Promise<CompanionProjectSummary | null> {
+  await ensureDefaultSandbox();
+  const db = await loadDb();
+  const p = db.projects.find((x) => x.projectId === projectId);
+  return p ? toSummary(p) : null;
+}
+
+function expandUserPath(input: string): string {
+  const trimmed = input.trim();
+  if (trimmed.startsWith("~/")) {
+    return join(homedir(), trimmed.slice(2));
+  }
+  if (trimmed === "~") {
+    return homedir();
+  }
+  return trimmed;
+}
+
+function formatPathSummary(absPath: string): string {
+  const home = homedir();
+  const resolved = resolve(absPath);
+  const rel = relative(home, resolved);
+  if (!rel.startsWith("..") && !isAbsolute(rel)) {
+    const suffix = rel ? `/${rel}` : "";
+    return `~${suffix}`.replace(/\/+$/, "") || "~";
+  }
+  return resolved;
+}
+
+function validateLocalBaseDir(baseDir: string): string {
+  const resolved = resolve(baseDir);
+  const home = homedir();
+  const rel = relative(home, resolved);
+  if (rel.startsWith("..") || isAbsolute(rel)) {
+    throw new Error("baseDir_must_be_under_home");
+  }
+  const forbidden = ["/etc", "/usr", "/bin", "/sbin", "/var", "/System"];
+  if (forbidden.some((f) => resolved.startsWith(f))) {
+    throw new Error("baseDir_forbidden");
+  }
+  const dataResolved = resolve(config.dataDir);
+  if (
+    resolved === dataResolved ||
+    resolved.startsWith(`${dataResolved}${sep}`)
+  ) {
+    throw new Error("baseDir_in_data_dir");
+  }
+  return resolved;
+}
+
+/**
+ * 文件夹导入：绑定 local_bound，不复制；同一路径幂等返回已有 projectId。
+ */
+export async function importFolder(input: {
+  name?: string;
+  baseDir: string;
+}): Promise<CompanionProjectSummary> {
+  await ensureDataDir();
+  if (!input.baseDir?.trim()) throw new Error("baseDir_required");
+
+  const expanded = expandUserPath(input.baseDir);
+  let resolved: string;
+  try {
+    resolved = await realpath(expanded);
+  } catch {
+    throw new Error("baseDir_not_accessible");
+  }
+
+  validateLocalBaseDir(resolved);
+  await access(resolved, constants.R_OK).catch(() => {
+    throw new Error("baseDir_not_accessible");
+  });
+
+  const db = await loadDb();
+  const existing = db.projects.find(
+    (p) => p.workspaceKind === "local_bound" && p.baseDir === resolved,
+  );
+  if (existing) {
+    const nextName = input.name?.trim();
+    if (nextName && nextName !== existing.name) {
+      existing.name = nextName;
+      existing.pathSummary = formatPathSummary(resolved);
+      await saveDb(db);
+    }
+    return toSummary(existing);
+  }
+
+  const projectId = `proj-${randomUUID().slice(0, 8)}`;
+  const name =
+    input.name?.trim() || basename(resolved) || "未命名项目";
+  const pathSummary = formatPathSummary(resolved);
+
+  const record: ProjectRecord = {
+    projectId,
+    name,
+    workspaceKind: "local_bound",
+    pathSummary,
+    baseDir: resolved,
+    createdAt: new Date().toISOString(),
+  };
+  db.projects.push(record);
+  await saveDb(db);
+  return toSummary(record);
+}
+
+/** 按固定 projectId 注册/更新（Web 研究项目列表与 Companion 对齐） */
+export async function ensureProject(input: {
+  projectId: string;
+  workspaceKind: WorkspaceKind;
+  name: string;
+  baseDir?: string;
+}): Promise<CompanionProjectSummary> {
+  await ensureDataDir();
+  if (input.workspaceKind === "sandbox") {
+    return ensureDefaultSandbox();
+  }
+
+  const existing = await getProject(input.projectId);
+  if (input.workspaceKind === "local_bound") {
+    if (!input.baseDir?.trim()) throw new Error("baseDir_required");
+    const baseDir = validateLocalBaseDir(expandUserPath(input.baseDir));
+    await access(baseDir, constants.R_OK).catch(() => {
+      throw new Error("baseDir_not_accessible");
+    });
+
+    if (existing) {
+      if (existing.workspaceKind !== "local_bound") {
+        throw new Error("project_kind_mismatch");
+      }
+      if (existing.baseDir !== baseDir) {
+        const db = await loadDb();
+        const idx = db.projects.findIndex(
+          (p) => p.projectId === input.projectId,
+        );
+        if (idx >= 0) {
+          db.projects[idx] = {
+            ...db.projects[idx]!,
+            name: input.name.trim() || existing.name,
+            baseDir,
+            pathSummary: formatPathSummary(baseDir),
+          };
+          await saveDb(db);
+          return toSummary(db.projects[idx]!);
+        }
+      }
+      return existing;
+    }
+
+    const db = await loadDb();
+    const record: ProjectRecord = {
+      projectId: input.projectId,
+      name: input.name.trim() || "未命名项目",
+      workspaceKind: "local_bound",
+      pathSummary: formatPathSummary(baseDir),
+      baseDir,
+      createdAt: new Date().toISOString(),
+    };
+    db.projects.push(record);
+    await saveDb(db);
+    return toSummary(record);
+  }
+
+  if (existing) return existing;
+  throw new Error("unsupported_ensure_kind");
+}
+
+export async function createProject(input: {
+  workspaceKind: WorkspaceKind;
+  name: string;
+  baseDir?: string;
+}): Promise<CompanionProjectSummary> {
+  await ensureDataDir();
+  const db = await loadDb();
+  const projectId =
+    input.workspaceKind === "sandbox"
+      ? `sandbox-${randomUUID().slice(0, 8)}`
+      : `proj-${randomUUID().slice(0, 8)}`;
+
+  let pathSummary: string;
+  let baseDir: string | undefined;
+
+  if (input.workspaceKind === "local_bound") {
+    if (!input.baseDir?.trim()) throw new Error("baseDir_required");
+    baseDir = validateLocalBaseDir(expandUserPath(input.baseDir));
+    await access(baseDir, constants.R_OK).catch(() => {
+      throw new Error("baseDir_not_accessible");
+    });
+    pathSummary = formatPathSummary(baseDir);
+  } else {
+    const root = join(projectsDir(), projectId);
+    await mkdir(root, { recursive: true });
+    pathSummary = root;
+  }
+
+  const record: ProjectRecord = {
+    projectId,
+    name: input.name.trim() || "未命名项目",
+    workspaceKind: input.workspaceKind,
+    pathSummary,
+    baseDir,
+    createdAt: new Date().toISOString(),
+  };
+  db.projects.push(record);
+  await saveDb(db);
+  return toSummary(record);
+}
+
+export function resolveProjectRootFromId(
+  project: CompanionProjectSummary | null,
+  workspaceProjectId: string,
+): string {
+  if (project) return resolveProjectRoot(project);
+  if (workspaceProjectId === SANDBOX_DEFAULT_ID) {
+    return join(projectsDir(), SANDBOX_DEFAULT_ID);
+  }
+  throw new Error("project_not_found");
+}
+
+function resolveProjectRoot(p: CompanionProjectSummary): string {
+  if (p.workspaceKind === "local_bound" && p.baseDir) {
+    return resolve(p.baseDir);
+  }
+  return join(projectsDir(), p.projectId);
+}
+
+export async function resolveWorkspaceRoot(
+  workspaceProjectId: string,
+): Promise<string> {
+  const project = await getProject(workspaceProjectId);
+  if (project) {
+    const root = resolveProjectRoot(project);
+    await mkdir(root, { recursive: true });
+    return root;
+  }
+  if (workspaceProjectId === SANDBOX_DEFAULT_ID) {
+    const s = await ensureDefaultSandbox();
+    return resolveProjectRoot(s);
+  }
+  throw new Error("project_not_found");
+}
+
+export function safeRelativePath(projectRoot: string, relPath: string): string {
+  const normalized = normalize(relPath).replace(/^(\.\.(\/|\\|$))+/, "");
+  const full = resolve(projectRoot, normalized);
+  const rel = relative(projectRoot, full);
+  if (rel.startsWith("..") || isAbsolute(rel)) {
+    throw new Error("path_escape");
+  }
+  return full;
+}

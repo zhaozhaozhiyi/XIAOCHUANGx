@@ -1,0 +1,29 @@
+{
+  "name": "@jlc/desktop",
+  "productName": "小窗",
+  "version": "0.1.0",
+  "private": true,
+  "description": "小窗 — Electron 桌面壳（PRD v3.0 MVP §5.3.7）",
+  "main": "dist/main/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node -e \"require('node:fs').cpSync('src/preload/preload.cjs','dist/preload/preload.cjs')\"",
+    "dev": "pnpm icons && pnpm build && node ../../scripts/patch-electron-dev-app.mjs && node ../../scripts/run-desktop-dev.mjs --branded-app",
+    "dev:branded-app": "pnpm icons && pnpm build && node ../../scripts/patch-electron-dev-app.mjs && node ../../scripts/run-desktop-dev.mjs --branded-app",
+    "start": "electron .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "icons": "node ../../scripts/generate-brand-icons.mjs",
+    "prepare:web": "node ../../scripts/prepare-desktop-web.mjs",
+    "pack:dir": "pnpm icons && pnpm build && pnpm prepare:web && electron-builder --dir",
+    "pack": "pnpm icons && pnpm build && pnpm prepare:web && electron-builder"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "electron": "33.4.11",
+    "electron-builder": "^26.0.12",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

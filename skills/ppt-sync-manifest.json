@@ -1,0 +1,129 @@
+{
+  "version": 1,
+  "openDesignRoot": "参考项目/open-design",
+  "entries": [
+    {
+      "source": "skills",
+      "odSlug": "deck-guizang-editorial",
+      "jlcSlug": "skill-ppt-guizang-editorial",
+      "templateId": "guizang-editorial",
+      "label": "归藏编辑墨水",
+      "templatePackId": "tpl-ppt-guizang-editorial"
+    },
+    {
+      "source": "skills",
+      "odSlug": "deck-swiss-international",
+      "jlcSlug": "skill-ppt-swiss-international",
+      "templateId": "swiss-international",
+      "label": "瑞士国际主义",
+      "templatePackId": "tpl-ppt-swiss-international"
+    },
+    {
+      "source": "skills",
+      "odSlug": "deck-open-slide-canvas",
+      "jlcSlug": "skill-ppt-open-canvas",
+      "templateId": "open-canvas",
+      "label": "自由画布",
+      "templatePackId": "tpl-ppt-open-canvas"
+    },
+    {
+      "source": "skills",
+      "odSlug": "pptx",
+      "jlcSlug": "skill-ppt-pptx",
+      "utility": true,
+      "label": "PPTX 读写（Anthropic）"
+    },
+    {
+      "source": "skills",
+      "odSlug": "pptx-generator",
+      "jlcSlug": "skill-ppt-pptx-generator",
+      "utility": true,
+      "label": "PPTX 生成（PptxGenJS）"
+    },
+    {
+      "source": "skills",
+      "odSlug": "slides",
+      "jlcSlug": "skill-ppt-slides",
+      "utility": true,
+      "label": "Slides（OpenAI）"
+    },
+    {
+      "source": "skills",
+      "odSlug": "pptx-html-fidelity-audit",
+      "jlcSlug": "skill-ppt-fidelity-audit",
+      "utility": true,
+      "label": "HTML→PPTX  fidelity 审计"
+    },
+    {
+      "source": "skills",
+      "odSlug": "html-ppt-retro-quarterly-review",
+      "jlcSlug": "skill-ppt-quarterly-review",
+      "templateId": "quarterly-review",
+      "label": "复古季报回顾",
+      "templatePackId": "tpl-ppt-quarterly-review"
+    },
+    {
+      "source": "skills",
+      "odSlug": "digits-fintech-swiss-template",
+      "jlcSlug": "skill-ppt-fintech-swiss",
+      "templateId": "fintech-swiss",
+      "label": "金融科技瑞系",
+      "templatePackId": "tpl-ppt-fintech-swiss"
+    },
+    {
+      "source": "skills",
+      "odSlug": "editorial-burgundy-principles-template",
+      "jlcSlug": "skill-ppt-editorial-burgundy",
+      "templateId": "editorial-burgundy",
+      "label": "编辑工作室",
+      "templatePackId": "tpl-ppt-editorial-burgundy"
+    },
+    {
+      "source": "design-templates",
+      "odSlug": "html-ppt",
+      "jlcSlug": "skill-ppt-html-studio",
+      "utility": true,
+      "label": "HTML PPT Studio（主技能）"
+    },
+    {
+      "source": "design-templates",
+      "odSlug": "html-ppt-pitch-deck",
+      "jlcSlug": "skill-ppt-pitch-deck",
+      "templateId": "pitch-deck",
+      "label": "路演 Pitch Deck",
+      "templatePackId": "tpl-ppt-pitch-deck"
+    },
+    {
+      "source": "design-templates",
+      "odSlug": "html-ppt-tech-sharing",
+      "jlcSlug": "skill-ppt-tech-sharing",
+      "templateId": "tech-sharing",
+      "label": "技术分享",
+      "templatePackId": "tpl-ppt-tech-sharing"
+    },
+    {
+      "source": "design-templates",
+      "odSlug": "html-ppt-weekly-report",
+      "jlcSlug": "skill-ppt-weekly-report",
+      "templateId": "weekly-report",
+      "label": "周报",
+      "templatePackId": "tpl-ppt-weekly-report"
+    },
+    {
+      "source": "design-templates",
+      "odSlug": "html-ppt-knowledge-arch-blueprint",
+      "jlcSlug": "skill-ppt-knowledge-arch",
+      "templateId": "knowledge-arch",
+      "label": "知识架构蓝图",
+      "templatePackId": "tpl-ppt-knowledge-arch"
+    },
+    {
+      "source": "design-templates",
+      "odSlug": "html-ppt-zhangzara-blue-professional",
+      "jlcSlug": "skill-ppt-blue-professional",
+      "templateId": "blue-professional",
+      "label": "专业蓝",
+      "templatePackId": "tpl-ppt-blue-professional"
+    }
+  ]
+}

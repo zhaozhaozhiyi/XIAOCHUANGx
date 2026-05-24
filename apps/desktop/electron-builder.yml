@@ -1,0 +1,40 @@
+appId: com.jlcresearch.xiaochuang
+productName: 小窗
+copyright: Copyright © 2026 金联创
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - dist/**/*
+  - package.json
+
+extraResources:
+  - from: resources/web-standalone
+    to: web-standalone
+    filter:
+      - "**/*"
+  - from: build/icon.png
+    to: icon.png
+
+asar: true
+
+mac:
+  category: public.app-category.productivity
+  icon: build/icon.icns
+  extendInfo:
+    CFBundleName: 小窗
+    CFBundleDisplayName: 小窗
+  target:
+    - dmg
+  hardenedRuntime: false
+
+win:
+  icon: build/icon.png
+  target:
+    - nsis
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
