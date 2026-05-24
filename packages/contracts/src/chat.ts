@@ -204,6 +204,11 @@ export type TodoItem = {
   content: string;
   status: "pending" | "in_progress" | "completed" | "cancelled";
 };
+export const chatTodoItemSchema = z.object({
+  id: z.string(),
+  content: z.string(),
+  status: z.enum(["pending", "in_progress", "completed", "cancelled"]),
+});
 
 export type TodoPart = ChatPartBase & {
   kind: "todo";

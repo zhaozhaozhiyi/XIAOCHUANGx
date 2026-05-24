@@ -10,7 +10,7 @@ import {
   canonicalCitationSchema,
   canonicalWorkspaceChangeSchema,
   canonicalOutputDebugSchema,
-  todoItemSchema as chatTodoItemSchema,
+  chatTodoItemSchema,
 } from "./chat";
 import type { CanonicalTurnOutput } from "./chat";
 import { workspaceKindSchema } from "./common";
