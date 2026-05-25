@@ -1,1 +1,0 @@
-# Layers integration tests package
