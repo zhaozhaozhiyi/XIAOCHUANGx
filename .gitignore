@@ -35,5 +35,5 @@ yarn-error.log*
 .vercel
 coverage/
 
-# nested git clones (参考项目本地对照，不入库)
-参考项目/**/.git/
+# 参考项目（本地对照，不入库）
+参考项目/
