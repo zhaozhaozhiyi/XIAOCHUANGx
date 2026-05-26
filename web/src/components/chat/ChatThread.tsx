@@ -295,7 +295,7 @@ export function ChatThread({ id }: { id: string }) {
           className="chat-scroll-root min-h-0 flex-1 overflow-y-auto"
         >
           {messages.length === 0 ? (
-            <div className="chat-scroll-content mx-auto max-w-3xl">
+            <div className="chat-scroll-content mx-auto max-w-[var(--chat-message-max)]">
               <p className="text-center text-sm text-[var(--fg-tertiary)]">
                 {showProjectPicker
                   ? "选择项目并发送第一条消息开始对话"
@@ -325,7 +325,7 @@ export function ChatThread({ id }: { id: string }) {
         ) : null}
 
         <footer className="chat-composer-dock pointer-events-none absolute inset-x-0 bottom-0 px-4 pb-4">
-          <div className="pointer-events-auto mx-auto max-w-3xl">
+          <div className="pointer-events-auto mx-auto max-w-[var(--chat-message-max)]">
             {showPinnedTodo ? (
               <PinnedTodoBar
                 part={pinnedTodo}

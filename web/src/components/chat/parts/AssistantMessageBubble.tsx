@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import type { ChatMessage } from "@/lib/chat";
 import type { ChatPart } from "@/lib/chat-parts";
 import { computeThinkingGaps } from "@/lib/chat-thinking-gap";
@@ -51,23 +51,66 @@ function WaitingUserCallout({ message }: { message: string }) {
   );
 }
 
+function AssistantStatusLine({
+  status,
+  waiting,
+}: {
+  status: ChatMessage["status"];
+  waiting: boolean;
+}) {
+  const text =
+    status === "error"
+      ? "运行失败"
+      : status === "cancelled"
+        ? "已中断"
+        : waiting
+          ? "等待你继续"
+          : status === "loading" || status === "streaming"
+            ? "正在处理"
+            : "已完成";
+  const running = status === "loading" || status === "streaming";
+
+  return (
+    <div className="chat-assistant-status-line">
+      {running ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+      ) : (
+        <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+      )}
+      <span>{text}</span>
+    </div>
+  );
+}
+
 function SectionToggle({
   title,
   defaultOpen,
   badge,
+  variant = "panel",
   children,
 }: {
   title: string;
   defaultOpen?: boolean;
   badge?: string;
+  variant?: "panel" | "activity";
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(!!defaultOpen);
   return (
-    <div className="rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)]/72">
+    <div
+      className={
+        variant === "activity"
+          ? "chat-activity-group"
+          : "rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)]/72"
+      }
+    >
       <button
         type="button"
-        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium text-[var(--fg-secondary)] transition-colors hover:bg-[var(--sidebar-hover)]/60"
+        className={
+          variant === "activity"
+            ? "chat-activity-group__summary"
+            : "flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium text-[var(--fg-secondary)] transition-colors hover:bg-[var(--sidebar-hover)]/60"
+        }
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
       >
@@ -83,7 +126,17 @@ function SectionToggle({
           </span>
         ) : null}
       </button>
-      {open ? <div className="border-t border-[var(--border)] px-3 py-3">{children}</div> : null}
+      {open ? (
+        <div
+          className={
+            variant === "activity"
+              ? "chat-activity-group__body"
+              : "border-t border-[var(--border)] px-3 py-3"
+          }
+        >
+          {children}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -151,102 +204,72 @@ export function AssistantMessageBubble({
 
   return (
     <div className="bubble-assistant">
-      <div className="chat-assistant-shell">
-        <div className="chat-assistant-shell__rail" aria-hidden />
-        <div className="chat-assistant-shell__body">
-          <div className="chat-assistant-shell__header">
-            <span className="chat-assistant-shell__title">执行结果</span>
-            <span className="chat-assistant-shell__status">
-              {status === "error"
-                ? "失败"
-                : status === "cancelled"
-                  ? "已中断"
-                  : viewModel.waitingMessage
-                    ? "待继续"
-                    : status === "loading" || status === "streaming"
-                      ? "进行中"
-                      : "已完成"}
-            </span>
+      <div className="chat-assistant-message">
+        <AssistantStatusLine
+          status={status}
+          waiting={Boolean(viewModel.waitingMessage)}
+        />
+
+        {viewModel.statusPart &&
+        (status === "loading" || status === "streaming" || viewModel.waitingMessage) ? (
+          <div className="chat-assistant-stage chat-assistant-stage--status">
+            <PartRenderer part={viewModel.statusPart} />
           </div>
+        ) : null}
 
-          <div className="flex flex-col gap-3.5">
-            {viewModel.statusPart &&
-            (status === "loading" || status === "streaming" || viewModel.waitingMessage) ? (
-              <div className="chat-assistant-shell__stage">
-                <div className="chat-assistant-shell__section-label">执行状态</div>
-                <div className="text-xs text-[var(--fg-tertiary)]">
-                  <PartRenderer part={viewModel.statusPart} />
-                </div>
-              </div>
-            ) : null}
+        {viewModel.waitingMessage ? (
+          <WaitingUserCallout message={viewModel.waitingMessage} />
+        ) : null}
 
-            {viewModel.waitingMessage ? (
-              <WaitingUserCallout message={viewModel.waitingMessage} />
-            ) : null}
-
-            {viewModel.processParts.length > 0 || showToolRunningDots ? (
-              <div className="chat-assistant-shell__stage">
-                <div className="chat-assistant-shell__section-label">执行过程</div>
-                {showToolRunningDots ? <ToolRunningDots /> : null}
-                {viewModel.processParts.length > 0 ? (
-                  <SectionToggle
-                    title="查看处理过程"
-                    badge={`${viewModel.processParts.length} 项`}
-                    defaultOpen={status === "loading" || status === "streaming"}
-                  >
-                    <div className="flex flex-col gap-3">
-                      {renderParts(viewModel.processParts, gapBefore)}
-                    </div>
-                  </SectionToggle>
-                ) : null}
-              </div>
-            ) : null}
-
-            {showSummaryStage ? (
-              <div className="chat-assistant-shell__stage">
-                <div className="chat-assistant-shell__section-label">
-                  {status === "loading" || status === "streaming"
-                    ? "实时输出"
-                    : "最终回复"}
-                </div>
-                {summaryFirstParts.length > 0 ? (
-                  <div className="flex flex-col gap-3">
-                    {renderParts(summaryFirstParts, gapBefore)}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-
-            {viewModel.reasoningParts.length > 0 ? (
+        {viewModel.processParts.length > 0 || showToolRunningDots ? (
+          <div className="chat-assistant-stage">
+            {showToolRunningDots ? <ToolRunningDots label="Activity running…" /> : null}
+            {viewModel.processParts.length > 0 ? (
               <SectionToggle
-                title="思考过程"
-                badge={`${viewModel.reasoningParts.length} 项`}
+                title="Activity"
+                badge={`${viewModel.processParts.length} 项`}
+                defaultOpen={status === "loading" || status === "streaming"}
+                variant="activity"
               >
-                <div className="flex flex-col gap-3">
-                  {renderParts(viewModel.reasoningParts, gapBefore)}
+                <div className="flex flex-col gap-2.5">
+                  {renderParts(viewModel.processParts, gapBefore)}
                 </div>
               </SectionToggle>
             ) : null}
-
-            {viewModel.deliverablesPart ? (
-              <div className="chat-assistant-shell__stage">
-                <div className="chat-assistant-shell__section-label">交付物</div>
-                <div className="pt-1">
-                  <PartRenderer part={viewModel.deliverablesPart} />
-                </div>
-              </div>
-            ) : null}
-
-            {status === "error" && summaryFirstParts.length === 0 ? (
-              <p className="text-xs text-[var(--danger)]">
-                生成失败。请确认 Companion 已启动、Agent CLI 可用，或查看顶栏运行时状态。
-              </p>
-            ) : null}
-            {status === "cancelled" ? (
-              <p className="text-xs text-[var(--warn)]">已中断</p>
-            ) : null}
           </div>
-        </div>
+        ) : null}
+
+        {showSummaryStage && summaryFirstParts.length > 0 ? (
+          <div className="chat-assistant-stage chat-assistant-stage--summary">
+            {renderParts(summaryFirstParts, gapBefore)}
+          </div>
+        ) : null}
+
+        {viewModel.reasoningParts.length > 0 ? (
+          <SectionToggle
+            title="思考过程"
+            badge={`${viewModel.reasoningParts.length} 项`}
+          >
+            <div className="flex flex-col gap-3">
+              {renderParts(viewModel.reasoningParts, gapBefore)}
+            </div>
+          </SectionToggle>
+        ) : null}
+
+        {viewModel.deliverablesPart ? (
+          <div className="chat-assistant-stage chat-assistant-stage--deliverables">
+            <PartRenderer part={viewModel.deliverablesPart} />
+          </div>
+        ) : null}
+
+        {status === "error" && summaryFirstParts.length === 0 ? (
+          <p className="text-xs text-[var(--danger)]">
+            生成失败。请确认 Companion 已启动、Agent CLI 可用，或查看顶栏运行时状态。
+          </p>
+        ) : null}
+        {status === "cancelled" ? (
+          <p className="text-xs text-[var(--warn)]">已中断</p>
+        ) : null}
       </div>
     </div>
   );

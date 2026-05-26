@@ -232,7 +232,7 @@ export function ChatComposer({
 
   return (
     <div
-      className={`chat-composer-stack w-full max-w-3xl ${showProjectPicker ? "chat-composer-stack--with-project" : ""}`}
+      className={`chat-composer-stack w-full max-w-[var(--chat-message-max)] ${showProjectPicker ? "chat-composer-stack--with-project" : ""}`}
     >
       <div className={showProjectPicker ? "chat-composer-layer" : undefined}>
       <div className="chat-composer rounded-[var(--radius-2xl)] p-3">
