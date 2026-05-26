@@ -49,7 +49,10 @@ export function mockCompanionRunSse(
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   const mode = req.binding.moduleId === "chat" ? req.binding.mode : "fast";
-  const text = getMockReply(lastUser, mode as ChatModeId, req.agentId);
+  const lastUserIndex = findLastUserMessageIndex(req.messages);
+  const text = getMockReply(lastUser, mode as ChatModeId, req.agentId, {
+    hasConversationContext: lastUserIndex > 0,
+  });
   const cliName = agentLabel(req.agentId).replace(" CLI", "");
   const body = `【${cliName} · 本机 CLI Mock】\n\n${text}`;
   const parts = body.match(/[\s\S]{1,40}/g) ?? [body];
@@ -119,4 +122,11 @@ export function mockCompanionRunSse(
       controller.close();
     },
   });
+}
+
+function findLastUserMessageIndex(messages: CreateRunRequest["messages"]): number {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    if (messages[i]?.role === "user") return i;
+  }
+  return -1;
 }

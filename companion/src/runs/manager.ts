@@ -123,6 +123,13 @@ function canonicalTurnId(runId: string): string {
   return `turn-${runId}`;
 }
 
+function findLastUserMessageIndex(messages: CreateRunRequest["messages"]): number {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    if (messages[i]?.role === "user") return i;
+  }
+  return -1;
+}
+
 async function streamSimulatedReply(
   userText: string,
   mode: ChatModeId,
@@ -133,13 +140,16 @@ async function streamSimulatedReply(
   input?: {
     sessionId?: string;
     agentModel?: string;
+    hasConversationContext?: boolean;
   },
 ): Promise<void> {
   const startedAt = Date.now();
   let assistantText = "";
   await streamSimulatedActivity(writer, mode, userText, abort, agentId);
 
-  const fullText = buildSimulatedReply(userText, mode, agentId);
+  const fullText = buildSimulatedReply(userText, mode, agentId, {
+    hasConversationContext: input?.hasConversationContext,
+  });
   const parts = fullText.match(/[\s\S]{1,36}/g) ?? [fullText];
 
   for (const part of parts) {
@@ -381,7 +391,8 @@ async function executeRunLifecycle(
     model: req.agentModel,
   });
 
-  const lastUser = [...req.messages].reverse().find((m) => m.role === "user");
+  const lastUserIndex = findLastUserMessageIndex(req.messages);
+  const lastUser = lastUserIndex >= 0 ? req.messages[lastUserIndex] : undefined;
   const userText = lastUser?.content ?? "";
   const mode: ChatModeId =
     req.binding.moduleId === "chat"
@@ -412,10 +423,19 @@ async function executeRunLifecycle(
         writer.send("message.delta", { content });
         emitCanonicalAssistantDelta(writer, { runId, text: content });
       }
-      await streamSimulatedReply(userText, mode, req.agentId, writer, abort, runId, {
-        sessionId: req.sessionId,
-        agentModel: req.agentModel,
-      });
+      await streamSimulatedReply(
+        userText,
+        mode,
+        req.agentId,
+        writer,
+        abort,
+        runId,
+        {
+          sessionId: req.sessionId,
+          agentModel: req.agentModel,
+          hasConversationContext: lastUserIndex > 0,
+        },
+      );
       return;
     }
 

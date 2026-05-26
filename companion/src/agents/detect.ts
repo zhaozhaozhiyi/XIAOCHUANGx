@@ -21,6 +21,25 @@ const AGENT_BINS: Record<AgentId, string> = Object.fromEntries(
 ) as Record<AgentId, string>;
 
 async function which(bin: string): Promise<string | null> {
+  if (process.platform === "win32") {
+    try {
+      const { stdout } = await execFileAsync("where.exe", [bin], {
+        timeout: 3000,
+      });
+      const path =
+        stdout
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .find(
+            (line) =>
+              line.length > 0 && /\.(?:exe|cmd|bat|com)$/i.test(line),
+          ) ?? null;
+      return path;
+    } catch {
+      return null;
+    }
+  }
+
   try {
     const { stdout } = await execFileAsync("which", [bin], {
       timeout: 3000,

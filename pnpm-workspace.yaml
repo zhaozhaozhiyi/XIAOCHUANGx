@@ -4,3 +4,14 @@ packages:
   - "web"
   - "companion"
   - "apps/desktop"
+allowBuilds:
+  '@nestjs/core': true
+  '@prisma/client': true
+  '@prisma/engines': true
+  '@scarf/scarf': true
+  electron: true
+  electron-winstaller: true
+  esbuild: true
+  prisma: true
+  sharp: true
+  unrs-resolver: true

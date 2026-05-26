@@ -1,4 +1,8 @@
 import { getMockActivityEvents, getMockReply } from "@/lib/chat";
+import {
+  buildLightweightConversationReply,
+  classifyLightweightConversation,
+} from "@jlc/runtime-core/small-talk";
 import { buildDeliverablesPart } from "@/lib/mock-deliverables";
 import { encodeMockActivitySse } from "@/lib/mock-activity-sse";
 import {
@@ -72,6 +76,24 @@ function mockSseStream(
   });
 }
 
+function textSseStream(text: string): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  const parts = text.match(/[\s\S]{1,48}/g) ?? [text];
+
+  return new ReadableStream({
+    async start(controller) {
+      for (const part of parts) {
+        const payload = JSON.stringify({
+          choices: [{ index: 0, delta: { content: part } }],
+        });
+        controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
+      }
+      controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+      controller.close();
+    },
+  });
+}
+
 function parseBody(body: unknown): ChatCompletionRequestBody | null {
   if (!body || typeof body !== "object") return null;
   const b = body as Record<string, unknown>;
@@ -116,6 +138,15 @@ function parseBody(body: unknown): ChatCompletionRequestBody | null {
   };
 }
 
+function findLastUserMessageIndex(
+  messages: ChatCompletionRequestBody["messages"],
+): number {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    if (messages[i]?.role === "user") return i;
+  }
+  return -1;
+}
+
 export async function POST(request: Request) {
   let body: unknown;
   try {
@@ -138,7 +169,26 @@ export async function POST(request: Request) {
   const { sessionId, mode, agentId, agentModel, messages, useClientHistory } =
     parsed;
   const executionSource = parsed.executionSource ?? "cli";
-  const lastUser = [...messages].reverse().find((m) => m.role === "user");
+  const lastUserIndex = findLastUserMessageIndex(messages);
+  const lastUser = lastUserIndex >= 0 ? messages[lastUserIndex] : undefined;
+  const lightweightKind = classifyLightweightConversation(
+    lastUser?.content ?? "",
+    { hasConversationContext: lastUserIndex > 0 },
+  );
+
+  if (lightweightKind) {
+    return new Response(
+      textSseStream(buildLightweightConversationReply(lightweightKind)),
+      {
+        headers: {
+          "Content-Type": "text/event-stream; charset=utf-8",
+          "Cache-Control": "no-cache, no-transform",
+          Connection: "keep-alive",
+          "X-JLC-Agent-Id": agentId,
+        },
+      },
+    );
+  }
 
   if (executionSource === "api") {
     const providerConfig = trimApiProviderConfig({

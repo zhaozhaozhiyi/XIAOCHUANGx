@@ -129,6 +129,11 @@ export {
   type LegacyChatModeId,
 } from "./chat-mode.js";
 export {
+  buildLightweightConversationReply,
+  classifyLightweightConversation,
+  type LightweightConversationKind,
+} from "./small-talk.js";
+export {
   loadChatCatalog,
   formatChatCatalogForPrompt,
   verifyChatCatalog,

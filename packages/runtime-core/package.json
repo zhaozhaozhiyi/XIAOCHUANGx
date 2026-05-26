@@ -27,6 +27,10 @@
       "types": "./dist/map-tool-progress.d.ts",
       "default": "./dist/map-tool-progress.js"
     },
+    "./small-talk": {
+      "types": "./dist/small-talk.d.ts",
+      "default": "./dist/small-talk.js"
+    },
     "./chat-mode": {
       "types": "./dist/chat-mode.d.ts",
       "default": "./dist/chat-mode.js"

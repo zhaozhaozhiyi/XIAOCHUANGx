@@ -1,4 +1,9 @@
-import { isComplexDeepQuestion, type ChatModeId } from "@jlc/runtime-core";
+import {
+  buildLightweightConversationReply,
+  classifyLightweightConversation,
+  isComplexDeepQuestion,
+  type ChatModeId,
+} from "@jlc/runtime-core";
 import { AGENT_REGISTRY, type AgentId } from "@jlc/runtime-core";
 
 const AGENT_LABELS: Record<AgentId, string> = Object.fromEntries(
@@ -13,7 +18,13 @@ export function buildSimulatedReply(
   userText: string,
   mode: ChatModeId,
   agentId: AgentId,
+  options: { hasConversationContext?: boolean } = {},
 ): string {
+  const lightweightKind = classifyLightweightConversation(userText, options);
+  if (lightweightKind) {
+    return buildLightweightConversationReply(lightweightKind);
+  }
+
   const q = userText.toLowerCase();
   const tag = `【${AGENT_LABELS[agentId]} · 本机 CLI`;
 
