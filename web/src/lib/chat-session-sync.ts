@@ -14,9 +14,14 @@ import { fetchRunRecord } from "@/lib/companion/runtime";
 
 function statusFromRunRecord(
   record: CompanionRunRecord,
+  message?: ChatMessage,
 ): ChatMessage["status"] {
   if (record.status === "failed") return "error";
   if (record.status === "cancelled") return "cancelled";
+  const submittedClarification = message?.parts?.some(
+    (part) => part.kind === "clarification" && part.submitted,
+  );
+  if (submittedClarification) return "complete";
   if (record.status === "completed" || record.status === "waiting_user") {
     return "complete";
   }
@@ -28,7 +33,7 @@ export function applyRunRecordToMessage(
   record: CompanionRunRecord,
 ): ChatMessage {
   if (message.role !== "assistant") return message;
-  const status = statusFromRunRecord(record);
+  const status = statusFromRunRecord(record, message);
   const canonicalOutput = record.canonicalOutput ?? message.canonicalOutput;
   const finalAnswer = canonicalOutput?.finalAnswer.markdown.trim();
   return {

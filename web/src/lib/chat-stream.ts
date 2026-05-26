@@ -22,6 +22,22 @@ export type ToolProgressPayload = {
   output?: unknown;
 };
 
+export type ClarificationPayload = {
+  runId: string;
+  clarificationId: string;
+  toolUseId: string;
+  toolName?: string;
+  question: string;
+  questions: Array<{
+    id: string;
+    question: string;
+    header?: string;
+    options?: Array<{ label: string; description?: string }>;
+    multiSelect?: boolean;
+  }>;
+  input?: unknown;
+};
+
 export type ChatStreamCallbacks = {
   onStreamStart?: () => void;
   onRunStarted?: (payload: RunStartedPayload) => void;
@@ -33,6 +49,7 @@ export type ChatStreamCallbacks = {
   onCanonicalEvent?: (event: CanonicalEvent) => void;
   onCanonicalOutput?: (output: CanonicalTurnOutput) => void;
   onToolProgress?: (payload: ToolProgressPayload) => void;
+  onClarificationRequired?: (payload: ClarificationPayload) => void;
   onPartAppend?: (part: ChatPart) => void;
   onPartPatch?: (patch: { id: string; merge: Record<string, unknown> }) => void;
   onTodoUpdate?: (items: TodoItem[]) => void;
@@ -62,6 +79,7 @@ function parseCompanionPayload(
   delta?: string;
   interim?: { text: string; alreadyStreamed?: boolean };
   tool?: ToolProgressPayload;
+  clarification?: ClarificationPayload;
   part?: ChatPart;
   partPatch?: { id: string; merge: Record<string, unknown> };
   todoItems?: TodoItem[];
@@ -142,6 +160,82 @@ function parseCompanionPayload(
           callId: typeof json.callId === "string" ? json.callId : undefined,
           input: json.input,
           output: json.output,
+        },
+      };
+    }
+    if (eventName === "clarification.required") {
+      const runId = typeof json.runId === "string" ? json.runId : "";
+      const toolUseId =
+        typeof json.toolUseId === "string"
+          ? json.toolUseId
+          : typeof json.clarificationId === "string"
+            ? json.clarificationId
+            : "";
+      if (!runId || !toolUseId) return null;
+      const questions: ClarificationPayload["questions"] = [];
+      if (Array.isArray(json.questions)) {
+        json.questions.forEach((item, index) => {
+          if (!item || typeof item !== "object") return;
+          const q = item as Record<string, unknown>;
+          const question =
+            typeof q.question === "string" ? q.question.trim() : "";
+          if (!question) return;
+          const options: Array<{ label: string; description?: string }> = [];
+          if (Array.isArray(q.options)) {
+            for (const option of q.options) {
+              if (!option || typeof option !== "object") continue;
+              const o = option as Record<string, unknown>;
+              const label =
+                typeof o.label === "string" ? o.label.trim() : "";
+              if (!label) continue;
+              options.push({
+                label,
+                description:
+                  typeof o.description === "string"
+                    ? o.description
+                    : undefined,
+              });
+            }
+          }
+          questions.push({
+            id: typeof q.id === "string" ? q.id : `q${index + 1}`,
+            question,
+            header: typeof q.header === "string" ? q.header : undefined,
+            options,
+            multiSelect: q.multiSelect === true,
+          });
+        });
+      }
+      const question =
+        typeof json.question === "string"
+          ? json.question
+          : questions.map((q) => q.question).join("\n");
+      return {
+        clarification: {
+          runId,
+          clarificationId: toolUseId,
+          toolUseId,
+          toolName:
+            typeof json.toolName === "string" ? json.toolName : undefined,
+          question,
+          questions:
+            questions.length > 0
+              ? questions
+              : [{ id: "question", question: question || "请补充信息" }],
+          input: json.input,
+        },
+      };
+    }
+    if (eventName === "run.waiting_user") {
+      const question =
+        typeof json.question === "string" ? json.question : "请补充信息后继续";
+      return { status: { label: question, phase: "waiting_user" } };
+    }
+    if (eventName === "run.resumed") {
+      return {
+        status: {
+          label: "已收到补充信息，正在继续执行…",
+          phase: "running",
         },
       };
     }
@@ -255,6 +349,9 @@ export async function consumeChatSse(
             callbacks.onInterimAssistant?.(parsed.interim);
           }
           if (parsed?.tool) callbacks.onToolProgress?.(parsed.tool);
+          if (parsed?.clarification) {
+            callbacks.onClarificationRequired?.(parsed.clarification);
+          }
           if (parsed?.part) callbacks.onPartAppend?.(parsed.part);
           if (parsed?.partPatch) callbacks.onPartPatch?.(parsed.partPatch);
           if (parsed?.todoItems) callbacks.onTodoUpdate?.(parsed.todoItems);

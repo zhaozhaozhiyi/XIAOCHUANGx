@@ -28,6 +28,8 @@ export type {
   ChatPart,
   ChatPartKind,
   ChatPartZone,
+  ClarificationPart,
+  ClarificationQuestion,
   ErrorPart,
   FileEditPart,
   FileReadPart,

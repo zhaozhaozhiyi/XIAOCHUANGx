@@ -40,6 +40,19 @@ export function isAgentId(value: string): value is AgentId {
 export type AgentStreamEvent =
   | { type: "text_delta"; delta: string }
   | {
+      type: "user_input_request";
+      toolUseId: string;
+      toolName: string;
+      input: unknown;
+      questions: Array<{
+        id: string;
+        question: string;
+        header?: string;
+        options?: Array<{ label: string; description?: string }>;
+        multiSelect?: boolean;
+      }>;
+    }
+  | {
       type: "tool_progress";
       tool: string;
       status?: string;
@@ -73,6 +86,18 @@ export type RunAgentInput = {
 
 export type RunAgentCallbacks = {
   onText: (chunk: string) => void;
+  onUserInputRequest?: (payload: {
+    toolUseId: string;
+    toolName: string;
+    input: unknown;
+    questions: Array<{
+      id: string;
+      question: string;
+      header?: string;
+      options?: Array<{ label: string; description?: string }>;
+      multiSelect?: boolean;
+    }>;
+  }) => void;
   onToolProgress?: (payload: {
     tool: string;
     status?: string;
@@ -84,6 +109,12 @@ export type RunAgentCallbacks = {
   onNarration?: (text: string) => void;
   onError?: (message: string, code?: string) => void;
   onThreadStarted?: (threadId: string) => void;
+};
+
+export type RunAgentUserInputResponse = {
+  toolUseId: string;
+  content: string;
+  isError?: boolean;
 };
 
 export type RunAgentResult = {

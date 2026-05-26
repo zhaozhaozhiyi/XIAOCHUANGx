@@ -11,6 +11,7 @@ import {
   FileReadRow,
 } from "@/components/chat/parts/FileDiffRow";
 import { ChatMarkdown } from "@/components/chat/parts/ChatMarkdown";
+import { ClarificationCard } from "@/components/chat/parts/ClarificationCard";
 import { TodoBlock } from "@/components/chat/parts/TodoBlock";
 import { ToolBatchCard } from "@/components/chat/parts/ToolBatchCard";
 import { ToolCardRow } from "@/components/chat/parts/ToolCardRow";
@@ -147,7 +148,23 @@ function SummaryMarkdown({
   return <ChatMarkdown markdown={text} streaming={part.streaming} />;
 }
 
-export function PartRenderer({ part }: { part: ChatPart }) {
+export function PartRenderer({
+  part,
+  onClarificationSubmitted,
+  onClarificationContinue,
+  onClarificationDraftChange,
+}: {
+  part: ChatPart;
+  onClarificationSubmitted?: (partId: string, answer: string) => void;
+  onClarificationContinue?: (answer: string) => void;
+  onClarificationDraftChange?: (
+    partId: string,
+    patch: {
+      selectedOptions?: Record<string, string[]>;
+      draft?: string;
+    },
+  ) => void;
+}) {
   if (!isRenderablePart(part)) return null;
   switch (part.kind) {
     case "summary":
@@ -172,6 +189,15 @@ export function PartRenderer({ part }: { part: ChatPart }) {
       return <SkillBlock part={part} />;
     case "todo":
       return <TodoBlock part={part} />;
+    case "clarification":
+      return (
+        <ClarificationCard
+          part={part}
+          onSubmitted={onClarificationSubmitted}
+          onContinueAsMessage={onClarificationContinue}
+          onDraftChange={onClarificationDraftChange}
+        />
+      );
     case "file_read":
       return <FileReadRow part={part} />;
     case "document_read":

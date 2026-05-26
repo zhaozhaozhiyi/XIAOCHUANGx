@@ -25,6 +25,7 @@ import {
   reduceAppendPart,
   reducePartPatch,
   reduceRunStarted,
+  reduceClarificationRequired,
   reduceInterimAssistant,
   reduceRunSkills,
   reduceStatusLabel,
@@ -376,6 +377,18 @@ export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = 
           },
           onToolProgress: (payload) => {
             schedulePatch((s) => reduceToolProgress(s, payload));
+          },
+          onClarificationRequired: (payload) => {
+            setSessionRunStatus(sessionId, "waiting_user");
+            schedulePatch((s) =>
+              reduceClarificationRequired(s, {
+                runId: payload.runId,
+                clarificationId: payload.clarificationId,
+                toolUseId: payload.toolUseId,
+                question: payload.question,
+                questions: payload.questions,
+              }),
+            );
           },
           onPartAppend: (part) => {
             schedulePatch((s) => reduceAppendPart(s, part));

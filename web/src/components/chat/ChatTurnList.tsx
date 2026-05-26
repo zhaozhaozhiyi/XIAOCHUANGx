@@ -12,6 +12,15 @@ type Props = {
   bottomRef?: React.RefObject<HTMLDivElement | null>;
   /** 深度模式显示更短的步间思考间隔 */
   thinkingGapMinMs?: number;
+  onClarificationSubmitted?: (partId: string, answer: string) => void;
+  onClarificationContinue?: (answer: string) => void;
+  onClarificationDraftChange?: (
+    partId: string,
+    patch: {
+      selectedOptions?: Record<string, string[]>;
+      draft?: string;
+    },
+  ) => void;
 };
 
 export function ChatTurnList({
@@ -19,6 +28,9 @@ export function ChatTurnList({
   scrollRootRef,
   bottomRef,
   thinkingGapMinMs,
+  onClarificationSubmitted,
+  onClarificationContinue,
+  onClarificationDraftChange,
 }: Props) {
   void scrollRootRef;
   const turns = useMemo(() => groupMessagesIntoTurns(messages), [messages]);
@@ -54,6 +66,11 @@ export function ChatTurnList({
                         key={msg.id}
                         message={msg}
                         thinkingGapMinMs={thinkingGapMinMs}
+                        onClarificationSubmitted={onClarificationSubmitted}
+                        onClarificationContinue={onClarificationContinue}
+                        onClarificationDraftChange={
+                          onClarificationDraftChange
+                        }
                       />
                     ))}
                   </div>

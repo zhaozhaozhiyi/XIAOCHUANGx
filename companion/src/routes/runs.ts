@@ -6,6 +6,7 @@ import {
   executeRun,
   getActiveRunIdForSession,
   getActiveRunRequest,
+  submitRunClarification,
 } from "../runs/manager.js";
 import {
   runControlRequestSchema,
@@ -122,6 +123,35 @@ export async function runRoutes(app: FastifyInstance): Promise<void> {
     const raw = reply.raw;
     await executeRun(parsed, raw);
   });
+
+  app.post<{ Params: { runId: string } }>(
+    "/v1/runs/:runId/clarification",
+    async (request, reply) => {
+      const body =
+        request.body && typeof request.body === "object"
+          ? (request.body as Record<string, unknown>)
+          : {};
+      const content = typeof body.content === "string" ? body.content.trim() : "";
+      if (!content) {
+        return reply.code(400).send({
+          error: "invalid_body",
+          message: "content is required",
+        });
+      }
+      const result = submitRunClarification(request.params.runId, {
+        toolUseId:
+          typeof body.toolUseId === "string" ? body.toolUseId : undefined,
+        content,
+      });
+      if (!result.ok) {
+        return reply.code(409).send({
+          error: result.error,
+          message: result.message,
+        });
+      }
+      return { ok: true, runId: request.params.runId };
+    },
+  );
 
   app.post<{ Params: { runId: string } }>(
     "/v1/runs/:runId/cancel",

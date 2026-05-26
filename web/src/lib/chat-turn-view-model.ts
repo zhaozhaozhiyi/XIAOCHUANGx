@@ -9,7 +9,10 @@ import { isWaitingUserSignal } from "@/lib/chat-history";
 import { interleavedTimelineParts } from "@/lib/chat-timeline";
 
 export type TurnViewModel = {
-  summaryPart: Extract<ChatPart, { kind: "summary" }> | null;
+  summaryPart:
+    | Extract<ChatPart, { kind: "summary" }>
+    | Extract<ChatPart, { kind: "clarification" }>
+    | null;
   deliverablesPart: Extract<ChatPart, { kind: "deliverables" }> | null;
   waitingMessage: string | null;
   statusPart: Extract<ChatPart, { kind: "turn_meta" | "status" }> | null;
@@ -53,6 +56,7 @@ function isSummaryKind(part: ChatPart): boolean {
     part.kind === "summary" ||
     part.kind === "text" ||
     part.kind === "deliverables" ||
+    part.kind === "clarification" ||
     part.kind === "error"
   );
 }
@@ -83,7 +87,7 @@ export function buildTurnViewModel(message: ChatMessage): TurnViewModel {
             !isWaitingPart(part) &&
             !isConnectStatusPart(part)),
       ) ?? null;
-  const finalText = summaryPart?.markdown ?? "";
+  const finalText = summaryPart?.kind === "summary" ? summaryPart.markdown : "";
   const seen = new Set<string>();
   const processParts = timeline.filter((part) => {
     if (isDebugPart(part)) return false;

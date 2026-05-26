@@ -135,6 +135,92 @@ export function ChatThread({ id }: { id: string }) {
     [markPinned, sendMessage],
   );
 
+  const handleClarificationSubmitted = useCallback(
+    (partId: string, answer: string) => {
+      setSessionRunStatus(id, "running");
+      setMessages((prev) =>
+        prev.map((message) => {
+          if (message.role !== "assistant" || !message.parts) return message;
+          let changed = false;
+          const parts = message.parts.map((part) => {
+            if (part.id !== partId || part.kind !== "clarification") {
+              return part;
+            }
+            changed = true;
+            return {
+              ...part,
+              submitted: true,
+              answer,
+              streaming: false,
+              completedAt: Date.now(),
+            };
+          });
+          return changed
+            ? {
+                ...message,
+                parts,
+                status: "complete" as const,
+              }
+            : message;
+        }),
+      );
+    },
+    [id, setMessages],
+  );
+
+  const handleClarificationDraftChange = useCallback(
+    (
+      partId: string,
+      patch: {
+        selectedOptions?: Record<string, string[]>;
+        draft?: string;
+      },
+    ) => {
+      setMessages((prev) =>
+        prev.map((message) => {
+          if (message.role !== "assistant" || !message.parts) return message;
+          let changed = false;
+          const parts = message.parts.map((part) => {
+            if (part.id !== partId || part.kind !== "clarification") {
+              return part;
+            }
+            changed = true;
+            return {
+              ...part,
+              ...patch,
+            };
+          });
+          return changed ? { ...message, parts } : message;
+        }),
+      );
+    },
+    [setMessages],
+  );
+
+  const handleClarificationContinue = useCallback(
+    (answer: string) => {
+      markPinned();
+      sendMessage(`我补充的信息如下，请继续完成刚才的任务：\n\n${answer}`, {
+        executionSource,
+        mode: lastMode,
+        agentId,
+        agentModel,
+        apiProvider: settings.apiProvider,
+        projectId: sessionProjectId ?? NO_PROJECT_ID,
+      });
+    },
+    [
+      agentId,
+      agentModel,
+      executionSource,
+      lastMode,
+      markPinned,
+      sendMessage,
+      sessionProjectId,
+      settings.apiProvider,
+    ],
+  );
+
   const stored = getChatSession(id);
   const title =
     messages.find((m) => m.role === "user")?.content.slice(0, 40) ??
@@ -308,6 +394,9 @@ export function ChatThread({ id }: { id: string }) {
               scrollRootRef={scrollRootRef}
               bottomRef={bottomRef}
               thinkingGapMinMs={lastMode === "deep" ? 3_000 : 8_000}
+              onClarificationSubmitted={handleClarificationSubmitted}
+              onClarificationContinue={handleClarificationContinue}
+              onClarificationDraftChange={handleClarificationDraftChange}
             />
           )}
         </div>

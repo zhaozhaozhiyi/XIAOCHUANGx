@@ -156,6 +156,7 @@ export type {
   RunAgentCallbacks,
   RunAgentInput,
   RunAgentResult,
+  RunAgentUserInputResponse,
   StreamFormat,
 } from "./types.js";
 export { AGENT_IDS, isAgentId } from "./types.js";

@@ -116,6 +116,36 @@ function mapEvent(
         typeof payload.message === "string" ? payload.message : undefined,
     };
   }
+  if (eventName === "clarification.required") {
+    return {
+      type: "clarification.required",
+      runId,
+      clarificationId:
+        typeof payload.clarificationId === "string"
+          ? payload.clarificationId
+          : typeof payload.toolUseId === "string"
+            ? payload.toolUseId
+            : "",
+      question:
+        typeof payload.question === "string" ? payload.question : "请补充信息",
+      options: Array.isArray(payload.options)
+        ? payload.options.filter((item): item is string => typeof item === "string")
+        : undefined,
+    };
+  }
+  if (eventName === "run.waiting_user") {
+    return {
+      type: "run.waiting_user",
+      runId,
+      waitingFor: "clarification",
+    };
+  }
+  if (eventName === "run.resumed") {
+    return {
+      type: "run.resumed",
+      runId,
+    };
+  }
   if (eventName === "todo.update") {
     return {
       type: "todo.update",
@@ -155,6 +185,14 @@ async function persistStatusSideEffect(
 ): Promise<void> {
   if (eventName === "run.accepted") {
     await updateRunStatus(runId, "accepted");
+    return;
+  }
+  if (eventName === "run.waiting_user" || eventName === "clarification.required") {
+    await updateRunStatus(runId, "waiting_user");
+    return;
+  }
+  if (eventName === "run.resumed") {
+    await updateRunStatus(runId, "running");
     return;
   }
   if (eventName === "run.started") {

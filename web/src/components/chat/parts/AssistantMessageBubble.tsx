@@ -14,6 +14,15 @@ import { ToolRunningDots } from "@/components/chat/parts/ToolRunningDots";
 type Props = {
   message: ChatMessage;
   thinkingGapMinMs?: number;
+  onClarificationSubmitted?: (partId: string, answer: string) => void;
+  onClarificationContinue?: (answer: string) => void;
+  onClarificationDraftChange?: (
+    partId: string,
+    patch: {
+      selectedOptions?: Record<string, string[]>;
+      draft?: string;
+    },
+  ) => void;
 };
 
 function LoadingBubble() {
@@ -144,13 +153,21 @@ function SectionToggle({
 function renderParts(
   parts: ChatPart[],
   gapBefore: Map<string | null, string>,
+  onClarificationSubmitted?: (partId: string, answer: string) => void,
+  onClarificationContinue?: (answer: string) => void,
+  onClarificationDraftChange?: Props["onClarificationDraftChange"],
 ) {
   return parts.map((part) => (
     <Fragment key={part.id}>
       {gapBefore.has(part.id) ? (
         <ThinkingGapRow label={gapBefore.get(part.id)!} />
       ) : null}
-      <PartRenderer part={part} />
+      <PartRenderer
+        part={part}
+        onClarificationSubmitted={onClarificationSubmitted}
+        onClarificationContinue={onClarificationContinue}
+        onClarificationDraftChange={onClarificationDraftChange}
+      />
     </Fragment>
   ));
 }
@@ -158,6 +175,9 @@ function renderParts(
 export function AssistantMessageBubble({
   message,
   thinkingGapMinMs = 3_000,
+  onClarificationSubmitted,
+  onClarificationContinue,
+  onClarificationDraftChange,
 }: Props) {
   const status = message.status ?? "complete";
   const hasSummary = selectHasAssistantSummaryContent(message);
@@ -232,7 +252,13 @@ export function AssistantMessageBubble({
                 variant="activity"
               >
                 <div className="flex flex-col gap-2.5">
-                  {renderParts(viewModel.processParts, gapBefore)}
+                  {renderParts(
+                    viewModel.processParts,
+                    gapBefore,
+                    onClarificationSubmitted,
+                    onClarificationContinue,
+                    onClarificationDraftChange,
+                  )}
                 </div>
               </SectionToggle>
             ) : null}
@@ -241,7 +267,13 @@ export function AssistantMessageBubble({
 
         {showSummaryStage && summaryFirstParts.length > 0 ? (
           <div className="chat-assistant-stage chat-assistant-stage--summary">
-            {renderParts(summaryFirstParts, gapBefore)}
+            {renderParts(
+              summaryFirstParts,
+              gapBefore,
+              onClarificationSubmitted,
+              onClarificationContinue,
+              onClarificationDraftChange,
+            )}
           </div>
         ) : null}
 

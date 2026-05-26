@@ -10,6 +10,7 @@ import type {
   StatusPart,
   TodoPart,
   ToolPart,
+  ClarificationPart,
 } from "@/lib/chat-parts";
 import {
   compactToolParts,
@@ -763,6 +764,67 @@ export function reduceTodoItems(
     items,
     completedAt: Date.now(),
   });
+}
+
+export function reduceClarificationRequired(
+  state: AssistantPartsState,
+  payload: {
+    runId: string;
+    clarificationId: string;
+    toolUseId: string;
+    question: string;
+    questions: ClarificationPart["questions"];
+  },
+): AssistantPartsState {
+  const parts = [...sealStreamingTail(state.parts)];
+  const existing = parts.findIndex(
+    (p) =>
+      p.kind === "clarification" &&
+      p.clarificationId === payload.clarificationId,
+  );
+  const part: ClarificationPart = {
+    id:
+      existing >= 0
+        ? parts[existing]!.id
+        : newPartId("clarification"),
+    zone: "summary",
+    kind: "clarification",
+    runId: payload.runId,
+    clarificationId: payload.clarificationId,
+    toolUseId: payload.toolUseId,
+    question: payload.question,
+    questions: payload.questions,
+    streaming: true,
+  };
+  if (existing >= 0) {
+    parts[existing] = {
+      ...part,
+      streamSeq: parts[existing]!.streamSeq,
+    };
+    return {
+      ...state,
+      parts: upsertTurnMeta(parts, {
+        durationMs: state.runStartedAt
+          ? Date.now() - state.runStartedAt
+          : undefined,
+        runStatus: "waiting_user",
+      }),
+      pendingNewTextSegment: true,
+    };
+  }
+  const { seq, nextStreamSeq } = bumpStreamSeq({ ...state, parts });
+  parts.push(withStreamSeq(part, seq));
+  return {
+    ...state,
+    nextStreamSeq,
+    parts: upsertTurnMeta(parts, {
+      durationMs: state.runStartedAt
+        ? Date.now() - state.runStartedAt
+        : undefined,
+      runStatus: "waiting_user",
+    }),
+    pendingNewTextSegment: true,
+  };
 }
 
 function finalizeParts(parts: ChatPart[], runStartedAt?: number): ChatPart[] {

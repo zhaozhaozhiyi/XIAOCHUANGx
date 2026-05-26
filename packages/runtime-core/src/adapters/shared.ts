@@ -26,6 +26,15 @@ export function defaultOnEvent(
     callbacks.onText(ev.delta);
     return;
   }
+  if (ev.type === "user_input_request") {
+    callbacks.onUserInputRequest?.({
+      toolUseId: ev.toolUseId,
+      toolName: ev.toolName,
+      input: ev.input,
+      questions: ev.questions,
+    });
+    return;
+  }
   if (ev.type === "tool_progress") {
     callbacks.onToolProgress?.({
       tool: ev.tool,
@@ -65,9 +74,10 @@ export function defaultWriteToStdin(input: {
         content: [{ type: "text", text: input.body }],
       },
     });
-    input.stdin.write(`${line}\n`, "utf8", () => {
+    input.stdin.write(`${line}\n`, "utf8");
+    if (input.spec.closeStdinAfterPrompt) {
       input.stdin.end?.();
-    });
+    }
     return;
   }
   input.stdin.write(input.body, "utf8");

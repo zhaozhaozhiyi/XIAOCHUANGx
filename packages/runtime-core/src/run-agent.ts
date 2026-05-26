@@ -6,6 +6,7 @@ import type {
   RunAgentCallbacks,
   RunAgentInput,
   RunAgentResult,
+  RunAgentUserInputResponse,
 } from "./types.js";
 
 const DEFAULT_TIMEOUT_MS = 300_000;
@@ -13,7 +14,11 @@ const DEFAULT_TIMEOUT_MS = 300_000;
 export async function runAgent(
   input: RunAgentInput,
   callbacks: RunAgentCallbacks,
-  options?: { signal?: AbortSignal; timeoutMs?: number },
+  options?: {
+    signal?: AbortSignal;
+    timeoutMs?: number;
+    onUserInputHandlerReady?: (handler: (response: RunAgentUserInputResponse) => boolean) => void;
+  },
 ): Promise<RunAgentResult> {
   const composed = input.composedPrompt?.trim() ?? "";
   if (!composed) {
@@ -88,6 +93,31 @@ export async function runAgent(
         spec,
       }),
     });
+
+    const writeClaudeToolResult = (
+      response: RunAgentUserInputResponse,
+    ): boolean => {
+      if (!child.stdin || child.stdin.destroyed || child.killed) return false;
+      const line = JSON.stringify({
+        type: "user",
+        message: {
+          role: "user",
+          content: [
+            {
+              type: "tool_result",
+              tool_use_id: response.toolUseId,
+              content: response.content,
+              is_error: response.isError === true,
+            },
+          ],
+        },
+      });
+      return child.stdin.write(`${line}\n`, "utf8");
+    };
+
+    if (spec.stdinAsClaudeUserMessage) {
+      options?.onUserInputHandlerReady?.(writeClaudeToolResult);
+    }
 
     let stderrTail = "";
     let stdoutTail = "";

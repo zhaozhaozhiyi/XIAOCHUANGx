@@ -15,20 +15,76 @@ type BlockState = {
   input: string;
 };
 
+type AskUserQuestionInput = {
+  questions?: unknown;
+  question?: unknown;
+};
+
+type NormalizedQuestion = {
+  id: string;
+  question: string;
+  header?: string;
+  options?: Array<{ label: string; description?: string }>;
+  multiSelect?: boolean;
+};
+
 function isRecord(v: unknown): v is Record<string, unknown> {
   return Boolean(v) && typeof v === "object" && !Array.isArray(v);
 }
 
-function stringifyToolResult(content: unknown): string {
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    return content
-      .map((c) =>
-        isRecord(c) && c.type === "text" ? String(c.text) : JSON.stringify(c),
-      )
-      .join("\n");
+function isAskUserQuestionTool(wireName: string): boolean {
+  return wireName === "AskUserQuestion" || wireName === "ask_user_question";
+}
+
+function normalizeAskUserQuestions(input: AskUserQuestionInput): NormalizedQuestion[] {
+  if (typeof input.question === "string" && input.question.trim()) {
+    return [{ id: "question", question: input.question.trim() }];
   }
-  return JSON.stringify(content);
+
+  const questions = Array.isArray(input.questions) ? input.questions : null;
+  if (!questions) return [];
+
+  return questions.flatMap((item, index) => {
+    if (!isRecord(item)) return [];
+    const question =
+      typeof item.question === "string"
+        ? item.question.trim()
+        : typeof item.header === "string"
+          ? item.header.trim()
+          : "";
+    if (!question) return [];
+
+    const options: Array<{ label: string; description?: string }> = [];
+    if (Array.isArray(item.options)) {
+      for (const option of item.options) {
+        if (!isRecord(option) || typeof option.label !== "string") continue;
+        const label = option.label.trim();
+        if (!label) continue;
+        options.push({
+          label,
+          description:
+            typeof option.description === "string"
+              ? option.description.trim()
+              : undefined,
+        });
+      }
+    }
+    return [
+      {
+        id:
+          typeof item.id === "string" && item.id.trim()
+            ? item.id.trim()
+            : `q${index + 1}`,
+        question,
+        header:
+          typeof item.header === "string" && item.header.trim()
+            ? item.header.trim()
+            : undefined,
+        options,
+        multiSelect: item.multiSelect === true,
+      },
+    ];
+  });
 }
 
 /**
@@ -53,6 +109,21 @@ export function createClaudeJsonlParser(onEvent: Handler) {
 
   function emitToolUse(wireName: string, input: unknown, id?: string) {
     if (id && streamedToolUseIds.has(id)) return;
+    if (isAskUserQuestionTool(wireName)) {
+      const questions = isRecord(input) ? normalizeAskUserQuestions(input) : [];
+      onEvent({
+        type: "user_input_request",
+        toolUseId: id ?? `ask-user-${Date.now()}`,
+        toolName: wireName,
+        input,
+        questions:
+          questions.length > 0
+            ? questions
+            : [{ id: "question", question: "请补充更多信息后继续。" }],
+      });
+      if (id) streamedToolUseIds.add(id);
+      return;
+    }
     if (id) streamedToolUseIds.add(id);
     const progress = progressFromToolUse(wireName, input, "start");
     if (id) {

@@ -47,6 +47,8 @@ export const chatPartKindSchema = z.enum([
   "document_edit",
   /** Agent Todo 列表 */
   "todo",
+  /** 需要用户补充信息 */
+  "clarification",
   /** 数据源 / 知识库等可溯源引用 */
   "citation",
   /** 工作区产出物链接 */
@@ -219,6 +221,28 @@ export type TodoPart = ChatPartBase & {
   items: TodoItem[];
 };
 
+export type ClarificationQuestion = {
+  id: string;
+  question: string;
+  header?: string;
+  options?: Array<{ label: string; description?: string }>;
+  multiSelect?: boolean;
+};
+
+export type ClarificationPart = ChatPartBase & {
+  kind: "clarification";
+  zone: "summary";
+  runId: string;
+  clarificationId: string;
+  toolUseId: string;
+  question: string;
+  questions: ClarificationQuestion[];
+  selectedOptions?: Record<string, string[]>;
+  draft?: string;
+  submitted?: boolean;
+  answer?: string;
+};
+
 export type CitationPart = ChatPartBase & {
   kind: "citation";
   zone: "summary";
@@ -303,6 +327,7 @@ export type ChatPart =
   | FileEditPart
   | DocumentEditPart
   | TodoPart
+  | ClarificationPart
   | CitationPart
   | ArtifactPart
   | DeliverablesPart
@@ -367,6 +392,7 @@ export const companionRunSseEventSchema = z.enum([
   "message.delta",
   "interim_assistant",
   "tool.progress",
+  "clarification.required",
   "canonical.output",
   "part.append",
   "part.patch",

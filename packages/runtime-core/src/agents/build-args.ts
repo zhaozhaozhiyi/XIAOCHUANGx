@@ -140,7 +140,7 @@ function buildClaudeArgs(ctx: BuildArgsContext): AgentLaunchSpec {
     bin: registry.execution.bin,
     args,
     streamFormat: registry.execution.streamFormat,
-    closeStdinAfterPrompt: false,
+    closeStdinAfterPrompt: true,
     stdinAsClaudeUserMessage: true,
     stdinPayload: "composed",
   };

@@ -56,6 +56,10 @@ export function companionRunControlUrl(runId: string): string {
   return companionUrl(`/v1/runs/${encodeURIComponent(runId)}/control`);
 }
 
+export function companionRunClarificationUrl(runId: string): string {
+  return companionUrl(`/v1/runs/${encodeURIComponent(runId)}/clarification`);
+}
+
 export function companionProjectsUrl(): string {
   return companionUrl("/v1/projects");
 }

@@ -6,6 +6,7 @@ import {
 } from "@/lib/chat-parts-utils";
 
 type SummaryPart = Extract<ChatPart, { kind: "summary" }>;
+type ClarificationPart = Extract<ChatPart, { kind: "clarification" }>;
 
 export function selectAssistantDisplayContent(message: ChatMessage): string {
   if (message.role !== "assistant") {
@@ -36,7 +37,15 @@ export function selectHasAssistantSummaryContent(message: ChatMessage): boolean 
 
 export function selectAssistantSummaryPart(
   message: ChatMessage,
-): SummaryPart | null {
+): SummaryPart | ClarificationPart | null {
+  const clarification = [...(message.parts ?? [])]
+    .reverse()
+    .find(
+      (part): part is ClarificationPart =>
+        part.kind === "clarification",
+    );
+  if (clarification) return clarification;
+
   const markdown = selectAssistantDisplayContent(message);
   if (!markdown) return null;
   return {

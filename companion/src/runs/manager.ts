@@ -19,6 +19,7 @@ import {
   stageAgentKitForRun,
   type ChatOrchestration,
   type RunConversationMessage,
+  type RunAgentUserInputResponse,
 } from "@jlc/runtime-core";
 import {
   getAgentRegistryEntry,
@@ -70,6 +71,26 @@ import { trySpawnVersionProbe } from "./spawn.js";
 const activeRuns = new Map<string, AbortController>();
 const activeRunRequests = new Map<string, CreateRunRequest>();
 const activeSessionRuns = new Map<string, string>();
+const activeRunWriters = new Map<string, RunEventWriter>();
+const activeRunUserInputHandlers = new Map<
+  string,
+  (response: RunAgentUserInputResponse) => boolean
+>();
+const pendingRunClarifications = new Map<
+  string,
+  {
+    toolUseId: string;
+    toolName: string;
+    input: unknown;
+    questions: Array<{
+      id: string;
+      question: string;
+      header?: string;
+      options?: Array<{ label: string; description?: string }>;
+      multiSelect?: boolean;
+    }>;
+  }
+>();
 
 export function registerRun(runId: string, controller: AbortController): void {
   activeRuns.set(runId, controller);
@@ -89,6 +110,56 @@ export function isRunActive(runId: string): boolean {
 
 export function getActiveRunRequest(runId: string): CreateRunRequest | null {
   return activeRunRequests.get(runId) ?? null;
+}
+
+export function submitRunClarification(
+  runId: string,
+  input: { toolUseId?: string; content: string },
+): { ok: true } | { ok: false; error: string; message: string } {
+  const pending = pendingRunClarifications.get(runId);
+  if (!pending) {
+    return {
+      ok: false,
+      error: "clarification_not_pending",
+      message: "当前 Run 没有等待补充信息",
+    };
+  }
+  const toolUseId = input.toolUseId ?? pending.toolUseId;
+  if (toolUseId !== pending.toolUseId) {
+    return {
+      ok: false,
+      error: "tool_use_mismatch",
+      message: "补充信息对应的工具调用已过期",
+    };
+  }
+  const handler = activeRunUserInputHandlers.get(runId);
+  if (!handler) {
+    return {
+      ok: false,
+      error: "run_not_resumable",
+      message: "当前 Run 不支持继续写入工具结果",
+    };
+  }
+  const accepted = handler({
+    toolUseId,
+    content: input.content,
+  });
+  if (!accepted) {
+    return {
+      ok: false,
+      error: "resume_write_failed",
+      message: "写回 Claude CLI 失败",
+    };
+  }
+  pendingRunClarifications.delete(runId);
+  const writer = activeRunWriters.get(runId);
+  writer?.send("run.resumed", { runId });
+  writer?.send("run.status", {
+    runId,
+    phase: "running",
+    label: "已收到补充信息，正在继续执行…",
+  });
+  return { ok: true };
 }
 
 export function getActiveRunIdForSession(sessionId: string): string | null {
@@ -215,6 +286,7 @@ async function executeRunLifecycle(
 ): Promise<void> {
   const abort = new AbortController();
   registerRun(runId, abort);
+  activeRunWriters.set(runId, writer);
   activeRunRequests.set(runId, {
     ...req,
     messages: [...req.messages],
@@ -692,6 +764,54 @@ async function executeRunLifecycle(
             alreadyStreamed: false,
           });
         },
+        onUserInputRequest: (payload: {
+          toolUseId: string;
+          toolName: string;
+          input: unknown;
+          questions: Array<{
+            id: string;
+            question: string;
+            header?: string;
+            options?: Array<{ label: string; description?: string }>;
+            multiSelect?: boolean;
+          }>;
+        }) => {
+          pendingRunClarifications.set(runId, payload);
+          const questionText = payload.questions
+            .map((q, index) =>
+              payload.questions.length > 1
+                ? `${index + 1}. ${q.question}`
+                : q.question,
+            )
+            .join("\n");
+          waitingUserQuestion = questionText || "请补充信息后继续";
+          latestStatusLabel = waitingUserQuestion;
+          writer.send("clarification.required", {
+            runId,
+            clarificationId: payload.toolUseId,
+            toolUseId: payload.toolUseId,
+            toolName: payload.toolName,
+            question: waitingUserQuestion,
+            questions: payload.questions,
+            input: payload.input,
+          });
+          writer.send("run.waiting_user", {
+            runId,
+            waitingFor: "clarification",
+            question: waitingUserQuestion,
+          });
+          emitRunStatus(writer, {
+            runId,
+            phase: "waiting_user",
+            label: waitingUserQuestion,
+          });
+          pushCanonicalEvent({
+            type: "run_waiting_user",
+            runId,
+            timestamp: Date.now(),
+            question: waitingUserQuestion,
+          });
+        },
         onToolProgress: (p: {
           tool: string;
           status?: string;
@@ -910,7 +1030,12 @@ async function executeRunLifecycle(
           platformNormSkill: req.platformNormSkill,
         },
         runCallbacks,
-        { signal: abort.signal },
+        {
+          signal: abort.signal,
+          onUserInputHandlerReady: (handler) => {
+            activeRunUserInputHandlers.set(runId, handler);
+          },
+        },
       );
 
       if (abort.signal.aborted) {
@@ -1033,6 +1158,9 @@ async function executeRunLifecycle(
     await writer.flush?.();
     writer.end();
     activeRuns.delete(runId);
+    activeRunWriters.delete(runId);
+    activeRunUserInputHandlers.delete(runId);
+    pendingRunClarifications.delete(runId);
     activeRunRequests.delete(runId);
     if (activeSessionRuns.get(req.sessionId) === runId) {
       activeSessionRuns.delete(req.sessionId);
