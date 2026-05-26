@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import {
+  fetchWorkspaceFileIndex,
   fetchWorkspaceFolderChildren,
   fetchWorkspaceTree,
 } from "@/lib/workspace/adapter";
@@ -122,7 +123,7 @@ type WorkspaceContextValue = {
     relativePath: string;
     line?: number;
     endLine?: number;
-  }) => boolean;
+  }) => Promise<boolean>;
   pendingReveal: { fileId: string; line?: number; endLine?: number } | null;
   clearPendingReveal: () => void;
   fileActionMessage: string | null;
@@ -132,6 +133,102 @@ type WorkspaceContextValue = {
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
 const DEFAULT_EXPANDED = new Set(["root"]);
+
+type IndexedPathResolveResult =
+  | { ok: true; path: string }
+  | { ok: false; reason: "not_found" | "ambiguous" };
+
+function normalizeLookupPath(path: string): string {
+  return path.replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+$/, "");
+}
+
+function basename(path: string): string {
+  const normalized = normalizeLookupPath(path);
+  return normalized.split("/").pop() ?? normalized;
+}
+
+function isAbsoluteLookupPath(path: string): boolean {
+  const normalized = normalizeLookupPath(path);
+  return normalized.startsWith("/") || /^[A-Za-z]:\//i.test(normalized);
+}
+
+function findWorkspaceFileByRelativePath(
+  nodes: WorkspaceFileNode[],
+  relativePath: string,
+): WorkspaceFileNode | null {
+  const target = normalizeLookupPath(relativePath);
+  for (const node of nodes) {
+    if (
+      node.type === "file" &&
+      normalizeLookupPath(node.relativePath ?? "") === target
+    ) {
+      return node;
+    }
+    if (node.children) {
+      const found = findWorkspaceFileByRelativePath(node.children, target);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function resolveIndexedPath(
+  paths: string[],
+  rawPath: string,
+): IndexedPathResolveResult {
+  const normalized = normalizeLookupPath(rawPath);
+  if (!normalized) return { ok: false, reason: "not_found" };
+
+  const lower = normalized.toLowerCase();
+  const indexed = paths.map((path) => ({
+    path,
+    lower: normalizeLookupPath(path).toLowerCase(),
+  }));
+
+  const exact = indexed.filter((item) => item.lower === lower);
+  if (exact.length === 1) return { ok: true, path: exact[0]!.path };
+  if (exact.length > 1) return { ok: false, reason: "ambiguous" };
+
+  const absolute = isAbsoluteLookupPath(normalized);
+  const suffix = indexed.filter((item) => {
+    if (lower.endsWith(`/${item.lower}`)) return true;
+    return !absolute && item.lower.endsWith(`/${lower}`);
+  });
+  if (suffix.length === 1) return { ok: true, path: suffix[0]!.path };
+  if (suffix.length > 1) return { ok: false, reason: "ambiguous" };
+  if (absolute) return { ok: false, reason: "not_found" };
+
+  const fileName = basename(normalized).toLowerCase();
+  const byName = indexed.filter(
+    (item) => basename(item.path).toLowerCase() === fileName,
+  );
+  if (byName.length === 1) return { ok: true, path: byName[0]!.path };
+  if (byName.length > 1) return { ok: false, reason: "ambiguous" };
+
+  return { ok: false, reason: "not_found" };
+}
+
+async function hydrateParentFoldersForPath(
+  root: WorkspaceFileNode,
+  relativePath: string,
+  loadChildren: (folderRelativePath: string) => Promise<WorkspaceFileNode[]>,
+): Promise<WorkspaceFileNode> {
+  const parts = normalizeLookupPath(relativePath).split("/").filter(Boolean);
+  let next = root;
+  let current = "";
+
+  for (const segment of parts.slice(0, -1)) {
+    current = current ? `${current}/${segment}` : segment;
+    const folder = findWorkspaceFile(next.children ?? [], current);
+    if (!folder || folder.type !== "folder") break;
+    if (!isWorkspaceFolderUnloaded(folder)) continue;
+
+    const children = await loadChildren(folder.relativePath ?? current);
+    next = mergeWorkspaceFolderChildren(next, folder.id, children);
+  }
+
+  return next;
+}
 
 function emptyWorkspaceState() {
   return {
@@ -160,6 +257,7 @@ export function WorkspaceProvider({
   const [treeLoading, setTreeLoading] = useState(false);
   const [treeError, setTreeError] = useState<string | null>(null);
   const treeRequestRef = useRef(0);
+  const openFileRequestRef = useRef(0);
   const [open, setOpen] = useState(() =>
     typeof window !== "undefined" ? loadSettings().workspaceOpenByDefault : false,
   );
@@ -689,33 +787,118 @@ export function WorkspaceProvider({
     [],
   );
 
+  const openResolvedFileAt = useCallback(
+    (
+      node: WorkspaceFileNode,
+      input: {
+        line?: number;
+        endLine?: number;
+      },
+    ) => {
+      setOpen(true);
+      expandPanelToMax();
+      if (input.line != null) setFileViewMode("source");
+
+      setPendingReveal({
+        fileId: node.id,
+        line: input.line,
+        endLine: input.endLine,
+      });
+      openFileTabById(node.id);
+      setFileActionMessage(null);
+      return true;
+    },
+    [expandPanelToMax, openFileTabById],
+  );
+
   const openFileAt = useCallback(
-    (input: { relativePath: string; line?: number; endLine?: number }) => {
+    async (input: { relativePath: string; line?: number; endLine?: number }) => {
+      const openReqId = ++openFileRequestRef.current;
       const parsed = parseFileRef(input.relativePath);
       const path = parsed.path || input.relativePath;
       const line = input.line ?? parsed.line;
       const endLine = input.endLine ?? parsed.endLine;
 
       const resolved = resolveFileInTree(root, path);
-      if (!resolved.ok) {
+      if (resolved.ok) {
+        if (openFileRequestRef.current !== openReqId) return false;
+        return openResolvedFileAt(resolved.node, { line, endLine });
+      }
+      if (resolved.reason !== "not_found") {
         setFileActionMessage(resolveFileMessage(resolved.reason));
         return false;
       }
 
-      setOpen(true);
-      expandPanelToMax();
-      if (line != null) setFileViewMode("source");
+      setFileActionMessage("正在刷新目录…");
+      const isStaleOpenRequest = () => {
+        return openFileRequestRef.current !== openReqId;
+      };
+      try {
+        let nextRoot = (await fetchWorkspaceTree(workspaceProjectId)).root;
+        if (isStaleOpenRequest()) return false;
 
-      setPendingReveal({
-        fileId: resolved.node.id,
-        line,
-        endLine,
-      });
-      openFileTabById(resolved.node.id);
-      setFileActionMessage(null);
-      return true;
+        const expanded = expandedFoldersRef.current;
+        if (expanded.size > 0) {
+          nextRoot = await hydrateWorkspaceFolders(
+            nextRoot,
+            expanded,
+            loadFolderChildrenByPath,
+          );
+          if (isStaleOpenRequest()) return false;
+        }
+        setRoot(nextRoot);
+        setTreeError(null);
+        setFileCache({});
+
+        let refreshed = resolveFileInTree(nextRoot, path);
+        if (!refreshed.ok && refreshed.reason === "not_found") {
+          const indexedPaths = await fetchWorkspaceFileIndex(workspaceProjectId);
+          if (isStaleOpenRequest()) return false;
+
+          const indexed = resolveIndexedPath(
+            indexedPaths,
+            path,
+          );
+          if (!indexed.ok) {
+            setFileActionMessage(resolveFileMessage(indexed.reason));
+            return false;
+          }
+          nextRoot = await hydrateParentFoldersForPath(
+            nextRoot,
+            indexed.path,
+            loadFolderChildrenByPath,
+          );
+          if (isStaleOpenRequest()) return false;
+
+          setRoot(nextRoot);
+          const indexedNode = findWorkspaceFileByRelativePath(
+            nextRoot.children ?? [],
+            indexed.path,
+          );
+          refreshed = indexedNode
+            ? { ok: true, node: indexedNode }
+            : { ok: false, reason: "not_found" };
+        }
+        if (!refreshed.ok) {
+          setFileActionMessage(resolveFileMessage(refreshed.reason));
+          return false;
+        }
+        if (isStaleOpenRequest()) return false;
+        return openResolvedFileAt(refreshed.node, { line, endLine });
+      } catch (err) {
+        if (isStaleOpenRequest()) return false;
+        setFileActionMessage(
+          err instanceof Error ? err.message : "刷新目录失败",
+        );
+        return false;
+      }
     },
-    [root, expandPanelToMax, openFileTabById],
+    [
+      root,
+      workspaceProjectId,
+      loadFolderChildrenByPath,
+      openResolvedFileAt,
+    ],
   );
 
   const openExplorerTab = useCallback(

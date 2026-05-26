@@ -29,6 +29,7 @@ import {
 } from "@/lib/chat-history";
 import { useSidebarCollapsed } from "@/components/layout/SidebarLayoutContext";
 import { useWorkspaceProject } from "@/components/workspace/WorkspaceProjectContext";
+import { useWorkspaceOptional } from "@/components/workspace/WorkspaceContext";
 import {
   getResearchProject,
   getSessionProjectId,
@@ -62,6 +63,22 @@ export function ChatThread({ id }: { id: string }) {
   const pinnedTodoKey = pinnedTodo ? todoPartKey(pinnedTodo) : null;
   const showPinnedTodo =
     pinnedTodo != null && pinnedTodoKey !== dismissedTodoKey;
+  const deliverablesKey = useMemo(
+    () =>
+      messages
+        .flatMap((message) =>
+          (message.parts ?? [])
+            .filter((part) => part.kind === "deliverables")
+            .flatMap((part) =>
+              part.items.map(
+                (item) =>
+                  `${part.id}:${part.completedAt ?? ""}:${item.path}`,
+              ),
+            ),
+        )
+        .join("|"),
+    [messages],
+  );
 
   const { showJumpToBottom, scrollToBottom, markPinned } = useChatScrollPin(
     scrollRootRef,
@@ -70,6 +87,8 @@ export function ChatThread({ id }: { id: string }) {
 
   const sessionProjectId = getSessionProjectId(id);
   const { setWorkspaceProject } = useWorkspaceProject();
+  const workspace = useWorkspaceOptional();
+  const lastRefreshedDeliverablesKey = useRef("");
 
   useEffect(() => {
     let cancelled = false;
@@ -150,6 +169,13 @@ export function ChatThread({ id }: { id: string }) {
     }, 400);
     return () => window.clearTimeout(t);
   }, [hydrated, id, messages, sessionProjectId]);
+
+  useEffect(() => {
+    if (!hydrated || !deliverablesKey || !workspace) return;
+    if (deliverablesKey === lastRefreshedDeliverablesKey.current) return;
+    lastRefreshedDeliverablesKey.current = deliverablesKey;
+    workspace.refreshTree();
+  }, [deliverablesKey, hydrated, workspace]);
 
   useEffect(() => {
     if (!hydrated || isReplying) return;
