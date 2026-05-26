@@ -67,6 +67,7 @@ import {
   type RunEventWriter,
 } from "./sse.js";
 import { trySpawnVersionProbe } from "./spawn.js";
+import { primeRuntimeRunRecord } from "./runtime-store-writer.js";
 
 const activeRuns = new Map<string, AbortController>();
 const activeRunRequests = new Map<string, CreateRunRequest>();
@@ -1184,6 +1185,21 @@ export async function executeRun(
   const persistedWriter = createPersistedRunWriter(req, runId, baseWriter);
   const writer = createRuntimeStoreWriter(req, runId, persistedWriter);
   await executeRunLifecycle(req, writer, runId);
+}
+
+export async function startDetachedRun(
+  req: CreateRunRequest,
+  input?: { runId?: string },
+): Promise<string> {
+  const runId = input?.runId ?? `run-${randomUUID()}`;
+  await primeRuntimeRunRecord(req, runId);
+
+  void executeBackgroundRun(req, { runId }).catch(() => {
+    // executeRunLifecycle persists terminal failures; this catch only prevents
+    // an unhandled rejection if setup fails before the lifecycle writer exists.
+  });
+
+  return runId;
 }
 
 export async function executeBackgroundRun(

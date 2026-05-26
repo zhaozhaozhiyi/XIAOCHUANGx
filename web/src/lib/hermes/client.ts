@@ -80,6 +80,10 @@ export async function streamChatCompletion(
 
   const execution = res.headers.get("X-JLC-Execution");
   const format = execution === "companion" ? "companion" : "openai";
+  const companionRunId = res.headers.get("X-JLC-Run-Id");
+  if (format === "companion" && companionRunId) {
+    params.onRunStarted?.({ runId: companionRunId });
+  }
 
   return consumeChatSse(res.body, params, { format });
 }

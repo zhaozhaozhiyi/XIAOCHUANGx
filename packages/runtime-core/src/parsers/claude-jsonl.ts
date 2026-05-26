@@ -12,7 +12,8 @@ type BlockState = {
   type?: unknown;
   name?: unknown;
   id?: unknown;
-  input: string;
+  inputJson: string;
+  initialInput?: unknown;
 };
 
 type AskUserQuestionInput = {
@@ -133,10 +134,19 @@ export function createClaudeJsonlParser(onEvent: Handler) {
         message: progress.message,
       });
     }
-    onEvent({ type: "tool_progress", ...progress });
+    onEvent({
+      type: "tool_progress",
+      ...progress,
+      callId: id,
+      input,
+    });
   }
 
-  function emitToolResult(toolUseId: string, isError: boolean) {
+  function emitToolResult(
+    toolUseId: string,
+    isError: boolean,
+    output?: unknown,
+  ) {
     const meta = toolUseMeta.get(toolUseId);
     if (!meta) return;
     const progress = progressFromToolUse(
@@ -150,8 +160,28 @@ export function createClaudeJsonlParser(onEvent: Handler) {
       tool: progress.tool,
       status: progress.status,
       message: meta.message ?? progress.message,
+      callId: toolUseId,
+      input: meta.input,
+      output,
     });
     toolUseMeta.delete(toolUseId);
+  }
+
+  function toolResultOutput(block: Record<string, unknown>): unknown {
+    const content = block.content;
+    if (typeof content === "string") return content;
+    if (!Array.isArray(content)) return content;
+    return content
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (isRecord(item) && typeof item.text === "string") return item.text;
+        if (isRecord(item) && typeof item.content === "string") {
+          return item.content;
+        }
+        return "";
+      })
+      .filter(Boolean)
+      .join("\n");
   }
 
   function handleStreamEvent(ev: Record<string, unknown>) {
@@ -169,7 +199,8 @@ export function createClaudeJsonlParser(onEvent: Handler) {
         type: block.type,
         name: block.name,
         id: block.id,
-        input: "",
+        inputJson: "",
+        initialInput: block.input,
       });
       if (block.type === "thinking") {
         reasoningOpen = true;
@@ -206,7 +237,7 @@ export function createClaudeJsonlParser(onEvent: Handler) {
         typeof delta.partial_json === "string" &&
         state?.type === "tool_use"
       ) {
-        state.input += delta.partial_json;
+        state.inputJson += delta.partial_json;
       }
       return;
     }
@@ -215,12 +246,12 @@ export function createClaudeJsonlParser(onEvent: Handler) {
       const key = blockKey(ev.index);
       const state = blocks.get(key);
       if (state?.type === "tool_use" && typeof state.id === "string") {
-        let parsed: unknown = null;
-        if (state.input.trim()) {
+        let parsed: unknown = state.initialInput ?? null;
+        if (state.inputJson.trim()) {
           try {
-            parsed = JSON.parse(state.input);
+            parsed = JSON.parse(state.inputJson);
           } catch {
-            parsed = null;
+            parsed = state.initialInput ?? null;
           }
         }
         const wireName = typeof state.name === "string" ? state.name : "tool";
@@ -323,7 +354,7 @@ export function createClaudeJsonlParser(onEvent: Handler) {
         const toolUseId =
           typeof block.tool_use_id === "string" ? block.tool_use_id : "";
         if (!toolUseId) continue;
-        emitToolResult(toolUseId, Boolean(block.is_error));
+        emitToolResult(toolUseId, Boolean(block.is_error), toolResultOutput(block));
       }
       return;
     }

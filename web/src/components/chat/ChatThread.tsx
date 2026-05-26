@@ -40,7 +40,8 @@ import type { ChatExecutionSource } from "@/lib/byok/shared";
 import type { ChatModeId } from "@/lib/navigation";
 import { normalizeChatMode } from "@/lib/navigation";
 import type { AgentId } from "@/lib/settings";
-import { fetchRunRecord } from "@/lib/companion/runtime";
+import { fetchRunEvents, fetchRunRecord } from "@/lib/companion/runtime";
+import { applyRunEventsToMessage } from "@/lib/chat-run-events";
 import { ChevronDown } from "lucide-react";
 
 export function ChatThread({ id }: { id: string }) {
@@ -265,27 +266,43 @@ export function ChatThread({ id }: { id: string }) {
 
   useEffect(() => {
     if (!hydrated || isReplying) return;
-    const inflightRunIds = messages
+    const restorableRunIds = messages
       .filter(
         (message) =>
           message.role === "assistant" &&
-          (message.status === "loading" || message.status === "streaming") &&
-          message.runId,
+          !!message.runId &&
+          ((message.status === "loading" || message.status === "streaming") ||
+            !message.parts?.length),
       )
       .map((message) => message.runId!)
       .filter((runId, index, list) => list.indexOf(runId) === index);
 
-    if (inflightRunIds.length === 0) return;
-    setSessionRunStatus(id, "running");
+    if (restorableRunIds.length === 0) return;
+    const hasInflight = messages.some(
+      (message) =>
+        message.role === "assistant" &&
+        !!message.runId &&
+        (message.status === "loading" || message.status === "streaming"),
+    );
+    if (hasInflight) setSessionRunStatus(id, "running");
     let cancelled = false;
 
     const poll = async () => {
       const records = await Promise.all(
-        inflightRunIds.map(async (runId) => {
+        restorableRunIds.map(async (runId) => {
           try {
             return await fetchRunRecord(runId);
           } catch {
             return null;
+          }
+        }),
+      );
+      const eventResults = await Promise.all(
+        restorableRunIds.map(async (runId) => {
+          try {
+            return [runId, await fetchRunEvents(runId)] as const;
+          } catch {
+            return [runId, null] as const;
           }
         }),
       );
@@ -295,14 +312,22 @@ export function ChatThread({ id }: { id: string }) {
           .filter((record): record is NonNullable<typeof record> => record != null)
           .map((record) => [record.runId, record]),
       );
+      const eventsByRunId = new Map(eventResults);
       if (byRunId.size === 0) return;
 
       setMessages((prev) =>
-        prev.map((message) =>
-          message.runId && byRunId.has(message.runId)
-            ? applyRunRecordToMessage(message, byRunId.get(message.runId)!)
-            : message,
-        ),
+        prev.map((message) => {
+          if (!message.runId || !byRunId.has(message.runId)) return message;
+          const events = eventsByRunId.get(message.runId);
+          if (events?.items?.length) {
+            return applyRunEventsToMessage(
+              message,
+              events.items,
+              byRunId.get(message.runId)!,
+            );
+          }
+          return applyRunRecordToMessage(message, byRunId.get(message.runId)!);
+        }),
       );
 
       const stillRunning = [...byRunId.values()].some(
@@ -316,7 +341,7 @@ export function ChatThread({ id }: { id: string }) {
         (record) => record.status === "waiting_user",
       );
       if (waitingUser) setSessionRunStatus(id, "waiting_user");
-      else if (!stillRunning) setSessionRunStatus(id, "idle");
+      else if (hasInflight && !stillRunning) setSessionRunStatus(id, "idle");
     };
 
     void poll();

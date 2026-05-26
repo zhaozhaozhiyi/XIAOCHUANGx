@@ -18,9 +18,15 @@ const BATCHABLE_TOOLS = new Set([
 
 function isBatchableTool(tool: string): boolean {
   return (
+    tool === "todo" ||
     BATCHABLE_TOOLS.has(tool) ||
     tool === "phase" ||
-    (!tool.includes("file") && tool !== "read_file" && tool !== "write_file")
+    (!tool.includes("file") &&
+      tool !== "read_file" &&
+      tool !== "write_file" &&
+      tool !== "Bash" &&
+      tool !== "bash" &&
+      tool !== "run_terminal")
   );
 }
 
@@ -67,7 +73,9 @@ export function compactToolParts(parts: ChatPart[]): ChatPart[] {
   };
 
   for (const p of parts) {
-    if (p.kind === "tool" && isBatchableTool(p.tool)) {
+    const hasExpandableDetails =
+      p.kind === "tool" && (p.callId || p.input != null || p.output != null);
+    if (p.kind === "tool" && !hasExpandableDetails && isBatchableTool(p.tool)) {
       buffer.push(p);
       continue;
     }

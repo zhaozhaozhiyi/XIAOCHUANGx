@@ -3,9 +3,9 @@ import { AGENT_IDS, isAgentId } from "@jlc/runtime-core";
 import type { CreateRunRequest, ModuleId } from "../types.js";
 import {
   cancelRun,
-  executeRun,
   getActiveRunIdForSession,
   getActiveRunRequest,
+  startDetachedRun,
   submitRunClarification,
 } from "../runs/manager.js";
 import {
@@ -23,6 +23,8 @@ import {
   loadRunRecord,
   saveRunRecord,
 } from "../runs/store.js";
+import { createSseWriter } from "../runs/sse.js";
+import type { RunEvent } from "@jlc/contracts";
 
 const VALID_AGENT_IDS = new Set<string>(AGENT_IDS);
 const MODULE_IDS = new Set<string>([
@@ -33,6 +35,36 @@ const MODULE_IDS = new Set<string>([
   "ppt",
   "translate",
 ]);
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isTerminalRunEvent(event: RunEvent): boolean {
+  return (
+    event.type === "run.finished" ||
+    event.type === "run.error" ||
+    event.type === "run.cancelled"
+  );
+}
+
+function replayPayloadForSse(event: RunEvent): unknown {
+  if (event.type === "tool.progress") {
+    return {
+      ...event,
+      status:
+        event.status === "done"
+          ? "success"
+          : event.status === "failed"
+            ? "error"
+            : event.status,
+    };
+  }
+  if (event.type === "message.delta") {
+    return { ...event, content: event.text };
+  }
+  return event;
+}
 
 function parseCreateRun(body: unknown): CreateRunRequest | null {
   if (!body || typeof body !== "object") return null;
@@ -121,7 +153,32 @@ export async function runRoutes(app: FastifyInstance): Promise<void> {
 
     reply.hijack();
     const raw = reply.raw;
-    await executeRun(parsed, raw);
+    const runId = await startDetachedRun(parsed);
+    const writer = createSseWriter(raw, {
+      "X-JLC-Run-Id": runId,
+      "X-JLC-Agent-Id": parsed.agentId,
+      "X-JLC-Execution-Mode": "detached",
+    });
+    let closed = false;
+    raw.on("close", () => {
+      closed = true;
+    });
+
+    let cursor = 0;
+    let terminalSeen = false;
+    const startedAt = Date.now();
+    while (!closed && !terminalSeen) {
+      const events = await loadRunEvents(runId);
+      for (const event of events.slice(cursor)) {
+        writer.send(event.type, replayPayloadForSse(event));
+        terminalSeen = terminalSeen || isTerminalRunEvent(event);
+      }
+      cursor = events.length;
+      if (terminalSeen) break;
+      if (Date.now() - startedAt > 30 * 60 * 1000) break;
+      await sleep(250);
+    }
+    if (!closed) writer.end();
   });
 
   app.post<{ Params: { runId: string } }>(

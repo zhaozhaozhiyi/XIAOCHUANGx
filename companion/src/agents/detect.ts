@@ -63,7 +63,6 @@ async function resolveAgentPath(agentId: AgentId): Promise<string | null> {
 
 async function readVersion(
   binPath: string,
-  agentId: AgentId,
 ): Promise<{ version: string | null; needsLogin: boolean }> {
   const flags: string[][] = [
     ["--version"],
@@ -92,9 +91,6 @@ async function readVersion(
     }
   }
 
-  if (agentId === "claude") {
-    return { version: null, needsLogin: true };
-  }
   return { version: null, needsLogin: false };
 }
 
@@ -145,7 +141,7 @@ export async function detectAgent(agentId: AgentId): Promise<CompanionAgentState
     }
   }
 
-  const { version, needsLogin } = await readVersion(path, agentId);
+  const { version, needsLogin } = await readVersion(path);
   if (needsLogin) {
     return {
       agentId,

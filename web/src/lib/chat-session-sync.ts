@@ -10,7 +10,8 @@ import {
   fetchCompanionSessionMessages,
   saveCompanionSessionMessages,
 } from "@/lib/companion/session-messages";
-import { fetchRunRecord } from "@/lib/companion/runtime";
+import { fetchRunEvents, fetchRunRecord } from "@/lib/companion/runtime";
+import { applyRunEventsToMessage } from "@/lib/chat-run-events";
 
 function statusFromRunRecord(
   record: CompanionRunRecord,
@@ -47,16 +48,17 @@ export function applyRunRecordToMessage(
 async function restoreInflightMessages(
   messages: ChatMessage[],
 ): Promise<ChatMessage[]> {
-  const inflight = messages.filter(
+  const runBacked = messages.filter(
     (message) =>
       message.role === "assistant" &&
-      (message.status === "loading" || message.status === "streaming") &&
-      !!message.runId,
+      !!message.runId &&
+      ((message.status === "loading" || message.status === "streaming") ||
+        !message.parts?.length),
   );
-  if (inflight.length === 0) return messages;
+  if (runBacked.length === 0) return messages;
 
   const records = await Promise.all(
-    inflight.map(async (message) => {
+    runBacked.map(async (message) => {
       try {
         return [message.runId, await fetchRunRecord(message.runId!)] as const;
       } catch {
@@ -65,9 +67,28 @@ async function restoreInflightMessages(
     }),
   );
   const byRunId = new Map(records);
+  const events = await Promise.all(
+    runBacked.map(async (message) => {
+      try {
+        return [message.runId, await fetchRunEvents(message.runId!)] as const;
+      } catch {
+        return [message.runId, null] as const;
+      }
+    }),
+  );
+  const eventsByRunId = new Map(events);
+
   return messages.map((message) => {
     if (!message.runId) return message;
     const record = byRunId.get(message.runId);
+    const runEvents = eventsByRunId.get(message.runId);
+    if (runEvents?.items?.length) {
+      return applyRunEventsToMessage(
+        message,
+        runEvents.items,
+        record ?? undefined,
+      );
+    }
     return record ? applyRunRecordToMessage(message, record) : message;
   });
 }
