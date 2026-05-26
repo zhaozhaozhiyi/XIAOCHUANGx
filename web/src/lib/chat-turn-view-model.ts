@@ -14,6 +14,7 @@ export type TurnViewModel = {
   waitingMessage: string | null;
   statusPart: Extract<ChatPart, { kind: "turn_meta" | "status" }> | null;
   processParts: ChatPart[];
+  reasoningParts: ChatPart[];
   debugParts: ChatPart[];
 };
 
@@ -42,7 +43,6 @@ function sameOrContained(a: string, b: string): boolean {
 
 function isDebugPart(part: ChatPart): boolean {
   return (
-    part.kind === "reasoning" ||
     part.kind === "skill" ||
     part.kind === "status_chip"
   );
@@ -61,6 +61,13 @@ function isWaitingPart(part: ChatPart): boolean {
   return part.kind === "status" && isWaitingUserSignal(part.label, part.phase);
 }
 
+function isConnectStatusPart(part: ChatPart): boolean {
+  return (
+    part.kind === "status" &&
+    (part.phase === "connect" || part.label.includes("连接"))
+  );
+}
+
 export function buildTurnViewModel(message: ChatMessage): TurnViewModel {
   const summaryPart = selectAssistantSummaryPart(message);
   const deliverablesPart = selectAssistantDeliverablesPart(message);
@@ -72,7 +79,9 @@ export function buildTurnViewModel(message: ChatMessage): TurnViewModel {
       .find(
         (part): part is Extract<ChatPart, { kind: "turn_meta" | "status" }> =>
           part.kind === "turn_meta" ||
-          (part.kind === "status" && !isWaitingPart(part)),
+          (part.kind === "status" &&
+            !isWaitingPart(part) &&
+            !isConnectStatusPart(part)),
       ) ?? null;
   const finalText = summaryPart?.markdown ?? "";
   const seen = new Set<string>();
@@ -80,6 +89,7 @@ export function buildTurnViewModel(message: ChatMessage): TurnViewModel {
     if (isDebugPart(part)) return false;
     if (isSummaryKind(part)) return false;
     if (isWaitingPart(part)) return false;
+    if (isConnectStatusPart(part)) return false;
     if (part.kind === "turn_meta") return false;
     if (part.kind === "status") return false;
 
@@ -93,12 +103,14 @@ export function buildTurnViewModel(message: ChatMessage): TurnViewModel {
     }
     return true;
   });
+  const reasoningParts = timeline.filter((part) => part.kind === "reasoning");
   const debugParts = timeline.filter(isDebugPart);
 
   return {
     summaryPart,
     deliverablesPart,
     statusPart,
+    reasoningParts,
     waitingMessage:
       (waitingPart && waitingPart.kind === "status" ? waitingPart.label : null) ??
       (message.canonicalOutput?.nextAction?.type === "ask_user"

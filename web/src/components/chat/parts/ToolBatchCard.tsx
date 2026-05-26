@@ -26,7 +26,7 @@ export function ToolBatchCard({ part }: { part: ToolBatchPart }) {
           <ChevronRight className="h-4 w-4 shrink-0" />
         )}
         <FolderSearch className="h-4 w-4 shrink-0 text-[var(--fg-tertiary)]" aria-hidden />
-        <span className="min-w-0 flex-1 truncate text-sm font-medium text-[var(--fg-secondary)]">
+        <span className="min-w-0 flex-1 break-words text-sm font-medium text-[var(--fg-secondary)]">
           {part.title}
         </span>
         {part.streaming && (
@@ -36,12 +36,12 @@ export function ToolBatchCard({ part }: { part: ToolBatchPart }) {
       {displayOpen && (
         <ul className="border-t border-[var(--border)] px-3 py-2 text-xs text-[var(--fg-secondary)]">
           {part.items.map((item, i) => (
-            <li key={`${item.tool}-${i}`} className="flex gap-2 py-1">
-              <span className="font-medium text-[var(--fg-tertiary)]">
+            <li key={`${item.tool}-${i}`} className="flex items-start gap-2 py-1">
+              <span className="shrink-0 font-medium text-[var(--fg-tertiary)]">
                 {item.tool}
               </span>
               {item.message && (
-                <span className="truncate text-[var(--fg-tertiary)]">
+                <span className="min-w-0 flex-1 whitespace-pre-wrap break-words text-[var(--fg-tertiary)]">
                   {item.message}
                 </span>
               )}

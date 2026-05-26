@@ -486,7 +486,14 @@ function addSkill(
 
 export function reduceToolProgress(
   state: AssistantPartsState,
-  payload: { tool: string; status?: string; message?: string },
+  payload: {
+    tool: string;
+    status?: string;
+    message?: string;
+    callId?: string;
+    input?: unknown;
+    output?: unknown;
+  },
 ): AssistantPartsState {
   if (payload.tool === "narration") {
     return addNarration(state, payload.message ?? "");
@@ -550,13 +557,22 @@ export function reduceToolProgress(
     const withCmd = addCommand(state, cmd, status);
     const parts = [...sealStreamingTail(withCmd.parts)];
     const normalizedStatus = status;
-    const running = findRunningTool(parts, payload.tool);
+    const running = payload.callId
+      ? parts.find(
+          (p): p is ToolPart =>
+            p.kind === "tool" &&
+            p.callId === payload.callId &&
+            p.status === "running",
+        )
+      : findRunningTool(parts, payload.tool);
     if (running && normalizedStatus !== "running") {
       const idx = parts.indexOf(running);
       parts[idx] = {
         ...running,
         status: normalizedStatus,
         message: payload.message ?? running.message,
+        input: payload.input ?? running.input,
+        output: payload.output ?? running.output,
         streaming: false,
         completedAt: Date.now(),
       };
@@ -571,6 +587,9 @@ export function reduceToolProgress(
             tool: payload.tool,
             status: normalizedStatus,
             message: payload.message,
+            callId: payload.callId,
+            input: payload.input,
+            output: payload.output,
             streaming: normalizedStatus === "running",
           },
           seq,
@@ -588,7 +607,14 @@ export function reduceToolProgress(
   let nextStreamSeq = state.nextStreamSeq;
   const parts = [...sealStreamingTail(state.parts)];
   const normalizedStatus = normalizeToolStatus(payload.status);
-  const running = findRunningTool(parts, payload.tool);
+  const running = payload.callId
+    ? parts.find(
+        (p): p is ToolPart =>
+          p.kind === "tool" &&
+          p.callId === payload.callId &&
+          p.status === "running",
+      )
+    : findRunningTool(parts, payload.tool);
 
   if (running && normalizedStatus !== "running") {
     const idx = parts.indexOf(running);
@@ -596,6 +622,8 @@ export function reduceToolProgress(
       ...running,
       status: normalizedStatus,
       message: payload.message ?? running.message,
+      input: payload.input ?? running.input,
+      output: payload.output ?? running.output,
       streaming: false,
       completedAt: Date.now(),
     };
@@ -611,6 +639,9 @@ export function reduceToolProgress(
           tool: payload.tool,
           status: normalizedStatus,
           message: payload.message,
+          callId: payload.callId,
+          input: payload.input,
+          output: payload.output,
           streaming: normalizedStatus === "running",
         },
         bumped.seq,

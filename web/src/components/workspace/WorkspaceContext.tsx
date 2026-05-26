@@ -124,6 +124,7 @@ type WorkspaceContextValue = {
     line?: number;
     endLine?: number;
   }) => Promise<boolean>;
+  showFileInFolder: (relativePath: string) => Promise<boolean>;
   pendingReveal: { fileId: string; line?: number; endLine?: number } | null;
   clearPendingReveal: () => void;
   fileActionMessage: string | null;
@@ -901,6 +902,35 @@ export function WorkspaceProvider({
     ],
   );
 
+  const showFileInFolder = useCallback(
+    async (relativePath: string) => {
+      if (!window.electronAPI?.showItemInFolder) {
+        setFileActionMessage("当前环境不支持在文件夹中显示");
+        return false;
+      }
+      const parsed = parseFileRef(relativePath);
+      const path = parsed.path || relativePath;
+      try {
+        const result = await window.electronAPI.showItemInFolder({
+          projectId: workspaceProjectId,
+          path,
+        });
+        if (!result.ok) {
+          setFileActionMessage(result.message ?? "无法在文件夹中显示");
+          return false;
+        }
+        setFileActionMessage(null);
+        return true;
+      } catch (err) {
+        setFileActionMessage(
+          err instanceof Error ? err.message : "无法在文件夹中显示",
+        );
+        return false;
+      }
+    },
+    [workspaceProjectId],
+  );
+
   const openExplorerTab = useCallback(
     () => goToFileLocation(null, true),
     [goToFileLocation],
@@ -1113,6 +1143,7 @@ export function WorkspaceProvider({
       getBrowserState,
       updateBrowserState,
       openFileAt,
+      showFileInFolder,
       pendingReveal,
       clearPendingReveal,
       fileActionMessage,
@@ -1165,6 +1196,7 @@ export function WorkspaceProvider({
       getBrowserState,
       updateBrowserState,
       openFileAt,
+      showFileInFolder,
       pendingReveal,
       clearPendingReveal,
       fileActionMessage,

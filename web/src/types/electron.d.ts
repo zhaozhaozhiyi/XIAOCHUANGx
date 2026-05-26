@@ -20,10 +20,19 @@ export type DesktopCompanionHealth = {
   error?: string;
 };
 
+export type DesktopShowItemResult = {
+  ok: boolean;
+  message?: string;
+};
+
 export type JlcElectronAPI = {
   isDesktop: boolean;
   pickAndImportFolder: () => Promise<DesktopPickAndImportResult>;
   getCompanionHealth?: () => Promise<DesktopCompanionHealth>;
+  showItemInFolder?: (input: {
+    projectId: string;
+    path: string;
+  }) => Promise<DesktopShowItemResult>;
 };
 
 declare global {

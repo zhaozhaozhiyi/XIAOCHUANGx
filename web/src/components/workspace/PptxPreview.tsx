@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useReducer, useRef } from "react";
 import {
   base64ToArrayBuffer,
   isLikelyZipBuffer,
@@ -12,28 +12,79 @@ type Props = {
   fileName: string;
 };
 
+const PREVIEW_TIMEOUT_MS = 20_000;
+
+type PreviewState = {
+  slideHtml: string[];
+  index: number;
+  loading: boolean;
+  error: string | null;
+};
+
+type PreviewAction =
+  | { type: "start" }
+  | { type: "success"; slides: string[] }
+  | { type: "error"; message: string }
+  | { type: "setIndex"; index: number };
+
+function previewReducer(
+  state: PreviewState,
+  action: PreviewAction,
+): PreviewState {
+  switch (action.type) {
+    case "start":
+      return { slideHtml: [], index: 0, loading: true, error: null };
+    case "success":
+      return {
+        slideHtml: action.slides,
+        index: 0,
+        loading: false,
+        error: null,
+      };
+    case "error":
+      return {
+        ...state,
+        slideHtml: [],
+        index: 0,
+        loading: false,
+        error: action.message,
+      };
+    case "setIndex":
+      return { ...state, index: action.index };
+  }
+}
+
+function timeoutAfter(ms: number): Promise<never> {
+  return new Promise((_, reject) => {
+    window.setTimeout(() => {
+      reject(new Error("预览加载超时，请直接打开文件查看。"));
+    }, ms);
+  });
+}
+
 export function PptxPreview({ base64, fileName }: Props) {
   const slideHostRef = useRef<HTMLDivElement>(null);
-  const [slideHtml, setSlideHtml] = useState<string[]>([]);
-  const [index, setIndex] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [{ slideHtml, index, loading, error }, dispatch] = useReducer(
+    previewReducer,
+    { slideHtml: [], index: 0, loading: true, error: null },
+  );
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-    setIndex(0);
-    setSlideHtml([]);
+    queueMicrotask(() => {
+      if (!cancelled) dispatch({ type: "start" });
+    });
 
     void (async () => {
       try {
         const buffer = base64ToArrayBuffer(base64);
         if (!isLikelyZipBuffer(buffer)) {
           if (!cancelled) {
-            setError(
-              "文件数据无效：未识别为 ZIP 格式，可能未以二进制方式读取。请重新打开该文件。",
-            );
+            dispatch({
+              type: "error",
+              message:
+                "文件数据无效：未识别为 ZIP 格式，可能未以二进制方式读取。请重新打开该文件。",
+            });
           }
           return;
         }
@@ -44,28 +95,35 @@ export function PptxPreview({ base64, fileName }: Props) {
             ? slideHostRef.current.clientWidth
             : 720;
 
-        const { pptxToHtml } = await import("@jvmr/pptx-to-html");
-        const slides = await pptxToHtml(buffer, {
-          width: hostWidth,
-          scaleToFit: true,
-          letterbox: true,
-        });
+        const slides = await Promise.race([
+          (async () => {
+            const { pptxToHtml } = await import("@jvmr/pptx-to-html");
+            return pptxToHtml(buffer, {
+              width: hostWidth,
+              scaleToFit: true,
+              letterbox: true,
+            });
+          })(),
+          timeoutAfter(PREVIEW_TIMEOUT_MS),
+        ]);
 
         if (cancelled) return;
         if (slides.length === 0) {
-          setError("演示文稿中没有可预览的幻灯片");
+          dispatch({
+            type: "error",
+            message: "演示文稿中没有可预览的幻灯片",
+          });
           return;
         }
-        setSlideHtml(slides);
-        setIndex(0);
+        dispatch({ type: "success", slides });
       } catch (err) {
         if (!cancelled) {
-          setError(
-            err instanceof Error ? err.message : "无法解析 PPTX 文件",
-          );
+          dispatch({
+            type: "error",
+            message:
+              err instanceof Error ? err.message : "无法解析 PPTX 文件",
+          });
         }
-      } finally {
-        if (!cancelled) setLoading(false);
       }
     })();
 
@@ -102,7 +160,9 @@ export function PptxPreview({ base64, fileName }: Props) {
             className="btn-icon"
             aria-label="上一张"
             disabled={index <= 0}
-            onClick={() => setIndex((i) => Math.max(0, i - 1))}
+            onClick={() =>
+              dispatch({ type: "setIndex", index: Math.max(0, index - 1) })
+            }
           >
             <ChevronLeft className="h-4 w-4" strokeWidth={1.75} />
           </button>
@@ -115,7 +175,10 @@ export function PptxPreview({ base64, fileName }: Props) {
             aria-label="下一张"
             disabled={index >= slideHtml.length - 1}
             onClick={() =>
-              setIndex((i) => Math.min(slideHtml.length - 1, i + 1))
+              dispatch({
+                type: "setIndex",
+                index: Math.min(slideHtml.length - 1, index + 1),
+              })
             }
           >
             <ChevronRight className="h-4 w-4" strokeWidth={1.75} />

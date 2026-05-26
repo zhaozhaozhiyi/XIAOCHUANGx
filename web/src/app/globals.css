@@ -33,11 +33,11 @@
   --danger-muted-bg: #f2eaea;
   --danger-muted-dot: #966b6b;
 
-  /* Agent 过程条（运行/阶段，中性；避免误用 accent 像报错） */
-  --activity-chip-bg: #eeede8;
-  --activity-chip-fg: var(--fg);
-  --activity-chip-dot: #6b6a64;
-  --activity-chip-phase: var(--fg-secondary);
+  /* Agent 过程条（运行/阶段） */
+  --activity-chip-bg: var(--accent-muted);
+  --activity-chip-fg: var(--accent-hover);
+  --activity-chip-dot: var(--accent);
+  --activity-chip-phase: color-mix(in srgb, var(--accent-hover) 78%, var(--fg-secondary));
   --activity-chip-wait-bg: #f5f0e6;
   --activity-chip-wait-fg: var(--warn);
   --activity-chip-wait-dot: var(--warn);

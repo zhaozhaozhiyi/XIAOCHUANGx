@@ -119,6 +119,17 @@ function waitingUserLabel(message?: string): boolean {
   return !!message && /确认|填写|选择|审批|授权|需要您|请补充/.test(message);
 }
 
+function taskStartLabel(userText: string, agentId: string): string {
+  const text = userText.toLowerCase();
+  if (/(ppt|pptx|演示|幻灯片|deck|slides?)/i.test(text)) {
+    return "正在梳理 PPT 需求，并准备生成可打开的演示文稿…";
+  }
+  if (/(报告|研报|分析|总结|研究)/.test(text)) {
+    return "正在梳理资料与分析框架…";
+  }
+  return `正在运行 ${agentId}，解析任务并准备执行…`;
+}
+
 function canonicalTurnId(runId: string): string {
   return `turn-${runId}`;
 }
@@ -566,27 +577,28 @@ async function executeRunLifecycle(
 
       const { composedPrompt, instructionPrompt, meta } = composed;
 
+      const startLabel = taskStartLabel(userText, req.agentId);
       writer.send("tool.progress", {
         tool: "phase",
         status: "running",
         message: compressPrep.compressed
-          ? `${compressPrep.note ?? "已压缩会话"} · 正在运行 ${req.agentId}…${meta.agentKitPath ? ` kit=${meta.agentKitPath}` : ""}`
-          : `正在运行 ${req.agentId}（全量 transcript + stdin）…${meta.agentKitPath ? ` kit=${meta.agentKitPath}` : ""}`,
+          ? `${compressPrep.note ?? "已压缩会话"} · ${startLabel}`
+          : startLabel,
       });
       emitRunStatus(writer, {
         runId,
         phase: "running",
         label: compressPrep.compressed
-          ? `${compressPrep.note ?? "已压缩会话"} · 正在运行 ${req.agentId}…${meta.agentKitPath ? ` kit=${meta.agentKitPath}` : ""}`
-          : `正在运行 ${req.agentId}（全量 transcript + stdin）…${meta.agentKitPath ? ` kit=${meta.agentKitPath}` : ""}`,
+          ? `${compressPrep.note ?? "已压缩会话"} · ${startLabel}`
+          : startLabel,
       });
       emitCanonicalToolProgress(writer, {
         runId,
         tool: "phase",
         status: "running",
         message: compressPrep.compressed
-          ? `${compressPrep.note ?? "已压缩会话"} · 正在运行 ${req.agentId}…${meta.agentKitPath ? ` kit=${meta.agentKitPath}` : ""}`
-          : `正在运行 ${req.agentId}（全量 transcript + stdin）…${meta.agentKitPath ? ` kit=${meta.agentKitPath}` : ""}`,
+          ? `${compressPrep.note ?? "已压缩会话"} · ${startLabel}`
+          : startLabel,
       });
 
       void saveSessionRunContext(req.sessionId, {
@@ -694,6 +706,9 @@ async function executeRunLifecycle(
             tool: p.tool,
             status: p.status,
             message: p.message,
+            callId: p.callId,
+            input: p.input,
+            output: p.output,
           });
           if (p.tool === "phase" && p.message) {
             latestStatusLabel = p.message;

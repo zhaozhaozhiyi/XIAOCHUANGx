@@ -17,6 +17,9 @@ export type ToolProgressPayload = {
   tool: string;
   status?: string;
   message?: string;
+  callId?: string;
+  input?: unknown;
+  output?: unknown;
 };
 
 export type ChatStreamCallbacks = {
@@ -136,6 +139,9 @@ function parseCompanionPayload(
             typeof json.status === "string" ? json.status : undefined,
           message:
             typeof json.message === "string" ? json.message : undefined,
+          callId: typeof json.callId === "string" ? json.callId : undefined,
+          input: json.input,
+          output: json.output,
         },
       };
     }

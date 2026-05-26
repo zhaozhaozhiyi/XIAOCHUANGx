@@ -307,11 +307,7 @@ export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = 
       });
 
       const assistantId = `assistant-${Date.now()}`;
-      partsStateRef.current = reduceStatusLabel(
-        reduceRunStarted(initAssistantPartsState()),
-        context.executionSource === "api" ? "正在连接模型 API…" : "正在连接 Agent…",
-        "connect",
-      );
+      partsStateRef.current = reduceRunStarted(initAssistantPartsState());
       const assistantPlaceholder: ChatMessage = {
         ...createAssistantPlaceholder(assistantId),
         status: "streaming",

@@ -16,7 +16,7 @@ type Props = {
   thinkingGapMinMs?: number;
 };
 
-function LoadingBubble({ hint }: { hint?: string }) {
+function LoadingBubble() {
   return (
     <div className="flex items-center gap-2 text-[var(--fg-secondary)]">
       <span className="inline-flex gap-1" aria-hidden>
@@ -24,16 +24,9 @@ function LoadingBubble({ hint }: { hint?: string }) {
         <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--accent)] [animation-delay:150ms]" />
         <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--accent)] [animation-delay:300ms]" />
       </span>
-      <span className="text-sm">{hint ?? "Agent 处理中…"}</span>
+      <span className="text-sm">处理中…</span>
     </div>
   );
-}
-
-function connectHint(parts: ChatMessage["parts"]): string | undefined {
-  const connecting = parts?.find(
-    (part) => part.kind === "status" && part.phase === "connect",
-  );
-  return connecting?.kind === "status" ? connecting.label : undefined;
 }
 
 function hasRunningToolPart(parts: ChatPart[]): boolean {
@@ -114,7 +107,6 @@ export function AssistantMessageBubble({
   thinkingGapMinMs = 3_000,
 }: Props) {
   const status = message.status ?? "complete";
-  const connectLabel = connectHint(message.parts);
   const hasSummary = selectHasAssistantSummaryContent(message);
   const viewModel = useMemo(() => buildTurnViewModel(message), [message]);
   const gaps = useMemo(
@@ -140,6 +132,9 @@ export function AssistantMessageBubble({
   const showToolRunningDots =
     (status === "loading" || status === "streaming") &&
     hasRunningToolPart(viewModel.processParts);
+  const showSummaryStage =
+    summaryFirstParts.length > 0 ||
+    (status !== "loading" && status !== "streaming");
 
   if (
     (status === "loading" || status === "streaming") &&
@@ -149,7 +144,7 @@ export function AssistantMessageBubble({
   ) {
     return (
       <div className="bubble-assistant">
-        <LoadingBubble hint={connectLabel} />
+        <LoadingBubble />
       </div>
     );
   }
@@ -207,23 +202,28 @@ export function AssistantMessageBubble({
               </div>
             ) : null}
 
-            <div className="chat-assistant-shell__stage">
-              <div className="chat-assistant-shell__section-label">最终回复</div>
-              {summaryFirstParts.length > 0 ? (
-                <div className="flex flex-col gap-3">
-                  {renderParts(summaryFirstParts, gapBefore)}
+            {showSummaryStage ? (
+              <div className="chat-assistant-shell__stage">
+                <div className="chat-assistant-shell__section-label">
+                  {status === "loading" || status === "streaming"
+                    ? "实时输出"
+                    : "最终回复"}
                 </div>
-              ) : status === "streaming" ? (
-                <p className="text-sm text-[var(--fg-secondary)]">
-                  {connectLabel ?? "等待输出…"}
-                </p>
-              ) : null}
-            </div>
+                {summaryFirstParts.length > 0 ? (
+                  <div className="flex flex-col gap-3">
+                    {renderParts(summaryFirstParts, gapBefore)}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
 
-            {viewModel.debugParts.length > 0 ? (
-              <SectionToggle title="技术详情" badge={`${viewModel.debugParts.length} 项`}>
+            {viewModel.reasoningParts.length > 0 ? (
+              <SectionToggle
+                title="思考过程"
+                badge={`${viewModel.reasoningParts.length} 项`}
+              >
                 <div className="flex flex-col gap-3">
-                  {renderParts(viewModel.debugParts, gapBefore)}
+                  {renderParts(viewModel.reasoningParts, gapBefore)}
                 </div>
               </SectionToggle>
             ) : null}

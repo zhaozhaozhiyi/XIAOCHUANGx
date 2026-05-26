@@ -127,6 +127,9 @@ export type ToolPart = ChatPartBase & {
   tool: string;
   status?: "pending" | "running" | "success" | "error";
   message?: string;
+  callId?: string;
+  input?: unknown;
+  output?: unknown;
 };
 
 export type ToolBatchItem = {

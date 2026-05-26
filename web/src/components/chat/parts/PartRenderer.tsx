@@ -87,7 +87,7 @@ function NarrationBlock({
   return (
     <div className="rounded-[var(--radius-md)] border border-[var(--border)]/70 bg-[var(--surface)]/55 px-3 py-2.5">
       <div className="mb-1.5 flex flex-wrap items-center gap-2 text-[11px] font-medium text-[var(--fg-tertiary)]">
-        <span>{part.streaming ? "当前进度" : "进度说明"}</span>
+        <span>{part.streaming ? "当前动作" : "执行说明"}</span>
         {part.streaming ? (
           <span className="text-[var(--accent)]">进行中</span>
         ) : null}
