@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import {
+  useCallback,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import {
   createAssistantPlaceholder,
   createMessage,
@@ -148,7 +154,21 @@ function errorMessage(error: unknown): string {
 
 export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = []) {
   const { agentsRuntime } = useSettings();
-  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
+  const [messages, setMessagesState] = useState<ChatMessage[]>(initialMessages);
+  const messagesRef = useRef<ChatMessage[]>(initialMessages);
+  const setMessages: Dispatch<SetStateAction<ChatMessage[]>> = useCallback(
+    (next) => {
+      const resolved =
+        typeof next === "function"
+          ? (next as (value: ChatMessage[]) => ChatMessage[])(
+              messagesRef.current,
+            )
+          : next;
+      messagesRef.current = resolved;
+      setMessagesState(resolved);
+    },
+    [],
+  );
   const bottomRef = useRef<HTMLDivElement>(null);
   const partsStateRef = useRef<AssistantPartsState>(initAssistantPartsState());
   const {
@@ -162,7 +182,6 @@ export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = 
     markReplying,
     schedulePatch: scheduleRunPatch,
     setCompanionRunId,
-    stopCurrentRun,
   } = useChatRunController(sessionId);
 
   const patchAssistant = useCallback(
@@ -184,7 +203,7 @@ export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = 
         }),
       );
     },
-    [isCurrentRun],
+    [isCurrentRun, setMessages],
   );
 
   const appendAssistantCanonicalEvent = useCallback(
@@ -196,7 +215,7 @@ export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = 
         ),
       );
     },
-    [isCurrentRun, sessionId],
+    [isCurrentRun, sessionId, setMessages],
   );
 
   const applyAssistantCanonicalOutput = useCallback(
@@ -212,7 +231,7 @@ export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = 
         ),
       );
     },
-    [isCurrentRun],
+    [isCurrentRun, setMessages],
   );
 
   const drainRunPatches = useCallback(
@@ -245,7 +264,7 @@ export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = 
         ),
       );
     },
-    [],
+    [setMessages],
   );
 
   const sendMessage = useCallback(
@@ -300,17 +319,18 @@ export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = 
         activityCollapse: partsStateRef.current.activityCollapse,
       };
 
-      let historyForApi: ChatMessage[] = [];
       /** 始终携带客户端已持久化的会话历史（与 Companion Session API 对齐） */
       const useClientHistory = true;
-      setMessages((prev) => {
-        const steering = prev.some(
-          (m) => m.status === "loading" || m.status === "streaming",
-        );
-        const base = steering ? finalizeInFlightMessages(prev) : prev;
-        historyForApi = [...base, userMsg];
-        return [...base, userMsg, assistantPlaceholder];
-      });
+      const currentMessages = messagesRef.current;
+      const steering = currentMessages.some(
+        (m) => m.status === "loading" || m.status === "streaming",
+      );
+      const baseMessages = steering
+        ? finalizeInFlightMessages(currentMessages)
+        : currentMessages;
+      const historyForApi = [...baseMessages, userMsg];
+      messagesRef.current = [...historyForApi, assistantPlaceholder];
+      setMessages(messagesRef.current);
       markReplying();
 
       const schedulePatch = (updater: AssistantStateUpdater) => {
@@ -455,6 +475,7 @@ export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = 
       scheduleRunPatch,
       sessionId,
       setCompanionRunId,
+      setMessages,
     ],
   );
 
@@ -462,7 +483,7 @@ export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = 
     interruptCurrentRun(() =>
       setMessages((prev) => finalizeInFlightMessages(prev)),
     );
-  }, [interruptCurrentRun]);
+  }, [interruptCurrentRun, setMessages]);
 
   return {
     messages,
