@@ -1,6 +1,10 @@
 import { spawn } from "node:child_process";
 import { getAgentRegistryEntry } from "./agent-registry.js";
 import { getAgentAdapter } from "./adapters/index.js";
+import {
+  buildResolvedCommandArgs,
+  resolveWindowsCommand,
+} from "./windows-command.js";
 import { attachAcpBridge, attachPiRpcBridge } from "./rpc-bridge.js";
 import type {
   RunAgentCallbacks,
@@ -82,11 +86,15 @@ export async function runAgent(
     spec.stdinPayload === "ignore" || spec.promptViaArgs ? "ignore" : "pipe";
 
   return new Promise((resolve) => {
-    const child = spawn(spec.bin, spec.args, {
+    const command = resolveWindowsCommand(spec.bin);
+    const spawnArgs = buildResolvedCommandArgs(command, spec.args);
+
+    const child = spawn(command.bin, spawnArgs, {
       cwd: input.cwd,
       env: { ...process.env },
       stdio: [stdinMode, "pipe", "pipe"],
       shell: false,
+      windowsVerbatimArguments: command.windowsVerbatimArguments,
       ...adapter.spawnOptions?.({
         input,
         buildArgs,

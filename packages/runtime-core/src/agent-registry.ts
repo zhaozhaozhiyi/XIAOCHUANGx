@@ -12,6 +12,7 @@ async function detectAcpModels(
   bin: string,
   args: string[],
   fallback: AgentModelOption[],
+  signal?: AbortSignal,
 ): Promise<AgentModelOption[]> {
   const { execFile } = await import("node:child_process");
   const { promisify } = await import("node:util");
@@ -21,6 +22,7 @@ async function detectAcpModels(
     const { stdout, stderr } = await execFileAsync(bin, args, {
       timeout: 15_000,
       maxBuffer: 8 * 1024 * 1024,
+      signal,
     });
     const text = `${stdout}\n${stderr}`;
     const lines = text
@@ -70,6 +72,7 @@ async function detectAcpModels(
 async function detectPiModels(
   bin: string,
   fallback: AgentModelOption[],
+  signal?: AbortSignal,
 ): Promise<AgentModelOption[]> {
   const { execFile } = await import("node:child_process");
   const { promisify } = await import("node:util");
@@ -80,6 +83,7 @@ async function detectPiModels(
     const { stderr } = await execFileAsync(bin, ["--list-models"], {
       timeout: 20_000,
       maxBuffer: 8 * 1024 * 1024,
+      signal,
     });
     return parsePiModels(stderr) ?? fallback;
   } catch {
@@ -89,14 +93,17 @@ async function detectPiModels(
 
 export type AgentRegistryEntry = {
 } & StaticAgentRegistryEntry & {
-  fetchModels?: (resolvedBin: string) => Promise<AgentModelOption[]>;
+  fetchModels?: (
+    resolvedBin: string,
+    signal?: AbortSignal,
+  ) => Promise<AgentModelOption[]>;
 };
 
 export const AGENT_REGISTRY: Record<AgentId, AgentRegistryEntry> = {
   ...STATIC_AGENT_REGISTRY,
   devin: {
     ...STATIC_AGENT_REGISTRY.devin,
-    fetchModels: async (resolvedBin) =>
+    fetchModels: async (resolvedBin, signal) =>
       detectAcpModels(
         resolvedBin,
         [
@@ -107,27 +114,43 @@ export const AGENT_REGISTRY: Record<AgentId, AgentRegistryEntry> = {
           "acp",
         ],
         AGENT_REGISTRY.devin.fallbackModels,
+        signal,
       ),
   },
   pi: {
     ...STATIC_AGENT_REGISTRY.pi,
-    fetchModels: async (resolvedBin) =>
-      detectPiModels(resolvedBin, AGENT_REGISTRY.pi.fallbackModels),
+    fetchModels: async (resolvedBin, signal) =>
+      detectPiModels(resolvedBin, AGENT_REGISTRY.pi.fallbackModels, signal),
   },
   kiro: {
     ...STATIC_AGENT_REGISTRY.kiro,
-    fetchModels: async (resolvedBin) =>
-      detectAcpModels(resolvedBin, ["acp"], AGENT_REGISTRY.kiro.fallbackModels),
+    fetchModels: async (resolvedBin, signal) =>
+      detectAcpModels(
+        resolvedBin,
+        ["acp"],
+        AGENT_REGISTRY.kiro.fallbackModels,
+        signal,
+      ),
   },
   kilo: {
     ...STATIC_AGENT_REGISTRY.kilo,
-    fetchModels: async (resolvedBin) =>
-      detectAcpModels(resolvedBin, ["acp"], AGENT_REGISTRY.kilo.fallbackModels),
+    fetchModels: async (resolvedBin, signal) =>
+      detectAcpModels(
+        resolvedBin,
+        ["acp"],
+        AGENT_REGISTRY.kilo.fallbackModels,
+        signal,
+      ),
   },
   vibe: {
     ...STATIC_AGENT_REGISTRY.vibe,
-    fetchModels: async (resolvedBin) =>
-      detectAcpModels(resolvedBin, [], AGENT_REGISTRY.vibe.fallbackModels),
+    fetchModels: async (resolvedBin, signal) =>
+      detectAcpModels(
+        resolvedBin,
+        [],
+        AGENT_REGISTRY.vibe.fallbackModels,
+        signal,
+      ),
   },
 };
 

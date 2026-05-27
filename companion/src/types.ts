@@ -19,7 +19,8 @@ export type CliDetectStatus =
   | "available"
   | "not_installed"
   | "needs_login"
-  | "outdated";
+  | "outdated"
+  | "timeout";
 
 export type CompanionHealthResponse = {
   ok: boolean;

@@ -1,6 +1,5 @@
 import type { AgentId } from "../types.js";
 import { getAgentRegistryEntry } from "../agent-registry.js";
-import { resolveWindowsCommand } from "../windows-command.js";
 import {
   DEFAULT_ARGV_PROMPT_BUDGET_BYTES,
   estimatePromptBytes,
@@ -87,7 +86,6 @@ function pushAddDirs(args: string[], dirs?: string[]): void {
  */
 function buildCodexArgs(ctx: BuildArgsContext): AgentLaunchSpec {
   const registry = getAgentRegistryEntry("codex");
-  const command = resolveWindowsCommand(registry.execution.bin);
   const isWindows = process.platform === "win32";
   const args = isWindows
     ? ["exec", "--json", "--skip-git-repo-check", "--sandbox", "danger-full-access"]
@@ -106,9 +104,8 @@ function buildCodexArgs(ctx: BuildArgsContext): AgentLaunchSpec {
     args.push("--model", ctx.agentModel);
   }
   return {
-    bin: command.bin,
+    bin: registry.execution.bin,
     args,
-    requiresShell: command.requiresShell,
     streamFormat: registry.execution.streamFormat,
     closeStdinAfterPrompt: true,
     stdinPayload: "composed",

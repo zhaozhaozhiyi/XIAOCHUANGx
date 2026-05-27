@@ -1,6 +1,12 @@
 export { buildLaunchSpec } from "./agents/build-args.js";
 export type { AgentLaunchSpec, BuildArgsContext } from "./agents/build-args.js";
 export {
+  buildResolvedCommandArgs,
+  quoteCmdArg,
+  resolveWindowsCommand,
+  type WindowsCommandResolution,
+} from "./windows-command.js";
+export {
   AGENT_ADAPTERS,
   getAgentAdapter,
 } from "./adapters/index.js";

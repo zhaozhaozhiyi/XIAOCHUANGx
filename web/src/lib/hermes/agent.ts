@@ -22,6 +22,9 @@ export function assertAgentAvailable(agentId: AgentId): string | null {
   if (state.status === "not_installed") {
     return `${agentLabel(agentId)} 未安装，请联系管理员安装小窗智能体组件`;
   }
+  if (state.status === "timeout") {
+    return `${agentLabel(agentId)} 探测超时${state.hint ? `：${state.hint}` : ""}`;
+  }
   return `${agentLabel(agentId)} 版本过低，请联系管理员升级`;
 }
 

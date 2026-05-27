@@ -37,6 +37,8 @@ function statusLabel(status: CliStatus): string {
       return "需登录";
     case "outdated":
       return "版本过低";
+    case "timeout":
+      return "探测超时";
   }
 }
 
@@ -46,6 +48,8 @@ function statusClass(status: CliStatus): string {
       return "bg-emerald-50 text-emerald-800";
     case "needs_login":
       return "bg-amber-50 text-amber-900";
+    case "timeout":
+      return "bg-red-50 text-red-900";
     default:
       return "bg-[var(--border)] text-[var(--fg-secondary)]";
   }

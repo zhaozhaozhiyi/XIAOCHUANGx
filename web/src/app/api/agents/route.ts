@@ -34,12 +34,12 @@ async function fetchAgentsFromCompanion(): Promise<{
     fetch(companionHealthUrl(), {
       method: "GET",
       headers: authHeaders(),
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(10_000),
     }),
     fetch(companionAgentsUrl(), {
       method: "GET",
       headers: authHeaders(),
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(10_000),
     }),
   ]);
 
@@ -126,7 +126,7 @@ export async function POST() {
       },
       // Fastify rejects Content-Type: application/json without a body
       body: "{}",
-      signal: AbortSignal.timeout(15_000),
+      signal: AbortSignal.timeout(10_000),
     });
 
     if (!res.ok) {

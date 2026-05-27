@@ -138,6 +138,9 @@ export function assertAgentAvailableRuntime(
     if (state.status === "not_installed") {
       return `${agentLabel(agentId)} 未安装，请联系管理员安装小窗智能体组件`;
     }
+    if (state.status === "timeout") {
+      return `${agentLabel(agentId)} 探测超时${state.hint ? `：${state.hint}` : ""}`;
+    }
     return `${agentLabel(agentId)} 版本过低，请联系管理员升级`;
   }
   return null;
@@ -157,6 +160,8 @@ export function cliStatusHintRuntime(
       return "未检测到该智能体组件，请联系管理员安装";
     case "outdated":
       return "智能体版本过低，请升级后使用";
+    case "timeout":
+      return "智能体探测超时，请稍后重试或在设置中单独测试";
   }
 }
 

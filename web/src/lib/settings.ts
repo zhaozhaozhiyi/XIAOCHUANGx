@@ -26,7 +26,12 @@ import { normalizeChatMode } from "@/lib/navigation";
 
 export type { AgentId } from "@jlc/runtime-core/agent-catalog";
 
-export type CliStatus = "available" | "not_installed" | "needs_login" | "outdated";
+export type CliStatus =
+  | "available"
+  | "not_installed"
+  | "needs_login"
+  | "outdated"
+  | "timeout";
 
 export type InferenceChannel = "cli" | "api_fallback";
 
@@ -321,6 +326,8 @@ export function cliStatusHint(id: AgentId): string | undefined {
       return "未检测到该智能体组件，请联系管理员安装";
     case "outdated":
       return "智能体版本过低，请升级后使用";
+    case "timeout":
+      return "智能体探测超时，请稍后重试或在设置中单独测试";
   }
 }
 

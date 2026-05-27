@@ -1,5 +1,10 @@
 import { spawn } from "node:child_process";
-import { AGENT_REGISTRY, type AgentId } from "@jlc/runtime-core";
+import {
+  AGENT_REGISTRY,
+  buildResolvedCommandArgs,
+  resolveWindowsCommand,
+  type AgentId,
+} from "@jlc/runtime-core";
 
 const BINS: Record<AgentId, string> = Object.fromEntries(
   Object.entries(AGENT_REGISTRY).map(([id, entry]) => [id, entry.execution.bin]),
@@ -14,12 +19,14 @@ export async function trySpawnVersionProbe(
   cwd: string,
   signal?: AbortSignal,
 ): Promise<{ ok: boolean; output: string }> {
-  const bin = BINS[agentId];
+  const command = resolveWindowsCommand(BINS[agentId]);
+  const args = buildResolvedCommandArgs(command, ["--version"]);
   return new Promise((resolve) => {
-    const child = spawn(bin, ["--version"], {
+    const child = spawn(command.bin, args, {
       cwd,
       stdio: ["ignore", "pipe", "pipe"],
       env: { ...process.env },
+      windowsVerbatimArguments: command.windowsVerbatimArguments,
     });
 
     let out = "";
