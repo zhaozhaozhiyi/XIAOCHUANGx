@@ -1152,6 +1152,10 @@ body {
   font-size: 12px;
 }
 
+.chat-assistant-stage--status-tail {
+  margin-top: 0.625rem;
+}
+
 .chat-assistant-stage--summary {
   padding-top: 0.125rem;
 }
@@ -1319,7 +1323,7 @@ body {
 }
 
 .chat-activity-interstitial {
-  padding: 0.375rem 0 0.875rem calc(1.25rem + 0.75rem);
+  padding: 0.375rem 0 0.875rem 0;
 }
 
 .activity-log-pane {

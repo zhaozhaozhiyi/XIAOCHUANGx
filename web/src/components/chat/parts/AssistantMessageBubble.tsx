@@ -87,6 +87,15 @@ export function AssistantMessageBubble({
     (status === "loading" || status === "streaming") &&
     hasRunningToolPart(viewModel.processParts);
   const hasContent = viewModel.contentParts.length > 0 || viewModel.deliverablesPart != null;
+  const showTailStatus =
+    viewModel.statusPart != null &&
+    (status === "loading" || status === "streaming");
+
+  const tailStatus = showTailStatus ? (
+    <div className="chat-assistant-stage chat-assistant-stage--status chat-assistant-stage--status-tail">
+      <PartRenderer part={viewModel.statusPart!} />
+    </div>
+  ) : null;
 
   if (
     (status === "loading" || status === "streaming") &&
@@ -96,6 +105,7 @@ export function AssistantMessageBubble({
     return (
       <div className="bubble-assistant">
         <LoadingBubble />
+        {tailStatus}
       </div>
     );
   }
@@ -103,13 +113,6 @@ export function AssistantMessageBubble({
   return (
     <div className="bubble-assistant">
       <div className="chat-assistant-message">
-        {viewModel.statusPart &&
-        (status === "loading" || status === "streaming" || viewModel.waitingMessage) ? (
-          <div className="chat-assistant-stage chat-assistant-stage--status">
-            <PartRenderer part={viewModel.statusPart} />
-          </div>
-        ) : null}
-
         {viewModel.waitingMessage ? (
           <WaitingUserCallout message={viewModel.waitingMessage} />
         ) : null}
@@ -133,6 +136,8 @@ export function AssistantMessageBubble({
             ) : null}
           </div>
         ) : null}
+
+        {tailStatus}
 
         {status === "error" && !hasContent ? (
           <p className="text-xs text-[var(--danger)]">

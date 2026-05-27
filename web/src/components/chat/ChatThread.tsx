@@ -8,6 +8,7 @@ import { ChatTurnList } from "./ChatTurnList";
 import { ChatTopBar } from "./ChatTopBar";
 import { PinnedTodoBar } from "./PinnedTodoBar";
 import { useChatAgentSelection } from "./useChatAgentSelection";
+import { buildChatScrollContentKey } from "@/lib/chat-scroll";
 import { useChatScrollPin } from "./useChatScrollPin";
 import { useChatSend } from "./useChatSend";
 import { useSettings } from "@/components/settings/SettingsContext";
@@ -82,9 +83,17 @@ export function ChatThread({ id }: { id: string }) {
     [messages],
   );
 
+  const scrollContentKey = useMemo(
+    () => buildChatScrollContentKey(messages),
+    [messages],
+  );
   const { showJumpToBottom, scrollToBottom, markPinned } = useChatScrollPin(
     scrollRootRef,
-    { messageCount: messages.length, isReplying },
+    {
+      messageCount: messages.length,
+      isReplying,
+      contentKey: scrollContentKey,
+    },
   );
 
   const sessionProjectId = getSessionProjectId(id);

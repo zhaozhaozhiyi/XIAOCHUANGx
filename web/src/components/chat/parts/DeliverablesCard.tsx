@@ -44,8 +44,10 @@ function DeliverableRow({
 
   return (
     <div
-      className={`flex w-full items-center gap-3 border-t border-[var(--border)] px-3 py-2.5 text-left text-sm first:border-t-0 hover:bg-[var(--sidebar-hover)] ${
-        primary ? "bg-[var(--accent-muted)]/30" : ""
+      className={`chat-deliverable-row flex w-full items-center gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3 py-2.5 text-left text-sm shadow-[0_1px_0_rgba(0,0,0,0.02)] transition-colors hover:bg-[var(--sidebar-hover)] ${
+        primary
+          ? "border-[color-mix(in_srgb,var(--accent)_22%,var(--border))]"
+          : ""
       }`}
       title={item.path}
     >
@@ -109,16 +111,8 @@ export function DeliverablesCard({ part }: { part: DeliverablesPart }) {
   const rest = part.items.filter((i) => i.path !== primaryPath);
 
   return (
-    <div className="chat-deliverables rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] text-sm">
-      <div className="border-b border-[var(--border)] px-3 py-2 text-xs font-medium text-[var(--fg-secondary)]">
-        成品 · 本轮交付
-      </div>
-      {part.headline ? (
-        <p className="px-3 pt-2 text-sm text-[var(--fg)]">{part.headline}</p>
-      ) : null}
-      {primary ? (
-        <DeliverableRow item={primary} primary />
-      ) : null}
+    <div className="chat-deliverables flex flex-col gap-2 text-sm">
+      {primary ? <DeliverableRow item={primary} primary /> : null}
       {rest.map((item) => (
         <DeliverableRow key={item.path} item={item} />
       ))}
