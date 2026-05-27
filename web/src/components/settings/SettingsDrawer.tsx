@@ -30,7 +30,6 @@ function SettingsPanel({ section }: { section: SettingsSectionId }) {
       return <AccountSettingsSection />;
     case "about":
       return <AboutSettingsSection />;
-    case "charts":
     case "knowledge":
     case "admin":
       return <PlaceholderSettingsSection section={section} />;

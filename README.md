@@ -12,26 +12,36 @@
 
 ## 本地开发
 
+**MVP 联调需同时运行四个进程**（各开终端）：API、Companion、Web；桌面壳为推荐交付形态。
+
 ```bash
 # 1. 依赖服务
 docker compose up -d
 
 # 2. 安装
 pnpm install
+pnpm contracts:build && pnpm runtime-core:build
 
 # 3. 数据库（首次）
 cp api/.env.example api/.env
 pnpm db:push
 
-# 4. 启动 API
+# 4. 启动 API（终端 A）
 pnpm dev:api
 # → http://localhost:3001/v1  Swagger: http://localhost:3001/docs
 
-# 5. 启动 Web（另开终端）
-cd web && npm run dev
+# 5. 启动 Companion（终端 B，必需 — Agent 执行、项目树、文件夹导入）
+pnpm companion:dev
+# → http://127.0.0.1:9477
 
-# 6. 可选：桌面壳（MVP 推荐）
+# 6. 启动 Web（终端 C）
+pnpm dev:web
+# → http://localhost:3000
+
+# 7. 桌面壳（终端 D，MVP 推荐）
 pnpm desktop:dev
 ```
+
+Web 默认 `CHAT_EXECUTION=companion`、`COMPANION_BASE_URL=http://127.0.0.1:9477`；无本机 CLI 时可 `COMPANION_RUN_MODE=simulate pnpm companion:dev` 做 UI 演示。详见 [companion/README.md](./companion/README.md)。
 
 开发登录：`.env` 中 `AUTH_DEV_MODE=true` 时验证码为 **123456**。

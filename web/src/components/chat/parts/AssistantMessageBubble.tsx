@@ -1,14 +1,13 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
-import { CheckCircle2, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
+import { useMemo } from "react";
 import type { ChatMessage } from "@/lib/chat";
 import type { ChatPart } from "@/lib/chat-parts";
 import { computeThinkingGaps } from "@/lib/chat-thinking-gap";
 import { selectHasAssistantSummaryContent } from "@/lib/chat-message-selectors";
 import { buildTurnViewModel } from "@/lib/chat-turn-view-model";
+import { ActivityProcessList } from "@/components/chat/parts/ActivityTimeline";
 import { PartRenderer } from "@/components/chat/parts/PartRenderer";
-import { ThinkingGapRow } from "@/components/chat/parts/ThinkingGapRow";
 import { ToolRunningDots } from "@/components/chat/parts/ToolRunningDots";
 
 type Props = {
@@ -60,118 +59,6 @@ function WaitingUserCallout({ message }: { message: string }) {
   );
 }
 
-function AssistantStatusLine({
-  status,
-  waiting,
-}: {
-  status: ChatMessage["status"];
-  waiting: boolean;
-}) {
-  const text =
-    status === "error"
-      ? "运行失败"
-      : status === "cancelled"
-        ? "已中断"
-        : waiting
-          ? "等待你继续"
-          : status === "loading" || status === "streaming"
-            ? "正在处理"
-            : "已完成";
-  const running = status === "loading" || status === "streaming";
-
-  return (
-    <div className="chat-assistant-status-line">
-      {running ? (
-        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-      ) : (
-        <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
-      )}
-      <span>{text}</span>
-    </div>
-  );
-}
-
-function SectionToggle({
-  title,
-  defaultOpen,
-  badge,
-  variant = "panel",
-  children,
-}: {
-  title: string;
-  defaultOpen?: boolean;
-  badge?: string;
-  variant?: "panel" | "activity";
-  children: React.ReactNode;
-}) {
-  const [open, setOpen] = useState(!!defaultOpen);
-  return (
-    <div
-      className={
-        variant === "activity"
-          ? "chat-activity-group"
-          : "rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)]/72"
-      }
-    >
-      <button
-        type="button"
-        className={
-          variant === "activity"
-            ? "chat-activity-group__summary"
-            : "flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium text-[var(--fg-secondary)] transition-colors hover:bg-[var(--sidebar-hover)]/60"
-        }
-        onClick={() => setOpen((value) => !value)}
-        aria-expanded={open}
-      >
-        {open ? (
-          <ChevronDown className="h-3.5 w-3.5" />
-        ) : (
-          <ChevronRight className="h-3.5 w-3.5" />
-        )}
-        <span>{title}</span>
-        {badge ? (
-          <span className="ml-auto rounded-full bg-[var(--sidebar-hover)] px-2 py-0.5 text-[10px] text-[var(--fg-tertiary)]">
-            {badge}
-          </span>
-        ) : null}
-      </button>
-      {open ? (
-        <div
-          className={
-            variant === "activity"
-              ? "chat-activity-group__body"
-              : "border-t border-[var(--border)] px-3 py-3"
-          }
-        >
-          {children}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function renderParts(
-  parts: ChatPart[],
-  gapBefore: Map<string | null, string>,
-  onClarificationSubmitted?: (partId: string, answer: string) => void,
-  onClarificationContinue?: (answer: string) => void,
-  onClarificationDraftChange?: Props["onClarificationDraftChange"],
-) {
-  return parts.map((part) => (
-    <Fragment key={part.id}>
-      {gapBefore.has(part.id) ? (
-        <ThinkingGapRow label={gapBefore.get(part.id)!} />
-      ) : null}
-      <PartRenderer
-        part={part}
-        onClarificationSubmitted={onClarificationSubmitted}
-        onClarificationContinue={onClarificationContinue}
-        onClarificationDraftChange={onClarificationDraftChange}
-      />
-    </Fragment>
-  ));
-}
-
 export function AssistantMessageBubble({
   message,
   thinkingGapMinMs = 3_000,
@@ -196,24 +83,15 @@ export function AssistantMessageBubble({
     return next;
   }, [gaps]);
 
-  const summaryFirstParts = useMemo(() => {
-    const parts: ChatPart[] = [];
-    if (viewModel.summaryPart) parts.push(viewModel.summaryPart);
-    return parts;
-  }, [viewModel.summaryPart]);
-
   const showToolRunningDots =
     (status === "loading" || status === "streaming") &&
     hasRunningToolPart(viewModel.processParts);
-  const showSummaryStage =
-    summaryFirstParts.length > 0 ||
-    (status !== "loading" && status !== "streaming");
+  const hasContent = viewModel.contentParts.length > 0 || viewModel.deliverablesPart != null;
 
   if (
     (status === "loading" || status === "streaming") &&
     !hasSummary &&
-    summaryFirstParts.length === 0 &&
-    viewModel.processParts.length === 0
+    !hasContent
   ) {
     return (
       <div className="bubble-assistant">
@@ -225,11 +103,6 @@ export function AssistantMessageBubble({
   return (
     <div className="bubble-assistant">
       <div className="chat-assistant-message">
-        <AssistantStatusLine
-          status={status}
-          waiting={Boolean(viewModel.waitingMessage)}
-        />
-
         {viewModel.statusPart &&
         (status === "loading" || status === "streaming" || viewModel.waitingMessage) ? (
           <div className="chat-assistant-stage chat-assistant-stage--status">
@@ -241,60 +114,27 @@ export function AssistantMessageBubble({
           <WaitingUserCallout message={viewModel.waitingMessage} />
         ) : null}
 
-        {viewModel.processParts.length > 0 || showToolRunningDots ? (
+        {hasContent ? (
           <div className="chat-assistant-stage">
             {showToolRunningDots ? <ToolRunningDots label="Activity running…" /> : null}
-            {viewModel.processParts.length > 0 ? (
-              <SectionToggle
-                title="Activity"
-                badge={`${viewModel.processParts.length} 项`}
-                defaultOpen={status === "loading" || status === "streaming"}
-                variant="activity"
-              >
-                <div className="flex flex-col gap-2.5">
-                  {renderParts(
-                    viewModel.processParts,
-                    gapBefore,
-                    onClarificationSubmitted,
-                    onClarificationContinue,
-                    onClarificationDraftChange,
-                  )}
-                </div>
-              </SectionToggle>
+            {viewModel.contentParts.length > 0 ? (
+              <ActivityProcessList
+                parts={viewModel.contentParts}
+                gapBefore={gapBefore}
+                onClarificationSubmitted={onClarificationSubmitted}
+                onClarificationContinue={onClarificationContinue}
+                onClarificationDraftChange={onClarificationDraftChange}
+              />
+            ) : null}
+            {viewModel.deliverablesPart ? (
+              <div className="mt-3">
+                <PartRenderer part={viewModel.deliverablesPart} />
+              </div>
             ) : null}
           </div>
         ) : null}
 
-        {showSummaryStage && summaryFirstParts.length > 0 ? (
-          <div className="chat-assistant-stage chat-assistant-stage--summary">
-            {renderParts(
-              summaryFirstParts,
-              gapBefore,
-              onClarificationSubmitted,
-              onClarificationContinue,
-              onClarificationDraftChange,
-            )}
-          </div>
-        ) : null}
-
-        {viewModel.reasoningParts.length > 0 ? (
-          <SectionToggle
-            title="思考过程"
-            badge={`${viewModel.reasoningParts.length} 项`}
-          >
-            <div className="flex flex-col gap-3">
-              {renderParts(viewModel.reasoningParts, gapBefore)}
-            </div>
-          </SectionToggle>
-        ) : null}
-
-        {viewModel.deliverablesPart ? (
-          <div className="chat-assistant-stage chat-assistant-stage--deliverables">
-            <PartRenderer part={viewModel.deliverablesPart} />
-          </div>
-        ) : null}
-
-        {status === "error" && summaryFirstParts.length === 0 ? (
+        {status === "error" && !hasContent ? (
           <p className="text-xs text-[var(--danger)]">
             生成失败。请确认 Companion 已启动、Agent CLI 可用，或查看顶栏运行时状态。
           </p>

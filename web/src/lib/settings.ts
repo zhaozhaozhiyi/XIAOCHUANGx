@@ -9,6 +9,18 @@ import {
   type ApiProviderConfig,
   type ChatExecutionSource,
 } from "@/lib/byok/shared";
+import {
+  defaultApiSelection,
+  migrateLegacyApiProvider,
+  syncLegacyApiProvider,
+  type ApiModelSelection,
+  type ModelProviderInstance,
+} from "@/lib/byok/model-providers";
+import {
+  defaultVoiceSelection,
+  type VoiceModelSelection,
+  type VoiceProviderInstance,
+} from "@/lib/voice/voice-providers";
 import type { ChatModeId } from "@/lib/navigation";
 import { normalizeChatMode } from "@/lib/navigation";
 
@@ -19,12 +31,11 @@ export type CliStatus = "available" | "not_installed" | "needs_login" | "outdate
 export type InferenceChannel = "cli" | "api_fallback";
 
 /** 智能体与模型设置页内 Tab */
-export type AgentSettingsTab = "cli" | "api";
+export type AgentSettingsTab = "cli" | "api" | "voice";
 
 export type SettingsSectionId =
   | "agent"
   | "chat_defaults"
-  | "charts"
   | "workspace"
   | "knowledge"
   | "account"
@@ -57,12 +68,6 @@ export const SETTINGS_MENU: SettingsMenuItem[] = [
     id: "chat_defaults",
     label: "研究与对话默认",
     inPopover: true,
-    comingSoon: true,
-  },
-  {
-    id: "charts",
-    label: "数据与图表",
-    inPopover: false,
     comingSoon: true,
   },
   {
@@ -163,6 +168,18 @@ export type UserSettings = {
   defaultAgentId: AgentId;
   agentModels: Record<AgentId, string>;
   apiProvider: ApiProviderConfig;
+  /** 多厂商模型 API 配置 */
+  modelProviders: ModelProviderInstance[];
+  /** 对话顶栏选中的 API 模型 */
+  activeApiSelection: ApiModelSelection | null;
+  /** 语音模型 Provider 列表 */
+  voiceProviders: VoiceProviderInstance[];
+  /** 全局启用语音能力 */
+  voiceEnabled: boolean;
+  /** 默认语音识别模型 */
+  defaultSttSelection: VoiceModelSelection | null;
+  /** 默认语音合成模型 */
+  defaultTtsSelection: VoiceModelSelection | null;
   defaultChatMode: ChatModeId;
   rememberLastChatMode: boolean;
   workspaceOpenByDefault: boolean;
@@ -183,6 +200,12 @@ export const DEFAULT_SETTINGS: UserSettings = {
     AGENT_IDS.map((id) => [id, "default"]),
   ) as Record<AgentId, string>,
   apiProvider: DEFAULT_API_PROVIDER_CONFIG,
+  modelProviders: [],
+  activeApiSelection: null,
+  voiceProviders: [],
+  voiceEnabled: false,
+  defaultSttSelection: null,
+  defaultTtsSelection: null,
   defaultChatMode: "fast",
   rememberLastChatMode: true,
   workspaceOpenByDefault: false,
@@ -197,35 +220,65 @@ function migrateChatMode(mode: unknown): ChatModeId {
   return normalizeChatMode(mode) ?? DEFAULT_SETTINGS.defaultChatMode;
 }
 
+function normalizeUserSettings(parsed: Partial<UserSettings>): UserSettings {
+  const apiProvider = {
+    ...DEFAULT_SETTINGS.apiProvider,
+    ...(parsed.apiProvider ?? {}),
+  };
+
+  let modelProviders = parsed.modelProviders ?? [];
+  if (!modelProviders.length) {
+    modelProviders = migrateLegacyApiProvider(apiProvider);
+  }
+
+  let activeApiSelection = parsed.activeApiSelection ?? null;
+  if (!activeApiSelection) {
+    activeApiSelection = defaultApiSelection(modelProviders);
+  }
+
+  const voiceProviders = parsed.voiceProviders ?? [];
+  let defaultSttSelection = parsed.defaultSttSelection ?? null;
+  let defaultTtsSelection = parsed.defaultTtsSelection ?? null;
+  if (!defaultSttSelection) {
+    defaultSttSelection = defaultVoiceSelection(voiceProviders, "stt");
+  }
+  if (!defaultTtsSelection) {
+    defaultTtsSelection = defaultVoiceSelection(voiceProviders, "tts");
+  }
+
+  return {
+    ...DEFAULT_SETTINGS,
+    ...parsed,
+    apiProvider: syncLegacyApiProvider(
+      modelProviders,
+      activeApiSelection,
+      apiProvider,
+    ),
+    modelProviders,
+    activeApiSelection,
+    voiceProviders,
+    voiceEnabled: parsed.voiceEnabled ?? false,
+    defaultSttSelection,
+    defaultTtsSelection,
+    defaultChatMode: migrateChatMode(parsed.defaultChatMode),
+  };
+}
+
 export function loadSettings(): UserSettings {
   if (typeof window === "undefined") return DEFAULT_SETTINGS;
   try {
     const v2 = localStorage.getItem(STORAGE_KEY_V2);
     if (v2) {
       const parsed = JSON.parse(v2) as Partial<UserSettings>;
-      return {
-        ...DEFAULT_SETTINGS,
-        ...parsed,
-        apiProvider: {
-          ...DEFAULT_SETTINGS.apiProvider,
-          ...(parsed.apiProvider ?? {}),
-        },
-        defaultChatMode: migrateChatMode(parsed.defaultChatMode),
-      };
+      return normalizeUserSettings(parsed);
     }
     const v1 = localStorage.getItem(STORAGE_KEY);
     if (v1) {
       const parsed = JSON.parse(v1) as Partial<UserSettings>;
-      const migrated: UserSettings = {
-        ...DEFAULT_SETTINGS,
+      const migrated = normalizeUserSettings({
         ...parsed,
-        apiProvider: {
-          ...DEFAULT_SETTINGS.apiProvider,
-          ...(parsed.apiProvider ?? {}),
-        },
-        defaultChatMode: migrateChatMode(parsed.defaultChatMode),
         workspaceOpenByDefault: false,
-      };
+      });
       saveSettings(migrated);
       return migrated;
     }

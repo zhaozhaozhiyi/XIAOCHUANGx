@@ -16,11 +16,6 @@ const COPY: Record<
     body: "配置新建对话的默认问答模式，以及是否沿用上次模式。",
     planned: "V1.1 · F-SET-002",
   },
-  charts: {
-    title: "数据与图表",
-    body: "变频默认规则（期末/均值/合计）与表格、图表导出默认格式。",
-    planned: "V1.1 · F-SET-003",
-  },
   workspace: {
     title: "工作区",
     body: "默认展开工作区、记住面板宽度、是否显示 Agent 终端页签。",

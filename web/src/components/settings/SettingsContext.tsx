@@ -23,6 +23,7 @@ import {
   type SettingsSectionId,
   type UserSettings,
 } from "@/lib/settings";
+import { syncLegacyApiProvider } from "@/lib/byok/model-providers";
 
 export type OpenDrawerOptions = {
   agentTab?: AgentSettingsTab;
@@ -181,7 +182,22 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const updateSettings = useCallback(
     (patch: Partial<UserSettings>) => {
       setSettings((prev) => {
-        const next = { ...prev, ...patch };
+        const merged = { ...prev, ...patch };
+        const modelProviders = merged.modelProviders ?? prev.modelProviders;
+        const activeApiSelection =
+          merged.activeApiSelection !== undefined
+            ? merged.activeApiSelection
+            : prev.activeApiSelection;
+        const next: UserSettings = {
+          ...merged,
+          modelProviders,
+          activeApiSelection,
+          apiProvider: syncLegacyApiProvider(
+            modelProviders,
+            activeApiSelection,
+            merged.apiProvider ?? prev.apiProvider,
+          ),
+        };
         saveSettings(next);
         setSaveStatus("saving");
         window.setTimeout(() => setSaveStatus("saved"), 400);

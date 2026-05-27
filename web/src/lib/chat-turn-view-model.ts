@@ -17,7 +17,8 @@ export type TurnViewModel = {
   waitingMessage: string | null;
   statusPart: Extract<ChatPart, { kind: "turn_meta" | "status" }> | null;
   processParts: ChatPart[];
-  reasoningParts: ChatPart[];
+  /** 所有 part 按 streamSeq 严格时序交错，包含 text/summary 在内 */
+  contentParts: ChatPart[];
   debugParts: ChatPart[];
 };
 
@@ -107,20 +108,37 @@ export function buildTurnViewModel(message: ChatMessage): TurnViewModel {
     }
     return true;
   });
-  const reasoningParts = timeline.filter((part) => part.kind === "reasoning");
   const debugParts = timeline.filter(isDebugPart);
+
+  // contentParts = 完整时序交错（含 text/summary），跨 kind 按文字内容去重
+  const contentSeenTexts = new Set<string>();
+  const contentParts = timeline.filter((part) => {
+    if (isDebugPart(part)) return false;
+    if (isWaitingPart(part)) return false;
+    if (isConnectStatusPart(part)) return false;
+    if (part.kind === "turn_meta") return false;
+    if (part.kind === "status") return false;
+    if (part.kind === "deliverables") return false;
+    // 跨 kind 按纯文本内容去重，解决 companion 将同一段文字通过 delta + interim 重复发送的问题
+    const key = textKey(partText(part));
+    if (key) {
+      if (contentSeenTexts.has(key)) return false;
+      contentSeenTexts.add(key);
+    }
+    return true;
+  });
 
   return {
     summaryPart,
     deliverablesPart,
     statusPart,
-    reasoningParts,
     waitingMessage:
       (waitingPart && waitingPart.kind === "status" ? waitingPart.label : null) ??
       (message.canonicalOutput?.nextAction?.type === "ask_user"
         ? message.canonicalOutput.nextAction.message ?? null
         : null),
     processParts,
+    contentParts,
     debugParts,
   };
 }

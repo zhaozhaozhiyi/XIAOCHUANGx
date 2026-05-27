@@ -1,9 +1,14 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { HermesStatusDot } from "@/components/chat/HermesStatusBadge";
 import { useSettings } from "@/components/settings/SettingsContext";
+import {
+  getLlmModels,
+  hasAnyUsableProvider,
+  resolveApiSelection,
+} from "@/lib/byok/model-providers";
 import {
   hasUsableApiProviderConfig,
   providerDisplayName,
@@ -41,10 +46,30 @@ export function ChatAgentModelPicker({
   agentModel,
   onChange,
 }: ChatAgentModelPickerProps) {
-  const { settings, agentsRuntime } = useSettings();
+  const { settings, agentsRuntime, updateSettings } = useSettings();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const apiEnabled = hasUsableApiProviderConfig(settings.apiProvider);
+
+  const apiModels = useMemo(
+    () => getLlmModels(settings.modelProviders),
+    [settings.modelProviders],
+  );
+  const apiEnabled =
+    hasAnyUsableProvider(settings.modelProviders) ||
+    hasUsableApiProviderConfig(settings.apiProvider);
+
+  const activeApi = resolveApiSelection(
+    settings.modelProviders,
+    settings.activeApiSelection,
+  );
+  const activeApiModel = activeApi
+    ? apiModels.find(
+        (item) =>
+          item.provider.id === activeApi.providerId &&
+          item.model.id === activeApi.modelEntryId,
+      )
+    : apiModels[0];
+
   const resolvedAgentId = resolveSelectableAgentIdRuntime(
     agentsRuntime,
     agentId,
@@ -57,8 +82,14 @@ export function ChatAgentModelPicker({
   const currentModel =
     executionSource === "api"
       ? {
-          id: settings.apiProvider.model || "default",
-          label: settings.apiProvider.model || "未配置模型",
+          id: activeApiModel?.model.modelId || settings.apiProvider.model || "default",
+          label:
+            activeApiModel?.model.label ||
+            settings.apiProvider.model ||
+            "未配置模型",
+          providerLabel: activeApiModel
+            ? activeApiModel.provider.displayName
+            : providerDisplayName(settings.apiProvider),
         }
       : (models.find((m) => m.id === agentModel) ?? models[0]!);
   const menuAgents = getAvailableAgentsRuntime(agentsRuntime);
@@ -92,6 +123,26 @@ export function ChatAgentModelPicker({
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
 
+  const apiGroups = useMemo(() => {
+    const map = new Map<
+      string,
+      { providerLabel: string; models: typeof apiModels }
+    >();
+    for (const item of apiModels) {
+      const key = item.provider.id;
+      const existing = map.get(key);
+      if (existing) {
+        existing.models.push(item);
+      } else {
+        map.set(key, {
+          providerLabel: item.provider.displayName,
+          models: [item],
+        });
+      }
+    }
+    return [...map.values()];
+  }, [apiModels]);
+
   return (
     <div className="relative max-w-[11rem]" ref={rootRef}>
       <button
@@ -105,12 +156,12 @@ export function ChatAgentModelPicker({
           noneAvailable
             ? "当前无可用智能体，请在设置中查看安装与授权状态"
             : executionSource === "api"
-              ? `${providerDisplayName(settings.apiProvider)} · ${currentModel.label}`
+              ? `${"providerLabel" in currentModel ? currentModel.providerLabel : providerDisplayName(settings.apiProvider)} · ${currentModel.label}`
               : `${agentShortName(agent.name)} · ${currentModel.label}`
         }
         onClick={() => setOpen((o) => !o)}
       >
-          <span className="flex min-w-0 items-center gap-1.5">
+        <span className="flex min-w-0 items-center gap-1.5">
           {executionSource === "cli" ? (
             <HermesStatusDot framed agentId={resolvedAgentId} />
           ) : (
@@ -122,7 +173,7 @@ export function ChatAgentModelPicker({
             {noneAvailable
               ? "无可用"
               : executionSource === "api"
-                ? `${providerDisplayName(settings.apiProvider)} · ${currentModel.label}`
+                ? `${"providerLabel" in currentModel ? currentModel.providerLabel : providerDisplayName(settings.apiProvider)} · ${currentModel.label}`
                 : currentModel.label}
           </span>
         </span>
@@ -137,39 +188,88 @@ export function ChatAgentModelPicker({
           className="control-picker-menu control-picker-menu--compact min-w-[11rem]"
           role="listbox"
         >
-          {apiEnabled && (
-            <li role="presentation" className="py-0.5">
-              <p className="px-2.5 pb-0.5 pt-1 text-[11px] font-medium text-[var(--fg-tertiary)]">
-                {providerDisplayName(settings.apiProvider)}
-              </p>
-              <ul className="m-0 list-none p-0">
-                <li role="presentation">
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={executionSource === "api"}
-                    className={`control-picker-menu__item ${
-                      executionSource === "api"
-                        ? "control-picker-menu__item--selected"
-                        : ""
-                    }`}
-                    onClick={() => {
-                      onChange(
-                        "api",
-                        resolvedAgentId,
-                        settings.apiProvider.model || "default",
+          {apiEnabled &&
+            (apiGroups.length > 0 ? (
+              apiGroups.map((group) => (
+                <li
+                  key={group.providerLabel}
+                  role="presentation"
+                  className="control-picker-menu__group"
+                >
+                  <p className="control-picker-menu__heading">
+                    {group.providerLabel}
+                  </p>
+                  <ul className="control-picker-menu__options">
+                    {group.models.map(({ provider, model }) => {
+                      const selected =
+                        executionSource === "api" &&
+                        activeApi?.providerId === provider.id &&
+                        activeApi?.modelEntryId === model.id;
+                      return (
+                        <li key={model.id} role="presentation">
+                          <button
+                            type="button"
+                            role="option"
+                            aria-selected={selected}
+                            className={`control-picker-menu__item ${
+                              selected
+                                ? "control-picker-menu__item--selected"
+                                : ""
+                            }`}
+                            onClick={() => {
+                              updateSettings({
+                                activeApiSelection: {
+                                  providerId: provider.id,
+                                  modelEntryId: model.id,
+                                },
+                              });
+                              onChange("api", resolvedAgentId, model.modelId);
+                              setOpen(false);
+                            }}
+                          >
+                            <span className="whitespace-nowrap">
+                              {model.label || model.modelId}
+                            </span>
+                          </button>
+                        </li>
                       );
-                      setOpen(false);
-                    }}
-                  >
-                    <span className="whitespace-nowrap">
-                      {settings.apiProvider.model || "未配置模型"}
-                    </span>
-                  </button>
+                    })}
+                  </ul>
                 </li>
-              </ul>
-            </li>
-          )}
+              ))
+            ) : (
+              <li role="presentation" className="control-picker-menu__group">
+                <p className="control-picker-menu__heading">
+                  {providerDisplayName(settings.apiProvider)}
+                </p>
+                <ul className="control-picker-menu__options">
+                  <li role="presentation">
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={executionSource === "api"}
+                      className={`control-picker-menu__item ${
+                        executionSource === "api"
+                          ? "control-picker-menu__item--selected"
+                          : ""
+                      }`}
+                      onClick={() => {
+                        onChange(
+                          "api",
+                          resolvedAgentId,
+                          settings.apiProvider.model || "default",
+                        );
+                        setOpen(false);
+                      }}
+                    >
+                      <span className="whitespace-nowrap">
+                        {settings.apiProvider.model || "未配置模型"}
+                      </span>
+                    </button>
+                  </li>
+                </ul>
+              </li>
+            ))}
           {AGENT_DEFINITIONS.map((a) => {
             const agentDisabled = !isAgentAvailableRuntime(agentsRuntime, a.id);
             const agentModels = modelOptionsForAgent(
@@ -177,11 +277,11 @@ export function ChatAgentModelPicker({
               a.id,
             );
             return (
-              <li key={a.id} role="presentation" className="py-0.5">
-                <p className="px-2.5 pb-0.5 pt-1 text-[11px] font-medium text-[var(--fg-tertiary)]">
+              <li key={a.id} role="presentation" className="control-picker-menu__group">
+                <p className="control-picker-menu__heading">
                   {agentShortName(a.name)}
                 </p>
-                <ul className="m-0 list-none p-0">
+                <ul className="control-picker-menu__options">
                   {agentModels.map((m) => {
                     const selected =
                       executionSource === "cli" &&

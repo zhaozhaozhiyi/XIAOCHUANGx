@@ -1,8 +1,4 @@
 import { isComplexDeepQuestion } from "@jlc/runtime-core/chat-mode";
-import {
-  buildLightweightConversationReply,
-  classifyLightweightConversation,
-} from "@jlc/runtime-core/small-talk";
 import type { ChatModeId } from "@/lib/navigation";
 import type {
   ActivityCollapse,
@@ -212,13 +208,7 @@ export function getMockReply(
   text: string,
   mode: ChatModeId,
   agentId: AgentId,
-  options: { hasConversationContext?: boolean } = {},
 ): string {
-  const lightweightKind = classifyLightweightConversation(text, options);
-  if (lightweightKind) {
-    return buildLightweightConversationReply(lightweightKind);
-  }
-
   const q = text.toLowerCase();
   const agentTag = `【${agentLabel(agentId).replace(" CLI", "")}】`;
 

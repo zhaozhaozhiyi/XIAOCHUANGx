@@ -14,6 +14,8 @@ import {
   Terminal,
   Wrench,
 } from "lucide-react";
+import type { PartPresentation } from "@/components/chat/parts/PartRenderer";
+import { TimelineCollapsible } from "@/components/chat/parts/TimelineCollapsible";
 import { useMemo, useState } from "react";
 
 type ToolLikePart =
@@ -82,7 +84,13 @@ function DetailBlock({ label, value }: { label: string; value: unknown }) {
   );
 }
 
-export function ToolCardRow({ part }: { part: ToolLikePart }) {
+export function ToolCardRow({
+  part,
+  presentation = "default",
+}: {
+  part: ToolLikePart;
+  presentation?: PartPresentation;
+}) {
   const toolKey = part.kind === "command" ? "Bash" : part.tool;
   const status = statusLabel(part);
   const running =
@@ -108,6 +116,46 @@ export function ToolCardRow({ part }: { part: ToolLikePart }) {
         : null,
     [part],
   );
+
+  if (presentation === "timeline") {
+    const previewText = preview ?? toolDisplayName(toolKey);
+    return (
+      <div
+        className="chat-timeline-tool min-w-0 text-sm"
+        data-tool={toolKey}
+        data-status={status ?? "unknown"}
+      >
+        <TimelineCollapsible
+          text={previewText}
+          streaming={running}
+          streamingLabel="运行中…"
+          completeLabel="结束"
+        />
+        {hasDetails && !running ? (
+          <button
+            type="button"
+            className="mt-1.5 text-xs text-[var(--fg-tertiary)] transition-colors hover:text-[var(--fg-secondary)]"
+            onClick={() => setOpen((value) => !value)}
+            aria-expanded={open}
+          >
+            {open ? "收起详情" : "查看详情"}
+          </button>
+        ) : null}
+        {hasDetails && displayOpen && !running ? (
+          <div className="mt-2 flex flex-col gap-2">
+            {part.kind === "command" ? (
+              <DetailBlock label="command" value={commandPayload} />
+            ) : (
+              <>
+                <DetailBlock label="input" value={input} />
+                <DetailBlock label="output" value={output} />
+              </>
+            )}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div

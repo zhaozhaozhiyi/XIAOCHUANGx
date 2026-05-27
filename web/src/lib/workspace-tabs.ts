@@ -5,7 +5,10 @@ export type WorkspaceEditorTab =
   | { id: string; kind: "file"; fileId: string }
   | { id: string; kind: "explorer" }
   | { id: string; kind: "terminal"; sessionId: string }
-  | { id: string; kind: "browser"; url: string };
+  | { id: string; kind: "browser"; url: string }
+  | { id: string; kind: "activity-log" };
+
+export const ACTIVITY_LOG_TAB_LABEL = "记录";
 
 /** @deprecated 资源管理器页签改用当前 `projectLabel`，勿再用于展示 */
 export const EXPLORER_TAB_LABEL = "";

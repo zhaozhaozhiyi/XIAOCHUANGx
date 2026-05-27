@@ -42,6 +42,7 @@ import { normalizeChatMode } from "@/lib/navigation";
 import type { AgentId } from "@/lib/settings";
 import { fetchRunEvents, fetchRunRecord } from "@/lib/companion/runtime";
 import { applyRunEventsToMessage } from "@/lib/chat-run-events";
+import { useChatSessionOptional } from "@/contexts/ChatSessionContext";
 import { ChevronDown } from "lucide-react";
 
 export function ChatThread({ id }: { id: string }) {
@@ -89,7 +90,14 @@ export function ChatThread({ id }: { id: string }) {
   const sessionProjectId = getSessionProjectId(id);
   const { setWorkspaceProject } = useWorkspaceProject();
   const workspace = useWorkspaceOptional();
+  const chatSession = useChatSessionOptional();
+  const publishSessionRef = useRef(chatSession?.publishSession);
+  publishSessionRef.current = chatSession?.publishSession;
   const lastRefreshedDeliverablesKey = useRef("");
+
+  useEffect(() => {
+    publishSessionRef.current?.(id, messages);
+  }, [id, messages]);
 
   useEffect(() => {
     let cancelled = false;

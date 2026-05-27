@@ -1,13 +1,57 @@
 "use client";
 
+import type { PartPresentation } from "@/components/chat/parts/PartRenderer";
 import type { ToolBatchPart } from "@/lib/chat-parts";
 import { toolStatusTextClass } from "@/lib/activity-status-tone";
 import { ChevronDown, ChevronRight, FolderSearch } from "lucide-react";
 import { useState } from "react";
 
-export function ToolBatchCard({ part }: { part: ToolBatchPart }) {
+export function ToolBatchCard({
+  part,
+  presentation = "default",
+}: {
+  part: ToolBatchPart;
+  presentation?: PartPresentation;
+}) {
   const [open, setOpen] = useState(!!part.streaming);
   const displayOpen = part.streaming || open;
+
+  if (presentation === "timeline") {
+    return (
+      <div className="chat-timeline-tool-batch min-w-0 text-sm">
+        <button
+          type="button"
+          className={`w-full text-left ${part.streaming ? "cursor-default" : "cursor-pointer"}`}
+          onClick={() => {
+            if (part.streaming) return;
+            setOpen((v) => !v);
+          }}
+          aria-expanded={displayOpen}
+          aria-label={part.title}
+        >
+          <p className="text-[13px] leading-relaxed text-[var(--fg-secondary)]">
+            {part.title}
+          </p>
+        </button>
+        {displayOpen ? (
+          <ul className="mt-2 space-y-1 text-xs text-[var(--fg-secondary)]">
+            {part.items.map((item, i) => (
+              <li key={`${item.tool}-${i}`} className="flex items-start gap-2 py-0.5">
+                <span className="shrink-0 font-mono text-[var(--fg-tertiary)]">
+                  {item.tool}
+                </span>
+                {item.message ? (
+                  <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">
+                    {item.message}
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="chat-tool-batch rounded-[var(--radius-md)] border border-[var(--border)]/80 bg-[var(--surface)]/80 text-sm">

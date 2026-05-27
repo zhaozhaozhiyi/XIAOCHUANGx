@@ -85,6 +85,7 @@ type WorkspaceContextValue = {
   openExplorerTab: () => void;
   openTerminalTab: (sessionId?: string) => void;
   openBrowserTab: (url?: string) => void;
+  openActivityLogTab: () => void;
   expandAllFolders: () => void;
   closeTab: (tabId: string) => void;
   registerTerminalApi: (api: TerminalApi | null) => void;
@@ -1007,6 +1008,22 @@ export function WorkspaceProvider({
     [openTabs, activateTab],
   );
 
+  const openActivityLogTab = useCallback(() => {
+    setOpen(true);
+    const existing = openTabs.find((t) => t.kind === "activity-log");
+    if (existing) {
+      activateTab(existing.id, openTabs);
+      return;
+    }
+    const tab: WorkspaceEditorTab = {
+      id: createTabId("tab-activity-log"),
+      kind: "activity-log",
+    };
+    const next = [...openTabs, tab];
+    setOpenTabs(next);
+    activateTab(tab.id, next);
+  }, [openTabs, activateTab]);
+
   const setActiveTabIdWrapped = useCallback(
     (id: string) => activateTab(id, openTabs),
     [activateTab, openTabs],
@@ -1109,6 +1126,7 @@ export function WorkspaceProvider({
       openExplorerTab,
       openTerminalTab,
       openBrowserTab,
+      openActivityLogTab,
       closeTab,
       expandAllFolders,
       registerTerminalApi,
@@ -1190,6 +1208,7 @@ export function WorkspaceProvider({
       openExplorerTab,
       openTerminalTab,
       openBrowserTab,
+      openActivityLogTab,
       closeTab,
       expandAllFolders,
       registerTerminalApi,

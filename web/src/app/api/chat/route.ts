@@ -1,8 +1,4 @@
 import { getMockActivityEvents, getMockReply } from "@/lib/chat";
-import {
-  buildLightweightConversationReply,
-  classifyLightweightConversation,
-} from "@jlc/runtime-core/small-talk";
 import { buildDeliverablesPart } from "@/lib/mock-deliverables";
 import { encodeMockActivitySse } from "@/lib/mock-activity-sse";
 import {
@@ -69,24 +65,6 @@ function mockSseStream(
         });
         controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
         await new Promise((r) => setTimeout(r, 40));
-      }
-      controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-      controller.close();
-    },
-  });
-}
-
-function textSseStream(text: string): ReadableStream<Uint8Array> {
-  const encoder = new TextEncoder();
-  const parts = text.match(/[\s\S]{1,48}/g) ?? [text];
-
-  return new ReadableStream({
-    async start(controller) {
-      for (const part of parts) {
-        const payload = JSON.stringify({
-          choices: [{ index: 0, delta: { content: part } }],
-        });
-        controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
       }
       controller.enqueue(encoder.encode("data: [DONE]\n\n"));
       controller.close();
@@ -171,24 +149,6 @@ export async function POST(request: Request) {
   const executionSource = parsed.executionSource ?? "cli";
   const lastUserIndex = findLastUserMessageIndex(messages);
   const lastUser = lastUserIndex >= 0 ? messages[lastUserIndex] : undefined;
-  const lightweightKind = classifyLightweightConversation(
-    lastUser?.content ?? "",
-    { hasConversationContext: lastUserIndex > 0 },
-  );
-
-  if (lightweightKind) {
-    return new Response(
-      textSseStream(buildLightweightConversationReply(lightweightKind)),
-      {
-        headers: {
-          "Content-Type": "text/event-stream; charset=utf-8",
-          "Cache-Control": "no-cache, no-transform",
-          Connection: "keep-alive",
-          "X-JLC-Agent-Id": agentId,
-        },
-      },
-    );
-  }
 
   if (executionSource === "api") {
     const providerConfig = trimApiProviderConfig({

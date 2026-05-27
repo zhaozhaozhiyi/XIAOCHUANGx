@@ -16,12 +16,15 @@ import { TodoBlock } from "@/components/chat/parts/TodoBlock";
 import { ToolBatchCard } from "@/components/chat/parts/ToolBatchCard";
 import { ToolCardRow } from "@/components/chat/parts/ToolCardRow";
 import { TurnMetaBar } from "@/components/chat/parts/TurnMetaBar";
+import { TimelineCollapsible } from "@/components/chat/parts/TimelineCollapsible";
 import { BadgePlus, ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import {
   activityChipClass,
   activityTone,
 } from "@/lib/activity-status-tone";
+
+export type PartPresentation = "default" | "timeline";
 
 function StatusChip({ part }: { part: Extract<ChatPart, { kind: "status" }> }) {
   const tone = activityTone(part.label, part.phase);
@@ -50,10 +53,26 @@ function StatusChipTag({
 
 function ReasoningBlock({
   part,
+  presentation = "default",
 }: {
   part: Extract<ChatPart, { kind: "reasoning" }>;
+  presentation?: PartPresentation;
 }) {
   const [open, setOpen] = useState(false);
+  const text = normalizeMarkdown(part.markdown);
+
+  if (presentation === "timeline") {
+    if (!text && !part.streaming) return null;
+    return (
+      <TimelineCollapsible
+        text={text}
+        streaming={part.streaming}
+        completeLabel="结束"
+        className="chat-timeline-reasoning"
+      />
+    );
+  }
+
   return (
     <div className="chat-part-reasoning rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)]">
       <button
@@ -73,7 +92,7 @@ function ReasoningBlock({
       </button>
       {open && (
         <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words border-t border-[var(--border)] px-3 py-2 font-mono text-xs text-[var(--fg-secondary)]">
-          {part.markdown}
+          {text}
         </pre>
       )}
     </div>
@@ -82,9 +101,19 @@ function ReasoningBlock({
 
 function NarrationBlock({
   part,
+  presentation = "default",
 }: {
   part: Extract<ChatPart, { kind: "narration" }>;
+  presentation?: PartPresentation;
 }) {
+  if (presentation === "timeline") {
+    return (
+      <div className="chat-timeline-narration text-[15px] leading-relaxed text-[var(--fg)]">
+        <ChatMarkdown markdown={normalizeMarkdown(part.markdown)} />
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-[var(--radius-md)] border border-[var(--border)]/70 bg-[var(--surface)]/55 px-3 py-2.5">
       <div className="mb-1.5 flex flex-wrap items-center gap-2 text-[11px] font-medium text-[var(--fg-tertiary)]">
@@ -150,11 +179,13 @@ function SummaryMarkdown({
 
 export function PartRenderer({
   part,
+  presentation = "default",
   onClarificationSubmitted,
   onClarificationContinue,
   onClarificationDraftChange,
 }: {
   part: ChatPart;
+  presentation?: PartPresentation;
   onClarificationSubmitted?: (partId: string, answer: string) => void;
   onClarificationContinue?: (answer: string) => void;
   onClarificationDraftChange?: (
@@ -173,18 +204,18 @@ export function PartRenderer({
     case "turn_meta":
       return <TurnMetaBar part={part} />;
     case "tool_batch":
-      return <ToolBatchCard part={part} />;
+      return <ToolBatchCard part={part} presentation={presentation} />;
     case "tool":
     case "command":
-      return <ToolCardRow part={part} />;
+      return <ToolCardRow part={part} presentation={presentation} />;
     case "status":
       return <StatusChip part={part} />;
     case "status_chip":
       return <StatusChipTag part={part} />;
     case "reasoning":
-      return <ReasoningBlock part={part} />;
+      return <ReasoningBlock part={part} presentation={presentation} />;
     case "narration":
-      return <NarrationBlock part={part} />;
+      return <NarrationBlock part={part} presentation={presentation} />;
     case "skill":
       return <SkillBlock part={part} />;
     case "todo":
@@ -199,13 +230,13 @@ export function PartRenderer({
         />
       );
     case "file_read":
-      return <FileReadRow part={part} />;
+      return <FileReadRow part={part} presentation={presentation} />;
     case "document_read":
-      return <DocumentReadRow part={part} />;
+      return <DocumentReadRow part={part} presentation={presentation} />;
     case "file_edit":
-      return <FileEditRow part={part} />;
+      return <FileEditRow part={part} presentation={presentation} />;
     case "document_edit":
-      return <DocumentEditRow part={part} />;
+      return <DocumentEditRow part={part} presentation={presentation} />;
     case "artifact":
       return <ArtifactRow part={part} />;
     case "deliverables":

@@ -223,16 +223,13 @@ async function streamSimulatedReply(
   input?: {
     sessionId?: string;
     agentModel?: string;
-    hasConversationContext?: boolean;
   },
 ): Promise<void> {
   const startedAt = Date.now();
   let assistantText = "";
   await streamSimulatedActivity(writer, mode, userText, abort, agentId);
 
-  const fullText = buildSimulatedReply(userText, mode, agentId, {
-    hasConversationContext: input?.hasConversationContext,
-  });
+  const fullText = buildSimulatedReply(userText, mode, agentId);
   const parts = fullText.match(/[\s\S]{1,36}/g) ?? [fullText];
 
   for (const part of parts) {
@@ -517,7 +514,6 @@ async function executeRunLifecycle(
         {
           sessionId: req.sessionId,
           agentModel: req.agentModel,
-          hasConversationContext: lastUserIndex > 0,
         },
       );
       return;

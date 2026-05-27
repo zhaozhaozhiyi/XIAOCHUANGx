@@ -318,7 +318,7 @@ export function ChatComposer({
             <div className="relative shrink-0" ref={attachRef}>
               <button
                 type="button"
-                className="btn-icon"
+                className="btn-icon chat-composer__more-btn"
                 aria-label="更多"
                 aria-expanded={attachOpen}
                 onClick={() => setAttachOpen((o) => !o)}

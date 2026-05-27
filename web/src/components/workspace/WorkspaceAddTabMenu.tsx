@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { FolderTree, Globe, Plus, SquareTerminal } from "lucide-react";
+import { FolderTree, Globe, Plus, ScrollText, SquareTerminal } from "lucide-react";
 import { useWorkspace } from "./WorkspaceContext";
 
 type Props = {
@@ -9,7 +9,8 @@ type Props = {
 };
 
 export function WorkspaceAddTabMenu({ className = "" }: Props) {
-  const { openTerminalTab, openBrowserTab, openExplorerTab } = useWorkspace();
+  const { openTerminalTab, openBrowserTab, openExplorerTab, openActivityLogTab } =
+    useWorkspace();
   const [menuOpen, setMenuOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -63,6 +64,15 @@ export function WorkspaceAddTabMenu({ className = "" }: Props) {
           >
             <Globe className="h-3.5 w-3.5" strokeWidth={1.75} />
             网页预览
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[var(--sidebar-hover)]"
+            onClick={() => pick(() => openActivityLogTab())}
+          >
+            <ScrollText className="h-3.5 w-3.5" strokeWidth={1.75} />
+            记录
           </button>
           <button
             type="button"

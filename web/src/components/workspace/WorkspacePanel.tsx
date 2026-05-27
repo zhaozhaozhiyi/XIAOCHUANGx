@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { buildTerminalSessionsFromTabs } from "@/lib/terminal";
+import { ActivityLogPane } from "./ActivityLogPane";
 import { BrowserPane } from "./BrowserPane";
 import { FilesWorkspacePane } from "./FilesWorkspacePane";
 import { TerminalBridge } from "./TerminalBridge";
@@ -54,6 +55,7 @@ export function WorkspacePanel() {
                     <TerminalPane sessionId={tab.sessionId} />
                   )}
                   {tab.kind === "browser" && <BrowserPane tabId={tab.id} />}
+                  {tab.kind === "activity-log" && <ActivityLogPane />}
                 </div>
               );
             })

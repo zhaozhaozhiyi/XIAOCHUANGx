@@ -1,5 +1,6 @@
 "use client";
 
+import type { PartPresentation } from "@/components/chat/parts/PartRenderer";
 import type {
   DocumentEditPart,
   DocumentReadPart,
@@ -14,7 +15,13 @@ function basename(path: string): string {
   return parts[parts.length - 1] || path;
 }
 
-export function FileReadRow({ part }: { part: FileReadPart }) {
+export function FileReadRow({
+  part,
+  presentation = "default",
+}: {
+  part: FileReadPart;
+  presentation?: PartPresentation;
+}) {
   const { openFileAt } = useOpenFileAt();
   const lineHint =
     part.lineRange != null
@@ -24,11 +31,17 @@ export function FileReadRow({ part }: { part: FileReadPart }) {
             : ""
         }`
       : "";
+  const timelineClass =
+    "chat-timeline-file flex w-full min-w-0 items-center gap-2 py-0.5 text-left text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]";
 
   return (
     <button
       type="button"
-      className="chat-file-row flex w-full items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-left text-sm hover:bg-[var(--sidebar-hover)]"
+      className={
+        presentation === "timeline"
+          ? timelineClass
+          : "chat-file-row flex w-full items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-left text-sm hover:bg-[var(--sidebar-hover)]"
+      }
       onClick={() =>
         openFileAt({
           path: part.path,
@@ -37,9 +50,12 @@ export function FileReadRow({ part }: { part: FileReadPart }) {
         })
       }
       title={part.path}
+      aria-label={`读取 ${basename(part.path)}`}
     >
-      <FileText className="h-4 w-4 shrink-0 text-[var(--fg-tertiary)]" />
-      <span className="truncate font-mono text-[var(--fg)]">
+      {presentation === "default" ? (
+        <FileText className="h-4 w-4 shrink-0 text-[var(--fg-tertiary)]" />
+      ) : null}
+      <span className="truncate font-mono text-[13px]">
         {basename(part.path)}
         {lineHint && (
           <span className="font-sans text-xs text-[var(--fg-tertiary)]">
@@ -47,12 +63,20 @@ export function FileReadRow({ part }: { part: FileReadPart }) {
           </span>
         )}
       </span>
-      <span className="ml-auto text-xs text-[var(--fg-tertiary)]">读取</span>
+      {presentation === "default" ? (
+        <span className="ml-auto text-xs text-[var(--fg-tertiary)]">读取</span>
+      ) : null}
     </button>
   );
 }
 
-export function FileEditRow({ part }: { part: FileEditPart }) {
+export function FileEditRow({
+  part,
+  presentation = "default",
+}: {
+  part: FileEditPart;
+  presentation?: PartPresentation;
+}) {
   const { openFileAt } = useOpenFileAt();
   const adds = part.additions ?? 0;
   const dels = part.deletions ?? 0;
@@ -60,44 +84,72 @@ export function FileEditRow({ part }: { part: FileEditPart }) {
   return (
     <button
       type="button"
-      className="chat-file-row flex w-full items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-left text-sm hover:bg-[var(--sidebar-hover)]"
+      className={
+        presentation === "timeline"
+          ? "chat-timeline-file flex w-full min-w-0 items-center gap-2 py-0.5 text-left text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]"
+          : "chat-file-row flex w-full items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-left text-sm hover:bg-[var(--sidebar-hover)]"
+      }
       onClick={() => openFileAt(part.path)}
       title={part.path}
+      aria-label={`编辑 ${basename(part.path)}`}
     >
-      <FilePen className="h-4 w-4 shrink-0 text-[var(--accent)]" />
-      <span className="truncate font-mono text-[var(--fg)]">
-        {basename(part.path)}
-      </span>
-      <span className="ml-auto shrink-0 font-mono text-xs">
-        {adds > 0 && <span className="text-[var(--success)]">+{adds}</span>}
-        {dels > 0 && (
-          <span className="ml-1 text-[var(--danger)]">-{dels}</span>
-        )}
-      </span>
+      {presentation === "default" ? (
+        <FilePen className="h-4 w-4 shrink-0 text-[var(--accent)]" />
+      ) : null}
+      <span className="truncate font-mono text-[13px]">{basename(part.path)}</span>
+      {(adds > 0 || dels > 0) && (
+        <span className="ml-auto shrink-0 font-mono text-xs">
+          {adds > 0 && <span className="text-[var(--success)]">+{adds}</span>}
+          {dels > 0 && (
+            <span className="ml-1 text-[var(--danger)]">-{dels}</span>
+          )}
+        </span>
+      )}
     </button>
   );
 }
 
-export function DocumentReadRow({ part }: { part: DocumentReadPart }) {
+export function DocumentReadRow({
+  part,
+  presentation = "default",
+}: {
+  part: DocumentReadPart;
+  presentation?: PartPresentation;
+}) {
   const { openFileAt } = useOpenFileAt();
 
   return (
     <button
       type="button"
-      className="chat-file-row flex w-full items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-left text-sm hover:bg-[var(--sidebar-hover)]"
+      className={
+        presentation === "timeline"
+          ? "chat-timeline-file flex w-full min-w-0 items-center gap-2 py-0.5 text-left text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]"
+          : "chat-file-row flex w-full items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-left text-sm hover:bg-[var(--sidebar-hover)]"
+      }
       onClick={() => openFileAt(part.path)}
       title={part.path}
+      aria-label={`读取 ${basename(part.path)}`}
     >
-      <FileText className="h-4 w-4 shrink-0 text-[var(--fg-tertiary)]" />
-      <span className="truncate font-mono text-[var(--fg)]">{basename(part.path)}</span>
-      <span className="ml-auto text-xs text-[var(--fg-tertiary)]">
-        读取 {part.docType}
-      </span>
+      {presentation === "default" ? (
+        <FileText className="h-4 w-4 shrink-0 text-[var(--fg-tertiary)]" />
+      ) : null}
+      <span className="truncate font-mono text-[13px]">{basename(part.path)}</span>
+      {presentation === "default" ? (
+        <span className="ml-auto text-xs text-[var(--fg-tertiary)]">
+          读取 {part.docType}
+        </span>
+      ) : null}
     </button>
   );
 }
 
-export function DocumentEditRow({ part }: { part: DocumentEditPart }) {
+export function DocumentEditRow({
+  part,
+  presentation = "default",
+}: {
+  part: DocumentEditPart;
+  presentation?: PartPresentation;
+}) {
   const { openFileAt } = useOpenFileAt();
   const adds = part.additions ?? 0;
   const dels = part.deletions ?? 0;
@@ -105,16 +157,34 @@ export function DocumentEditRow({ part }: { part: DocumentEditPart }) {
   return (
     <button
       type="button"
-      className="chat-file-row flex w-full items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-left text-sm hover:bg-[var(--sidebar-hover)]"
+      className={
+        presentation === "timeline"
+          ? "chat-timeline-file flex w-full min-w-0 items-center gap-2 py-0.5 text-left text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]"
+          : "chat-file-row flex w-full items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-left text-sm hover:bg-[var(--sidebar-hover)]"
+      }
       onClick={() => openFileAt(part.path)}
       title={part.path}
+      aria-label={`编辑 ${basename(part.path)}`}
     >
-      <FilePen className="h-4 w-4 shrink-0 text-[var(--accent)]" />
-      <span className="truncate font-mono text-[var(--fg)]">{basename(part.path)}</span>
-      <span className="ml-auto shrink-0 text-xs text-[var(--fg-tertiary)]">
-        编辑 {part.docType}
-        {adds > 0 || dels > 0 ? ` · +${adds}/-${dels}` : ""}
-      </span>
+      {presentation === "default" ? (
+        <FilePen className="h-4 w-4 shrink-0 text-[var(--accent)]" />
+      ) : null}
+      <span className="truncate font-mono text-[13px]">{basename(part.path)}</span>
+      {presentation === "default" ? (
+        <span className="ml-auto shrink-0 text-xs text-[var(--fg-tertiary)]">
+          编辑 {part.docType}
+          {adds > 0 || dels > 0 ? ` · +${adds}/-${dels}` : ""}
+        </span>
+      ) : (
+        (adds > 0 || dels > 0) && (
+          <span className="ml-auto shrink-0 font-mono text-xs">
+            {adds > 0 && <span className="text-[var(--success)]">+{adds}</span>}
+            {dels > 0 && (
+              <span className="ml-1 text-[var(--danger)]">-{dels}</span>
+            )}
+          </span>
+        )
+      )}
     </button>
   );
 }

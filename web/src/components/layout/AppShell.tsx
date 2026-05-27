@@ -8,6 +8,7 @@ import { WorkspacePanel } from "@/components/workspace/WorkspacePanel";
 import { WorkspaceProvider, useWorkspace } from "@/components/workspace/WorkspaceContext";
 import { WorkspaceProjectProvider } from "@/components/workspace/WorkspaceProjectContext";
 import { ResearchProjectsProvider } from "@/contexts/ResearchProjectsContext";
+import { ChatSessionProvider } from "@/contexts/ChatSessionContext";
 import { WorkspaceResizeHandle } from "@/components/workspace/WorkspaceResizeHandle";
 import { AuthHydrator } from "@/components/auth/AuthHydrator";
 import { SettingsDrawer } from "@/components/settings/SettingsDrawer";
@@ -63,6 +64,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <SettingsProvider>
       <AuthHydrator />
       <ResearchProjectsProvider>
+        <ChatSessionProvider>
         <WorkspaceProjectProvider>
         <WorkspaceProvider sidebarCollapsed={sidebarCollapsed}>
           <WorkspaceRouteSync />
@@ -74,6 +76,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </AppShellFrame>
         </WorkspaceProvider>
         </WorkspaceProjectProvider>
+        </ChatSessionProvider>
       </ResearchProjectsProvider>
     </SettingsProvider>
   );

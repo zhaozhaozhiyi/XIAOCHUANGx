@@ -4,6 +4,7 @@ import {
   messageDisplayContent,
   normalizeMarkdown,
 } from "@/lib/chat-parts-utils";
+import { stripInjectedActivityContext } from "@/lib/activity-log";
 
 type SummaryPart = Extract<ChatPart, { kind: "summary" }>;
 type ClarificationPart = Extract<ChatPart, { kind: "clarification" }>;
@@ -13,22 +14,24 @@ export function selectAssistantDisplayContent(message: ChatMessage): string {
     return normalizeMarkdown(message.content);
   }
 
-  const fromCanonical = normalizeMarkdown(
-    message.canonicalOutput?.finalAnswer.markdown ?? "",
+  const fromCanonical = stripInjectedActivityContext(
+    normalizeMarkdown(message.canonicalOutput?.finalAnswer.markdown ?? ""),
   );
   if (fromCanonical) return fromCanonical;
 
-  const fromParts = normalizeMarkdown(messageDisplayContent(message));
+  const fromParts = stripInjectedActivityContext(
+    normalizeMarkdown(messageDisplayContent(message)),
+  );
   if (fromParts) return fromParts;
 
   if (
     message.status === "loading" ||
     message.status === "streaming"
   ) {
-    return normalizeMarkdown(message.content);
+    return stripInjectedActivityContext(normalizeMarkdown(message.content));
   }
 
-  return normalizeMarkdown(message.content);
+  return stripInjectedActivityContext(normalizeMarkdown(message.content));
 }
 
 export function selectHasAssistantSummaryContent(message: ChatMessage): boolean {

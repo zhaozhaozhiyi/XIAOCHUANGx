@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FileCode2, FolderTree, Globe, SquareTerminal, X } from "lucide-react";
+import { FileCode2, FolderTree, Globe, ScrollText, SquareTerminal, X } from "lucide-react";
 import { MAIN_TOP_BAR_CLASS } from "@/components/layout/SidebarExpandButton";
 import {
+  ACTIVITY_LOG_TAB_LABEL,
   findFileNodeInRoot,
   getBrowserTabLabel,
   getFileTabLabel,
@@ -20,6 +21,7 @@ const TAB_ICONS = {
   explorer: FolderTree,
   terminal: SquareTerminal,
   browser: Globe,
+  "activity-log": ScrollText,
 } as const;
 
 function useTabLabel(tab: WorkspaceEditorTab): string {
@@ -37,6 +39,9 @@ function useTabLabel(tab: WorkspaceEditorTab): string {
   if (tab.kind === "browser") {
     const url = tab.url || "新预览";
     return url ? getBrowserTabLabel(url) : "网页预览";
+  }
+  if (tab.kind === "activity-log") {
+    return ACTIVITY_LOG_TAB_LABEL;
   }
   const session = sessions.find((s) => s.id === tab.sessionId);
   return getTerminalTabLabel(session?.title ?? "zsh");

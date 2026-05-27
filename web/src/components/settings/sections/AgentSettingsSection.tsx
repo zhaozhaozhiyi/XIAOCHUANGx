@@ -4,6 +4,7 @@ import { ChevronDown, RefreshCw } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { useSettings } from "@/components/settings/SettingsContext";
 import { ByokSettingsSection } from "@/components/settings/sections/ByokSettingsSection";
+import { VoiceSettingsSection } from "@/components/settings/sections/VoiceSettingsSection";
 import {
   cliStatusHintRuntime,
   getAgentRuntimeState,
@@ -23,6 +24,7 @@ import {
 const AGENT_TABS: { id: AgentSettingsTab; label: string }[] = [
   { id: "cli", label: "CLI 智能体" },
   { id: "api", label: "模型 API" },
+  { id: "voice", label: "语音模型" },
 ];
 
 function statusLabel(status: CliStatus): string {
@@ -306,6 +308,13 @@ export function AgentSettingsSection() {
   const tablistId = useId();
   const cliPanelId = useId();
   const apiPanelId = useId();
+  const voicePanelId = useId();
+
+  const panelIdByTab: Record<AgentSettingsTab, string> = {
+    cli: cliPanelId,
+    api: apiPanelId,
+    voice: voicePanelId,
+  };
 
   return (
     <div className="space-y-4">
@@ -324,7 +333,7 @@ export function AgentSettingsSection() {
               role="tab"
               id={`${tablistId}-${tab.id}`}
               aria-selected={selected}
-              aria-controls={tab.id === "cli" ? cliPanelId : apiPanelId}
+              aria-controls={panelIdByTab[tab.id]}
               className={`settings-agent-tabs__item ${
                 selected ? "settings-agent-tabs__item--active" : ""
               }`}
@@ -356,6 +365,16 @@ export function AgentSettingsSection() {
         className={agentSettingsTab === "api" ? undefined : "hidden"}
       >
         <ByokSettingsSection />
+      </div>
+
+      <div
+        role="tabpanel"
+        id={voicePanelId}
+        aria-labelledby={`${tablistId}-voice`}
+        hidden={agentSettingsTab !== "voice"}
+        className={agentSettingsTab === "voice" ? undefined : "hidden"}
+      >
+        <VoiceSettingsSection />
       </div>
     </div>
   );
