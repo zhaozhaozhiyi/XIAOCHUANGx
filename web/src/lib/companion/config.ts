@@ -102,6 +102,10 @@ export function companionProjectFileUrl(
   );
 }
 
+export function companionProjectUploadUrl(projectId: string): string {
+  return companionUrl(`/v1/projects/${encodeURIComponent(projectId)}/uploads`);
+}
+
 export function companionSessionMessagesUrl(sessionId: string): string {
   return companionUrl(
     `/v1/sessions/${encodeURIComponent(sessionId)}/messages`,

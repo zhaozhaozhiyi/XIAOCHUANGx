@@ -12,9 +12,9 @@ export function messageContentForApi(msg: ChatMessage): string {
     if (attachments.length === 0) return body;
     const paths = attachments.map((u) => u.path || u.name);
     if (!body.trim()) {
-      return `I've uploaded ${attachments.length} file(s): ${paths.join(", ")}`;
+      return `I've uploaded ${attachments.length} file(s) into the current workspace: ${paths.join(", ")}`;
     }
-    return `${body.trim()}\n\n[Attached files: ${paths.join(", ")}]`;
+    return `${body.trim()}\n\n[Attached files in current workspace: ${paths.join(", ")}]`;
   }
 
   const activity = activityContextForHistory(msg.parts);

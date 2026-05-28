@@ -117,6 +117,7 @@ function buildCodexArgs(ctx: BuildArgsContext): AgentLaunchSpec {
  * 不使用 `--system-prompt` + 分离 user，避免 system 与 transcript 不同步。
  */
 function buildClaudeArgs(ctx: BuildArgsContext): AgentLaunchSpec {
+  const model = normalizeClaudeModel(ctx.agentModel);
   const registry = getAgentRegistryEntry("claude");
   const args = [
     "-p",
@@ -129,8 +130,8 @@ function buildClaudeArgs(ctx: BuildArgsContext): AgentLaunchSpec {
     "--permission-mode",
     "bypassPermissions",
   ];
-  if (ctx.agentModel && ctx.agentModel !== "default") {
-    args.push("--model", ctx.agentModel);
+  if (model) {
+    args.push("--model", model);
   }
   pushAddDirs(args, ctx.extraAllowedDirs);
   return {
@@ -141,6 +142,13 @@ function buildClaudeArgs(ctx: BuildArgsContext): AgentLaunchSpec {
     stdinAsClaudeUserMessage: true,
     stdinPayload: "composed",
   };
+}
+
+function normalizeClaudeModel(model: string): string | null {
+  const trimmed = model.trim();
+  if (!trimmed || trimmed === "default") return null;
+  if (trimmed === "claude-sonnet-4") return null;
+  return trimmed;
 }
 
 function buildHermesArgs(ctx: BuildArgsContext): AgentLaunchSpec {

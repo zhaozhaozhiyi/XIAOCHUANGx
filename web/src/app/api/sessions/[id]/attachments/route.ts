@@ -166,6 +166,7 @@ export async function POST(
     isImage: mimeType.startsWith("image/"),
     extension,
     ...(textContent != null ? { textContent, truncated } : {}),
+    contentBase64: bytes.toString("base64"),
   });
 }
 

@@ -51,6 +51,7 @@ export type ChatAttachment = {
   lastModified?: number;
   textContent?: string;
   truncated?: boolean;
+  contentBase64?: string;
 };
 
 export type ChatPendingAttachment = ChatAttachment & {
@@ -78,6 +79,7 @@ export function setPendingSession(id: string, payload: PendingSession) {
     attachments: payload.attachments?.map((attachment) => {
       const persistedAttachment = { ...attachment };
       delete persistedAttachment.file;
+      delete persistedAttachment.contentBase64;
       return persistedAttachment;
     }),
   };

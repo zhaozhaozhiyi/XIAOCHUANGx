@@ -108,7 +108,7 @@ export type ChatRunMessage = {
   id?: string;
   role: "user" | "assistant";
   content: string;
-  attachments?: Array<{ id?: string; name: string; path?: string; size?: number; [key: string]: unknown }>;
+  attachments?: unknown[];
   agentId?: string;
 };
 

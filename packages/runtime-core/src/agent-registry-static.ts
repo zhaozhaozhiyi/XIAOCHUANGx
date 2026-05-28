@@ -58,10 +58,7 @@ export const STATIC_AGENT_REGISTRY: Record<AgentId, StaticAgentRegistryEntry> = 
   claude: {
     id: "claude",
     role: "深度研究 · 纪要结构化",
-    fallbackModels: [
-      { id: "default", label: "Default" },
-      { id: "claude-sonnet-4", label: "Claude Sonnet 4" },
-    ],
+    fallbackModels: [{ id: "default", label: "Default" }],
     execution: {
       bin: "claude",
       displayName: "Claude Code",

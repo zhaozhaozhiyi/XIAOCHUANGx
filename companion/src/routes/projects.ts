@@ -6,6 +6,7 @@ import {
   importFolder,
   listProjects,
   resolveWorkspaceRoot,
+  writeProjectUpload,
 } from "../projects/store.js";
 import {
   getProjectTree,
@@ -163,6 +164,40 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       return reply.code(400).send({ error: msg });
+    }
+  });
+
+  app.post<{
+    Params: { projectId: string };
+    Body: { name?: string; contentBase64?: string };
+  }>("/v1/projects/:projectId/uploads", async (request, reply) => {
+    const { name, contentBase64 } = request.body ?? {};
+    if (!name?.trim()) {
+      return reply.code(400).send({ error: "name_required" });
+    }
+    if (typeof contentBase64 !== "string" || !contentBase64) {
+      return reply.code(400).send({ error: "content_base64_required" });
+    }
+
+    try {
+      const bytes = Buffer.from(contentBase64, "base64");
+      if (bytes.length === 0) {
+        return reply.code(400).send({ error: "empty_upload" });
+      }
+      const written = await writeProjectUpload({
+        workspaceProjectId: request.params.projectId,
+        filename: name,
+        bytes,
+      });
+      return {
+        projectId: request.params.projectId,
+        path: written.path,
+        size: written.size,
+      };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      const status = msg === "project_not_found" ? 404 : 400;
+      return reply.code(status).send({ error: msg });
     }
   });
 }

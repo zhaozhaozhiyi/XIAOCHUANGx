@@ -129,11 +129,26 @@ function preserveInflightMessage(msg: ChatMessage): ChatMessage {
   });
 }
 
+function stripTransientAttachmentPayloads(msg: ChatMessage): ChatMessage {
+  if (msg.role !== "user" || !msg.attachments?.length) return msg;
+  return {
+    ...msg,
+    attachments: msg.attachments.map((attachment) => {
+      const rest = { ...attachment };
+      delete rest.contentBase64;
+      return rest;
+    }),
+  };
+}
+
 export function sanitizeMessage(
   msg: ChatMessage,
   options?: SanitizeOptions,
 ): ChatMessage | null {
-  const base = { ...msg, canonicalEvents: undefined };
+  const base = stripTransientAttachmentPayloads({
+    ...msg,
+    canonicalEvents: undefined,
+  });
   if (msg.role === "assistant" && msg.status === "loading" && !msg.content?.trim()) {
     const hasParts = (msg.parts?.length ?? 0) > 0;
     if (!hasParts) return null;

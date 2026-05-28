@@ -5,11 +5,77 @@ import {
   companionConfig,
   companionRunsUrl,
 } from "@/lib/companion/config";
+import { uploadCompanionProjectFile } from "@/lib/companion/client";
 import { mockCompanionRunSse } from "@/lib/companion/mock";
 import type { CreateRunRequest } from "@/lib/companion/types";
 import type { ChatCompletionRequestBody } from "@/lib/hermes/types";
 import { resolveCompanionWorkspaceProjectId } from "@/lib/research-projects-server";
 import { NO_PROJECT_ID, resolveWorkspaceProjectId } from "@/lib/research-projects";
+
+type ChatAttachmentForRun = {
+  id?: string;
+  name?: string;
+  path?: string;
+  size?: number;
+  mimeType?: string;
+  type?: string;
+  contentBase64?: string;
+  [key: string]: unknown;
+};
+
+function isAttachmentForRun(value: unknown): value is ChatAttachmentForRun {
+  return !!value && typeof value === "object";
+}
+
+async function syncMessageAttachmentsToWorkspace(
+  messages: ChatCompletionRequestBody["messages"],
+  workspaceProjectId: string,
+): Promise<ChatCompletionRequestBody["messages"]> {
+  return Promise.all(
+    messages.map(async (message, index) => {
+      if (index !== messages.length - 1 || message.role !== "user") {
+        return message;
+      }
+      const attachments = Array.isArray(message.attachments)
+        ? message.attachments
+        : [];
+      if (attachments.length === 0) return message;
+
+      const synced = await Promise.all(
+        attachments.map(async (attachment) => {
+          if (!isAttachmentForRun(attachment)) return attachment;
+          const name =
+            typeof attachment.name === "string" && attachment.name.trim()
+              ? attachment.name
+              : undefined;
+          const contentBase64 =
+            typeof attachment.contentBase64 === "string"
+              ? attachment.contentBase64
+              : undefined;
+          if (!name || !contentBase64) return attachment;
+
+          const uploaded = await uploadCompanionProjectFile({
+            projectId: workspaceProjectId,
+            name,
+            bytes: Buffer.from(contentBase64, "base64"),
+          });
+          const rest = { ...attachment };
+          delete rest.contentBase64;
+          return {
+            ...rest,
+            path: uploaded.path,
+            size: uploaded.size,
+          };
+        }),
+      );
+
+      return {
+        ...message,
+        attachments: synced,
+      };
+    }),
+  );
+}
 
 export async function buildCreateRunRequest(
   parsed: ChatCompletionRequestBody & { projectId?: string },
@@ -21,6 +87,13 @@ export async function buildCreateRunRequest(
       : resolveWorkspaceProjectId(uiProjectId);
   const mode = normalizeChatMode(parsed.mode) ?? "fast";
   const orchestration = resolveChatOrchestration({ mode });
+  const messages =
+    chatExecutionMode() === "companion" && !companionConfig.useMock
+      ? await syncMessageAttachmentsToWorkspace(
+          parsed.messages,
+          workspaceProjectId,
+        )
+      : parsed.messages;
 
   return {
     sessionId: parsed.sessionId,
@@ -30,7 +103,7 @@ export async function buildCreateRunRequest(
     binding: { moduleId: "chat", mode },
     agentId: parsed.agentId,
     agentModel: parsed.agentModel,
-    messages: parsed.messages,
+    messages,
     useClientHistory: parsed.useClientHistory,
     processSkill: orchestration.baseProcessSkill,
     platformNormSkill: orchestration.platformNormSkill,

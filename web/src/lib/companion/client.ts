@@ -4,6 +4,7 @@ import {
   companionHealthUrl,
   companionProjectFileUrl,
   companionProjectFilesIndexUrl,
+  companionProjectUploadUrl,
   companionProjectTreeUrl,
   companionProjectsEnsureUrl,
   companionProjectsImportFolderUrl,
@@ -176,5 +177,37 @@ export async function fetchCompanionProjectFile(
     content: string;
     mime?: string;
     encoding?: string;
+  };
+}
+
+export async function uploadCompanionProjectFile(input: {
+  projectId: string;
+  name: string;
+  bytes: ArrayBuffer | Uint8Array;
+}): Promise<{ projectId: string; path: string; size: number }> {
+  const bytes =
+    input.bytes instanceof ArrayBuffer
+      ? new Uint8Array(input.bytes)
+      : input.bytes;
+  const contentBase64 = Buffer.from(bytes).toString("base64");
+  const res = await companionFetch(companionProjectUploadUrl(input.projectId), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: input.name,
+      contentBase64,
+    }),
+  });
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      message?: string;
+    };
+    throw new Error(err.message ?? err.error ?? `upload_failed_${res.status}`);
+  }
+  return (await res.json()) as {
+    projectId: string;
+    path: string;
+    size: number;
   };
 }

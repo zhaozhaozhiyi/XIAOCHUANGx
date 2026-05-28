@@ -15,7 +15,7 @@ export async function buildServer() {
     logger: {
       level: process.env.COMPANION_LOG_LEVEL ?? "info",
     },
-    bodyLimit: 2 * 1024 * 1024,
+    bodyLimit: Number(process.env.COMPANION_BODY_LIMIT_MB ?? 30) * 1024 * 1024,
   });
 
   await app.register(cors, {

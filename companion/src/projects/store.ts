@@ -5,6 +5,7 @@ import {
   access,
   constants,
   realpath,
+  open,
 } from "node:fs/promises";
 import {
   join,
@@ -343,6 +344,45 @@ function resolveProjectRoot(p: CompanionProjectSummary): string {
   return join(projectsDir(), p.projectId);
 }
 
+function sanitizeFilename(value: string, fallback = "attachment"): string {
+  const safe = basename(value)
+    .replace(/[^\w.\-\u4e00-\u9fa5]/g, "_")
+    .slice(0, 160);
+  return safe && safe.replace(/\./g, "") ? safe : fallback;
+}
+
+async function uniqueRootFilePath(
+  projectRoot: string,
+  safeName: string,
+  bytes: Buffer,
+): Promise<{ relativePath: string }> {
+  const parsed = parse(safeName);
+  for (let idx = 0; idx < 1000; idx++) {
+    const relativePath =
+      idx === 0 ? safeName : `${parsed.name}-${idx}${parsed.ext}`;
+    const fullPath = safeRelativePath(projectRoot, relativePath);
+    try {
+      const handle = await open(fullPath, "wx");
+      try {
+        await handle.writeFile(bytes);
+      } finally {
+        await handle.close();
+      }
+      return { relativePath };
+    } catch (e) {
+      if (
+        e instanceof Error &&
+        "code" in e &&
+        (e as NodeJS.ErrnoException).code === "EEXIST"
+      ) {
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw new Error("too_many_duplicate_uploads");
+}
+
 export async function resolveWorkspaceRoot(
   workspaceProjectId: string,
 ): Promise<string> {
@@ -357,6 +397,17 @@ export async function resolveWorkspaceRoot(
     return resolveProjectRoot(s);
   }
   throw new Error("project_not_found");
+}
+
+export async function writeProjectUpload(input: {
+  workspaceProjectId: string;
+  filename: string;
+  bytes: Buffer;
+}): Promise<{ path: string; size: number }> {
+  const root = await resolveWorkspaceRoot(input.workspaceProjectId);
+  const safeName = sanitizeFilename(input.filename);
+  const { relativePath } = await uniqueRootFilePath(root, safeName, input.bytes);
+  return { path: relativePath, size: input.bytes.length };
 }
 
 export function safeRelativePath(projectRoot: string, relPath: string): string {

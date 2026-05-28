@@ -1,6 +1,13 @@
 export type RunConversationMessage = {
   role: "user" | "assistant";
   content: string;
+  attachments?: Array<{
+    name?: string;
+    path?: string;
+    size?: number;
+    mimeType?: string;
+    type?: string;
+  }>;
   /** 生成该条 assistant 的 Agent（用于换 CLI 时裁剪历史） */
   agentId?: string;
 };
@@ -12,6 +19,31 @@ const MAX_TOTAL_CHARS = 96_000;
 function truncateText(text: string, max: number): string {
   if (text.length <= max) return text;
   return `${text.slice(0, max - 20)}\n\n…（已截断）`;
+}
+
+function formatAttachmentList(
+  attachments: RunConversationMessage["attachments"],
+): string {
+  if (!attachments?.length) return "";
+  const lines = attachments
+    .map((attachment) => {
+      const path = attachment.path?.trim() || attachment.name?.trim();
+      if (!path) return null;
+      const label =
+        attachment.name?.trim() && attachment.name.trim() !== path
+          ? ` (${attachment.name.trim()})`
+          : "";
+      return `- ${path}${label}`;
+    })
+    .filter((line): line is string => !!line);
+  if (lines.length === 0) return "";
+  return `\n\n附件文件（已放入当前工作区，可直接读取）：\n${lines.join("\n")}`;
+}
+
+function messageBodyWithAttachments(message: RunConversationMessage): string {
+  const body = message.content.trim();
+  const attachments = formatAttachmentList(message.attachments);
+  return `${body}${attachments}`.trim();
 }
 
 /** 过滤空消息并限制单条长度 */
@@ -28,7 +60,9 @@ export function normalizeRunMessages(
     )
     .map((m) => ({
       role: m.role,
-      content: truncateText(m.content.trim(), MAX_MESSAGE_CHARS),
+      content: truncateText(messageBodyWithAttachments(m), MAX_MESSAGE_CHARS),
+      attachments: m.attachments,
+      agentId: m.agentId,
     }))
     .slice(-MAX_TURNS);
 }

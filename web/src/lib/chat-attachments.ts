@@ -10,6 +10,7 @@ type UploadAttachmentResponse = {
   extension?: string;
   textContent?: string;
   truncated?: boolean;
+  contentBase64?: string;
 };
 
 export function persistedAttachment(
@@ -17,6 +18,7 @@ export function persistedAttachment(
 ): ChatAttachment {
   const persisted = { ...attachment };
   delete persisted.file;
+  delete persisted.contentBase64;
   return persisted;
 }
 
@@ -28,7 +30,7 @@ export async function uploadChatAttachments(
   if (!attachments?.length) return undefined;
   const uploaded = await Promise.all(
     attachments.map(async (attachment) => {
-      if (!attachment.file) return persistedAttachment(attachment);
+      if (!attachment.file) return { ...attachment };
 
       const form = new FormData();
       form.append("file", attachment.file, attachment.file.name);
@@ -71,6 +73,7 @@ export async function uploadChatAttachments(
         extension: json.extension ?? attachment.extension,
         textContent: json.textContent ?? attachment.textContent,
         truncated: json.truncated ?? attachment.truncated,
+        contentBase64: json.contentBase64,
       };
     }),
   );

@@ -32,7 +32,6 @@ import type { AgentId } from "@/lib/settings";
 import { useProjectFileIndex } from "@/hooks/useProjectFileIndex";
 import type { WorkspaceFileNode } from "@/lib/workspace";
 import type { ChatPendingAttachment } from "@/lib/chat";
-import { formatAttachmentSize } from "@/lib/chat-attachments";
 
 export type ChatComposerSendPayload = {
   text: string;
@@ -164,8 +163,8 @@ function FileIcon({ name }: { name: string }) {
 
   if (ext === "csv" || ext === "xlsx" || ext === "xls") {
     return (
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#eaf7f0]">
-        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#eaf7f0]">
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M6 2C4.89543 2 4 2.89543 4 4V20C4 21.1046 4.89543 22 6 22H18C19.1046 22 20 21.1046 20 20V8L14 2H6Z" fill="#107C41" fillOpacity="0.1" stroke="#107C41" strokeWidth="1.5" strokeLinejoin="round"/>
           <path d="M14 2V8H20" stroke="#107C41" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           <rect x="6" y="10" width="7" height="7" rx="1" fill="#107C41"/>
@@ -177,16 +176,16 @@ function FileIcon({ name }: { name: string }) {
 
   if (ext === "html" || ext === "htm" || ext === "js" || ext === "ts" || ext === "tsx" || ext === "json" || ext === "py") {
     return (
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#fdf5ea]">
-        <span className="text-xs font-mono font-bold text-[#d97706]">&lt;/&gt;</span>
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#fdf5ea]">
+        <span className="text-[10px] font-mono font-bold text-[#d97706]">&lt;/&gt;</span>
       </div>
     );
   }
 
   if (ext === "pdf") {
     return (
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#fdf2f2]">
-        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#fdf2f2]">
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M6 2C4.89543 2 4 2.89543 4 4V20C4 21.1046 4.89543 22 6 22H18C19.1046 22 20 21.1046 20 20V8L14 2H6Z" fill="#E11D48" fillOpacity="0.1" stroke="#E11D48" strokeWidth="1.5" strokeLinejoin="round"/>
           <path d="M14 2V8H20" stroke="#E11D48" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           <rect x="6" y="11" width="10" height="6" rx="1" fill="#E11D48"/>
@@ -197,8 +196,8 @@ function FileIcon({ name }: { name: string }) {
   }
 
   return (
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-500">
-      <FileText className="h-5 w-5" strokeWidth={1.75} />
+    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-500">
+      <FileText className="h-4 w-4" strokeWidth={1.75} />
     </div>
   );
 }
@@ -212,21 +211,17 @@ function ImagePreview({
   onRemove: () => void;
   disabled?: boolean;
 }) {
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const previewUrl = useMemo(() => URL.createObjectURL(file), [file]);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
-    setFailed(false);
-
     return () => {
-      URL.revokeObjectURL(url);
+      URL.revokeObjectURL(previewUrl);
     };
-  }, [file]);
+  }, [previewUrl]);
 
   return (
-    <div className="relative group shrink-0 w-[84px] h-[84px]">
+    <div className="relative group shrink-0 w-14 h-14">
       {failed || !previewUrl ? (
         <div className="flex h-full w-full flex-col items-center justify-center gap-1 rounded-xl border border-neutral-200/60 bg-neutral-100 px-2 text-center text-neutral-500">
           <FileText className="h-5 w-5 shrink-0" strokeWidth={1.75} />
@@ -247,7 +242,7 @@ function ImagePreview({
         type="button"
         onClick={onRemove}
         disabled={disabled}
-        className="absolute top-1.5 right-1.5 z-10 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-black text-white hover:bg-neutral-800 transition-colors shadow-sm cursor-pointer"
+        className="absolute top-1 right-1 z-10 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-black text-white hover:bg-neutral-800 transition-colors shadow-sm cursor-pointer"
         aria-label={`移除图片 ${file.name}`}
       >
         <X className="h-2.5 w-2.5" strokeWidth={3} />
@@ -454,7 +449,7 @@ export function ChatComposer({
       <div className={showProjectPicker ? "chat-composer-layer" : undefined}>
       <div className="chat-composer rounded-[var(--radius-2xl)] p-3">
         {selectedAttachments.length > 0 && (
-          <ul className="mb-3 flex max-h-32 flex-wrap items-center gap-3 overflow-y-auto pr-1">
+          <ul className="mb-2 flex max-h-28 flex-wrap items-center gap-2 overflow-y-auto pr-1">
             {selectedAttachments.map((file, index) => {
               const isImage = isImageAttachment(file);
               if (isImage) {
@@ -470,21 +465,20 @@ export function ChatComposer({
               return (
                 <li
                   key={`${file.name}-${file.size}-${file.lastModified}-${index}`}
-                  className="relative flex items-center h-[72px] min-w-[180px] max-w-[240px] gap-3 rounded-xl border border-[var(--composer-border)] bg-[var(--surface-elevated)] p-2.5 pr-8 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.04)]"
+                  className="relative flex min-w-[132px] max-w-[220px] items-center gap-2 rounded-xl border border-[var(--composer-border)] bg-[var(--surface-elevated)] py-1.5 pl-2 pr-8 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.04)]"
                 >
                   <FileIcon name={file.name} />
                   <div className="flex flex-col min-w-0 leading-tight">
-                    <span className="truncate text-[13px] font-semibold text-[var(--fg)]" title={file.name}>
+                    <span className="truncate text-[12px] font-medium text-[var(--fg)]" title={file.name}>
                       {file.name}
                     </span>
-                    <span className="text-[11px] font-normal text-[var(--fg-tertiary)] uppercase mt-0.5">
-                      {file.name.split(".").pop()?.toUpperCase() || "FILE"} ·{" "}
-                      {formatAttachmentSize(file.size)}
+                    <span className="text-[10px] font-normal text-[var(--fg-tertiary)] uppercase">
+                      {file.name.split(".").pop()?.toUpperCase() || "FILE"}
                     </span>
                   </div>
                   <button
                     type="button"
-                    className="absolute top-1.5 right-1.5 z-10 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-black text-white hover:bg-neutral-800 transition-colors shadow-sm cursor-pointer"
+                    className="absolute top-1 right-1 z-10 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-black/70 text-white shadow-sm transition-colors hover:bg-black cursor-pointer"
                     aria-label={`移除附件 ${file.name}`}
                     disabled={sending}
                     onClick={() => removeAttachment(index)}
@@ -612,15 +606,15 @@ export function ChatComposer({
                 <Plus className="h-4 w-4" strokeWidth={1.75} />
               </button>
               {attachOpen && (
-                <ul className="control-picker-menu control-picker-menu--above absolute left-0 z-50 min-w-[10rem]">
+                <ul className="control-picker-menu control-picker-menu--above chat-composer__attach-menu absolute left-0 z-50">
                   <li>
                     <button
                       type="button"
-                      className="control-picker-menu__item gap-2"
+                      className="control-picker-menu__item chat-composer__attach-item"
                       onClick={handleAttachClick}
                     >
-                      <Paperclip className="h-4 w-4" strokeWidth={1.75} />
-                      上传附件
+                      <Paperclip className="h-3.5 w-3.5" strokeWidth={1.75} />
+                      添加照片和文件
                     </button>
                   </li>
                 </ul>

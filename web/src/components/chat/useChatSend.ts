@@ -342,6 +342,12 @@ export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = 
         "user",
         trimmed,
         "complete",
+        uploadedAttachments?.map(persistedAttachment),
+      );
+      const userMsgForApi = createMessage(
+        "user",
+        trimmed,
+        "complete",
         uploadedAttachments,
       );
       markSessionStarted(sessionId);
@@ -370,10 +376,11 @@ export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = 
       const baseMessages = steering
         ? finalizeInFlightMessages(currentMessages)
         : currentMessages;
-      const historyForApi = [...baseMessages, userMsg];
-      messagesRef.current = [...historyForApi, assistantPlaceholder];
+      const historyForUi = [...baseMessages, userMsg];
+      const historyForApi = [...baseMessages, userMsgForApi];
+      messagesRef.current = [...historyForUi, assistantPlaceholder];
       setMessages(messagesRef.current);
-      void saveSessionMessagesHybrid(sessionId, historyForApi, context.projectId).catch(console.error);
+      void saveSessionMessagesHybrid(sessionId, historyForUi, context.projectId).catch(console.error);
       markReplying();
 
       const schedulePatch = (updater: AssistantStateUpdater) => {

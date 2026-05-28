@@ -331,6 +331,23 @@ body {
   color: var(--fg);
 }
 
+.chat-composer__attach-menu.control-picker-menu {
+  min-width: 8.75rem;
+  padding: 0.125rem;
+  border-radius: var(--radius-md);
+}
+
+.chat-composer__attach-item.control-picker-menu__item {
+  justify-content: flex-start;
+  gap: 0.375rem;
+  min-height: 1.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
 /* ChatHome 专属：轻点阵背景（对话线程页不使用） */
 .chat-home-bg {
   position: relative;
@@ -653,6 +670,9 @@ body {
 }
 
 .chat-history-sidebar__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -999,12 +1019,14 @@ body {
   display: flex;
   max-width: 100%;
   flex-wrap: wrap;
+  align-items: flex-end;
   justify-content: flex-end;
   gap: 0.375rem;
 }
 
 .chat-user-attachment {
   display: inline-flex;
+  align-self: flex-end;
   max-width: min(18rem, 100%);
   align-items: center;
   gap: 0.375rem;
