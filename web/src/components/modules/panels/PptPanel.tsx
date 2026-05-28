@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useEnsureDefaultTaskWorkspace } from "@/hooks/useEnsureDefaultTaskWorkspace";
 import { PPT_TEMPLATE_CATALOG } from "@/lib/module-registry";
 
 const STEPS = ["主题与受众", "大纲确认", "生成幻灯片", "预览与导出"];
@@ -13,6 +14,9 @@ type Props = {
 export function PptPanel({ pathname, variant = "new" }: Props) {
   const [step, setStep] = useState(0);
   const [templateId, setTemplateId] = useState("default");
+  const [topic, setTopic] = useState("");
+  const { ensuring, error, ensureWorkspace, clearEnsureError } =
+    useEnsureDefaultTaskWorkspace();
 
   const title =
     variant === "from-writing"
@@ -20,6 +24,13 @@ export function PptPanel({ pathname, variant = "new" }: Props) {
       : variant === "template"
         ? "路演模板"
         : "新建 PPT";
+
+  const ensureDeckWorkspace = async () => {
+    await ensureWorkspace({
+      moduleId: "ppt",
+      taskTitle: topic.trim() || undefined,
+    });
+  };
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -73,6 +84,11 @@ export function PptPanel({ pathname, variant = "new" }: Props) {
             <input
               className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm"
               placeholder="如：2025Q1 螺纹钢市场展望"
+              value={topic}
+              onChange={(e) => {
+                setTopic(e.target.value);
+                if (error) clearEnsureError();
+              }}
             />
           </label>
           <label className="text-sm">
@@ -89,6 +105,11 @@ export function PptPanel({ pathname, variant = "new" }: Props) {
           嵌入对话/数据源图表（静态图）
         </label>
       </div>
+      {error && (
+        <p className="rounded-lg border border-[var(--danger)]/30 bg-[var(--danger)]/10 px-3 py-2 text-xs text-[var(--danger)]">
+          {error}
+        </p>
+      )}
       <div className="flex justify-end gap-2">
         {step > 0 && (
           <button
@@ -101,10 +122,21 @@ export function PptPanel({ pathname, variant = "new" }: Props) {
         )}
         <button
           type="button"
-          onClick={() => setStep((s) => Math.min(s + 1, STEPS.length - 1))}
+          onClick={() => {
+            if (step >= STEPS.length - 1) {
+              void ensureDeckWorkspace();
+              return;
+            }
+            setStep((s) => Math.min(s + 1, STEPS.length - 1));
+          }}
+          disabled={ensuring}
           className="rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-medium text-white"
         >
-          {step >= STEPS.length - 1 ? "导出 PPTX" : "下一步"}
+          {step >= STEPS.length - 1
+            ? ensuring
+              ? "创建工作区…"
+              : "导出 PPTX"
+            : "下一步"}
         </button>
       </div>
     </div>

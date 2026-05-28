@@ -10,7 +10,17 @@ import { mockCompanionRunSse } from "@/lib/companion/mock";
 import type { CreateRunRequest } from "@/lib/companion/types";
 import type { ChatCompletionRequestBody } from "@/lib/hermes/types";
 import { resolveCompanionWorkspaceProjectId } from "@/lib/research-projects-server";
-import { NO_PROJECT_ID, resolveWorkspaceProjectId } from "@/lib/research-projects";
+import {
+  NO_PROJECT_ID,
+  resolveWorkspaceProjectId,
+  type ResearchProject,
+} from "@/lib/research-projects";
+
+export type BuildCreateRunResult = {
+  request: CreateRunRequest;
+  /** ensure-default-task-project 解析出的项目（含 pathSummary） */
+  ensuredProject?: ResearchProject;
+};
 
 type ChatAttachmentForRun = {
   id?: string;
@@ -79,16 +89,43 @@ async function syncMessageAttachmentsToWorkspace(
 
 export async function buildCreateRunRequest(
   parsed: ChatCompletionRequestBody & { projectId?: string },
-): Promise<CreateRunRequest> {
+): Promise<BuildCreateRunResult> {
   const uiProjectId = parsed.projectId ?? NO_PROJECT_ID;
-  const workspaceProjectId =
-    chatExecutionMode() === "companion" && !companionConfig.useMock
-      ? await resolveCompanionWorkspaceProjectId(uiProjectId)
-      : resolveWorkspaceProjectId(uiProjectId);
+  const lastUser = [...parsed.messages].reverse().find((m) => m.role === "user");
+  const taskTitle = lastUser?.content.slice(0, 48);
+
+  let workspaceProjectId: string;
+  let ensuredProject: ResearchProject | undefined;
+  let effectiveProjectId = uiProjectId;
+
+  if (chatExecutionMode() === "companion") {
+    const resolved = await resolveCompanionWorkspaceProjectId(uiProjectId, {
+      moduleId: "chat",
+      taskId: parsed.sessionId,
+      taskTitle,
+    });
+    workspaceProjectId = resolved.workspaceProjectId;
+    if (resolved.ensuredProject) {
+      ensuredProject = resolved.ensuredProject;
+      effectiveProjectId = resolved.ensuredProject.id;
+    }
+  } else {
+    workspaceProjectId = resolveWorkspaceProjectId(uiProjectId);
+  }
+
   const mode = normalizeChatMode(parsed.mode) ?? "fast";
   const orchestration = resolveChatOrchestration({ mode });
+  const executionMode = chatExecutionMode();
+
+  if (
+    executionMode === "companion" &&
+    (effectiveProjectId === NO_PROJECT_ID || workspaceProjectId === NO_PROJECT_ID)
+  ) {
+    throw new Error("project_id_unresolved");
+  }
+
   const messages =
-    chatExecutionMode() === "companion" && !companionConfig.useMock
+    executionMode === "companion" && !companionConfig.useMock
       ? await syncMessageAttachmentsToWorkspace(
           parsed.messages,
           workspaceProjectId,
@@ -96,23 +133,27 @@ export async function buildCreateRunRequest(
       : parsed.messages;
 
   return {
-    sessionId: parsed.sessionId,
-    projectId: parsed.projectId ?? NO_PROJECT_ID,
-    workspaceProjectId,
-    moduleId: "chat",
-    binding: { moduleId: "chat", mode },
-    agentId: parsed.agentId,
-    agentModel: parsed.agentModel,
-    messages,
-    useClientHistory: parsed.useClientHistory,
-    processSkill: orchestration.baseProcessSkill,
-    platformNormSkill: orchestration.platformNormSkill,
+    ensuredProject,
+    request: {
+      sessionId: parsed.sessionId,
+      projectId: effectiveProjectId,
+      workspaceProjectId,
+      moduleId: "chat",
+      binding: { moduleId: "chat", mode },
+      agentId: parsed.agentId,
+      agentModel: parsed.agentModel,
+      messages,
+      useClientHistory: parsed.useClientHistory,
+      processSkill: orchestration.baseProcessSkill,
+      platformNormSkill: orchestration.platformNormSkill,
+    },
   };
 }
 
 export async function companionRunResponse(
   req: CreateRunRequest,
   signal?: AbortSignal,
+  extraHeaders?: Record<string, string>,
 ): Promise<Response> {
   const lastUser = [...req.messages].reverse().find((m) => m.role === "user");
 
@@ -126,6 +167,7 @@ export async function companionRunResponse(
         "X-JLC-Execution": "companion",
         "X-JLC-Execution-Mode": "mock",
         "X-JLC-Agent-Id": req.agentId,
+        ...extraHeaders,
       },
     });
   }
@@ -151,45 +193,30 @@ export async function companionRunResponse(
             {
               error: "companion_error",
               status: upstream.status,
-              message:
-                detail.slice(0, 500) ||
-                upstream.statusText ||
-                "Companion rejected run",
+              message: detail.slice(0, 500) || upstream.statusText,
             },
             { status: 502 },
           ),
         );
       }
-      if (!upstream.body) {
-        return Response.json(
-          { error: "companion_error", message: "Empty body from Companion" },
-          { status: 502 },
-        );
+
+      const outHeaders = new Headers(upstream.headers);
+      outHeaders.set("X-JLC-Execution", "companion");
+      outHeaders.set("X-JLC-Agent-Id", req.agentId);
+      for (const [k, v] of Object.entries(extraHeaders ?? {})) {
+        outHeaders.set(k, v);
       }
 
-      const outHeaders = new Headers({
-        "Content-Type": "text/event-stream; charset=utf-8",
-        "Cache-Control": "no-cache, no-transform",
-        Connection: "keep-alive",
-        "X-Accel-Buffering": "no",
-        "X-JLC-Execution": "companion",
-        "X-JLC-Execution-Mode": "live",
-        "X-JLC-Agent-Id": req.agentId,
+      return new Response(upstream.body, {
+        status: upstream.status,
+        headers: outHeaders,
       });
-      const runId = upstream.headers.get("X-JLC-Run-Id");
-      if (runId) outHeaders.set("X-JLC-Run-Id", runId);
-
-      return new Response(upstream.body, { status: 200, headers: outHeaders });
     })
     .catch((err) => {
       const message =
         err instanceof Error ? err.message : "Failed to reach Companion";
       return Response.json(
-        {
-          error: "companion_unreachable",
-          message: `${message}. Start the Companion daemon or set COMPANION_USE_MOCK=true with CHAT_EXECUTION=companion.`,
-          baseUrl: companionConfig.baseUrl,
-        },
+        { error: "companion_unreachable", message },
         { status: 502 },
       );
     });

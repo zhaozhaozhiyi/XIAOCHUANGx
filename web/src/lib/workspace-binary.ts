@@ -1,4 +1,4 @@
-const BINARY_EXT = /\.(pptx|docx|xlsx|pdf|png|jpe?g|gif|webp)$/i;
+const BINARY_EXT = /\.(pptx|docx|xlsx|pdf|png|jpe?g|gif|webp|svg)$/i;
 
 export function isBinaryWorkspacePath(relPath: string): boolean {
   return BINARY_EXT.test(relPath.toLowerCase());
@@ -9,11 +9,15 @@ export function inferMimeFromPath(relPath: string): string {
   if (lower.endsWith(".pptx")) {
     return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
   }
+  if (lower.endsWith(".docx")) {
+    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  }
   if (lower.endsWith(".pdf")) return "application/pdf";
   if (lower.endsWith(".png")) return "image/png";
   if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
   if (lower.endsWith(".gif")) return "image/gif";
   if (lower.endsWith(".webp")) return "image/webp";
+  if (lower.endsWith(".svg")) return "image/svg+xml";
   return "application/octet-stream";
 }
 

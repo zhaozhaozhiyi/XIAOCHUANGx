@@ -7,9 +7,15 @@ function inferLanguage(
   if (!relPath) return undefined;
   const lower = relPath.toLowerCase();
   if (lower.endsWith(".md")) return "markdown";
+  if (lower.endsWith(".yaml") || lower.endsWith(".yml")) return "yaml";
   if (lower.endsWith(".json")) return "json";
+  if (lower.endsWith(".toml")) return "toml";
+  if (lower.endsWith(".py")) return "python";
   if (lower.endsWith(".sql")) return "sql";
+  if (lower.endsWith(".js") || lower.endsWith(".jsx")) return "javascript";
   if (lower.endsWith(".ts") || lower.endsWith(".tsx")) return "typescript";
+  if (lower.endsWith(".css") || lower.endsWith(".scss")) return "css";
+  if (lower.endsWith(".sh") || lower.endsWith(".bash") || lower.endsWith(".zsh")) return "shell";
   if (lower.endsWith(".pptx")) return "pptx";
   if (lower.endsWith(".html") || lower.endsWith(".htm")) return "html";
   return "text";

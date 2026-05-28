@@ -3,8 +3,15 @@ import { messageContentForApi } from "@/lib/chat-history-context";
 import type { ChatSendContext } from "@/lib/chat-send";
 import { consumeChatSse, type ChatStreamCallbacks } from "@/lib/chat-stream";
 import type { HermesHistoryMessage } from "@/lib/hermes/types";
+import { workspaceErrorMessage } from "@/lib/workspace-errors";
 
-export type StreamChatCallbacks = ChatStreamCallbacks;
+export type StreamChatCallbacks = ChatStreamCallbacks & {
+  onProjectEnsured?: (project: {
+    id: string;
+    name: string;
+    pathSummary: string;
+  }) => void;
+};
 
 export type StreamChatResult =
   | { ok: true }
@@ -73,7 +80,11 @@ export async function streamChatCompletion(
     } catch {
       /* ignore */
     }
-    return { ok: false, error: message, status: res.status };
+    return {
+      ok: false,
+      error: workspaceErrorMessage(message) ?? message,
+      status: res.status,
+    };
   }
 
   if (!res.body) {
@@ -85,6 +96,15 @@ export async function streamChatCompletion(
   const companionRunId = res.headers.get("X-JLC-Run-Id");
   if (format === "companion" && companionRunId) {
     params.onRunStarted?.({ runId: companionRunId });
+  }
+
+  const ensuredProjectId = res.headers.get("X-JLC-Project-Id");
+  if (ensuredProjectId) {
+    params.onProjectEnsured?.({
+      id: ensuredProjectId,
+      name: res.headers.get("X-JLC-Project-Name") ?? ensuredProjectId,
+      pathSummary: res.headers.get("X-JLC-Project-Path") ?? "",
+    });
   }
 
   return consumeChatSse(res.body, params, { format });

@@ -72,13 +72,14 @@ export class ProjectsService {
     return { project: this.toDto(project) };
   }
 
-  /** 新建对话默认：有 Companion 倾向 sandbox，否则 cloud */
+  /** 模式 A 默认 cloud；模式 B 由 Companion ensure-default-task-project 创建 local_bound */
   async createDefaultForNewChat(
     user: RequestUser,
-    preferCloud = false,
+    _preferCloud = true,
   ): Promise<ProjectDto> {
-    const kind = preferCloud ? WorkspaceKind.cloud : WorkspaceKind.sandbox;
-    const { project } = await this.create(user, { workspaceKind: kind });
+    const { project } = await this.create(user, {
+      workspaceKind: WorkspaceKind.cloud,
+    });
     return project;
   }
 }

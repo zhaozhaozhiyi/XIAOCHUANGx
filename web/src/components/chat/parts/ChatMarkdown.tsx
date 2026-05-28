@@ -1,7 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useMemo } from "react";
+import { Fragment, useMemo, useState } from "react";
+import { MermaidDiagram } from "@/components/chat/parts/MermaidDiagram";
 import { renderInlineMarkdown } from "@/components/chat/parts/chat-markdown-inline";
 import { prepareChatMarkdown } from "@/lib/prepare-chat-markdown";
 
@@ -11,7 +12,7 @@ type Block =
   | { type: "ul"; items: string[] }
   | { type: "ol"; items: string[] }
   | { type: "p"; text: string }
-  | { type: "code"; text: string }
+  | { type: "code"; text: string; language?: string }
   | { type: "table"; header: string[]; rows: string[][] }
   | { type: "image"; alt: string; src: string };
 
@@ -77,6 +78,7 @@ function parseBlocks(source: string): Block[] {
     }
 
     if (line.startsWith("```")) {
+      const language = line.slice(3).trim().split(/\s+/)[0]?.toLowerCase() || undefined;
       const codeLines: string[] = [];
       i += 1;
       while (i < lines.length && !lines[i]!.trim().startsWith("```")) {
@@ -84,7 +86,7 @@ function parseBlocks(source: string): Block[] {
         i += 1;
       }
       if (i < lines.length) i += 1;
-      blocks.push({ type: "code", text: codeLines.join("\n") });
+      blocks.push({ type: "code", text: codeLines.join("\n"), language });
       continue;
     }
 
@@ -239,6 +241,92 @@ type Props = {
   streaming?: boolean;
 };
 
+function CodeBlock({
+  text,
+  language,
+}: {
+  text: string;
+  language?: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1200);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  const renderJsonLine = (line: string, keyPrefix: string) => {
+    const tokenRegex =
+      /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+\-]?\d+)?/g;
+    const nodes: ReactNode[] = [];
+    let last = 0;
+    let idx = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = tokenRegex.exec(line)) !== null) {
+      if (match.index > last) {
+        nodes.push(
+          <Fragment key={`${keyPrefix}-plain-${idx}`}>
+            {line.slice(last, match.index)}
+          </Fragment>,
+        );
+      }
+      const token = match[0];
+      const isKey = !!match[2];
+      const isString = !!match[1];
+      const isKeyword = !!match[3];
+      const cls = isKey
+        ? "text-sky-600"
+        : isString
+          ? "text-emerald-600"
+          : isKeyword
+            ? "text-violet-600"
+            : "text-amber-600";
+      nodes.push(
+        <span key={`${keyPrefix}-token-${idx}`} className={cls}>
+          {token}
+        </span>,
+      );
+      last = tokenRegex.lastIndex;
+      idx += 1;
+    }
+    if (last < line.length) {
+      nodes.push(<Fragment key={`${keyPrefix}-tail`}>{line.slice(last)}</Fragment>);
+    }
+    return nodes;
+  };
+
+  const isJsonLike = language === "json" || language === "jsonc";
+
+  return (
+    <div className="my-2 rounded-lg border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_88%,var(--sidebar-hover))]">
+      <div className="flex justify-end px-2 pt-2">
+        <button
+          type="button"
+          className="rounded-md border border-[var(--border)] px-2 py-1 text-[11px] text-[var(--fg-secondary)] hover:bg-[var(--sidebar-hover)]"
+          onClick={() => void handleCopy()}
+        >
+          {copied ? "已复制" : "复制"}
+        </button>
+      </div>
+      <pre className="overflow-x-auto rounded-b-lg bg-[color-mix(in_srgb,var(--surface)_92%,var(--sidebar-hover))] p-3 pt-2 font-mono text-[13px] text-[var(--fg)]">
+        <code>
+          {isJsonLike
+            ? text.split("\n").map((line, idx) => (
+                <div key={`code-json-line-${idx}`}>{renderJsonLine(line, `code-line-${idx}`)}</div>
+              ))
+            : text}
+        </code>
+      </pre>
+    </div>
+  );
+}
+
 export function ChatMarkdown({ markdown, streaming }: Props) {
   const blocks = useMemo(() => parseBlocks(markdown), [markdown]);
 
@@ -299,14 +387,14 @@ export function ChatMarkdown({ markdown, streaming }: Props) {
           </ol>
         );
       case "code":
-        return (
-          <pre
-            key={i}
-            className="my-2 overflow-x-auto rounded-lg border border-[var(--border)] bg-[var(--bg)] p-3 font-mono text-[13px] text-[var(--fg)]"
-          >
-            <code>{block.text}</code>
-          </pre>
-        );
+        if (block.language === "mermaid") {
+          return (
+            <div key={i} className="my-2">
+              <MermaidDiagram source={block.text} sourceType="markdown" />
+            </div>
+          );
+        }
+        return <CodeBlock key={i} text={block.text} language={block.language} />;
       case "table":
         return (
           <MarkdownTable

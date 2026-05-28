@@ -37,7 +37,7 @@ export function ChatHome() {
 
   useEffect(() => {
     const p = getResearchProject(projectId);
-    setWorkspaceProject(projectId, p?.name ?? "临时工作区");
+    setWorkspaceProject(projectId, p?.name ?? "当前工作文件夹");
   }, [projectId, setWorkspaceProject]);
 
   const startChat = async (

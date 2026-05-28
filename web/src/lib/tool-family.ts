@@ -65,7 +65,7 @@ const FAMILY_LABEL: Record<ToolFamily, (n: number) => string> = {
   read: (n) => `读取 ${n} 个文件`,
   search: (n) => `搜索 ${n} 次`,
   query: (n) => `检索 ${n} 次`,
-  explore: (n) => `探索 ${n} 项`,
+  explore: (n) => `探索 ${n} 个目录`,
   command: (n) => `运行 ${n} 条命令`,
   write: (n) => `写入 ${n} 个文件`,
   other: (n) => `${n} 项工具`,

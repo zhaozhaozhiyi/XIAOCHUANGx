@@ -8,13 +8,17 @@ import { ChatSessionStatusIndicator } from "./ChatSessionStatusIndicator";
 import {
   formatRelativeTime,
   getSessionIndicator,
+  PLATFORM_DEFAULT_GROUP_ID,
   SIDEBAR_SESSIONS_INITIAL,
   SIDEBAR_SESSIONS_MORE_STEP,
   type ChatSessionRecord,
 } from "@/lib/chat-history";
 import { useChatHistory } from "@/hooks/useChatHistory";
 import { useResearchProjects } from "@/contexts/ResearchProjectsContext";
-import { NO_PROJECT_ID } from "@/lib/research-projects";
+import {
+  NO_PROJECT_ID,
+  PLATFORM_DEFAULT_GROUP_LABEL,
+} from "@/lib/research-projects";
 
 const COLLAPSE_STORAGE_KEY = "jlc-sidebar-project-collapsed";
 
@@ -46,7 +50,10 @@ export function ChatHistorySidebar() {
 
   const resolvedGroups = projectGroups.map((group) => ({
     ...group,
-    label: getProject(group.projectId)?.name ?? group.label,
+    label:
+      group.projectId === PLATFORM_DEFAULT_GROUP_ID
+        ? PLATFORM_DEFAULT_GROUP_LABEL
+        : (getProject(group.projectId)?.name ?? group.label),
   }));
   const activeId = pathname.match(/^\/chat\/([^/]+)$/)?.[1];
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(
@@ -66,7 +73,10 @@ export function ChatHistorySidebar() {
 
   const startChatInProject = useCallback(
     (projectId: string) => {
-      if (projectId === NO_PROJECT_ID) {
+      if (
+        projectId === NO_PROJECT_ID ||
+        projectId === PLATFORM_DEFAULT_GROUP_ID
+      ) {
         router.push("/chat");
         return;
       }
@@ -115,7 +125,7 @@ export function ChatHistorySidebar() {
       {unassigned.length > 0 && (
         <HistoryGroupSection
           groupKey="__unassigned__"
-          label="无项目"
+          label="默认工作文件夹（XIAOCHUANG）"
           projectId={NO_PROJECT_ID}
           muted
           sessions={unassigned}

@@ -57,14 +57,15 @@
 | **绑定键** | `bindingKey` | 解析流程 Skill 的键：对话 `{ mode }`；写作 `{ templateId }`；纪要 `{ task }` 等。 |
 | **模块注册表** | `module-registry` | `web/src/lib/module-registry.ts`：维护 `moduleId` → 领域服务、流程 Skill、模板资产等映射。 |
 | **工作区** | `projectId` / `cwd` | 某研究项目根目录；Agent CLI 的 `cwd`；非「每条消息一个子目录」。 |
-| **沙箱项目** | `sandbox` | UI「不使用项目」时，执行层仍绑定的默认 `projectId`。 |
+| **平台默认工作区** | XIAOCHUANG | UI「不绑定课题文件夹」时，Companion `ensure-default-task-project` 在 `{文稿}/XIAOCHUANG/{模块}/{日期}/{标题}/` 建任务目录（PRD §5.3.2.1a）。 |
+| **`sandbox`** | 内部/迁移 | Companion 托管目录；**非**模式 B 用户默认工作区。 |
 | **对话会话** | `sessionId` | 一条聊天线程；创建时固定绑定 `projectId`，切换本地项目须新建会话。 |
 
 ### 3.2 Agent 运行时
 
 | 术语 | 含义 |
 |------|------|
-| **模式 B（主路径）** | 本机 Companion + 本机 CLI + 本地/沙箱 `projectId`。 |
+| **模式 B（主路径）** | 本机 Companion + 本机 CLI + `local_bound` `projectId`（用户课题或 XIAOCHUANG 平台默认）。 |
 | **模式 A** | 云端工作区降级（V1.1+ 完整验收）。 |
 | **Companion** | 本机守护进程；探测 CLI、`POST /v1/runs`、SSE 推流到 Web。 |
 | **Agent CLI** | MVP 默认三款：`codex`、`claude`、`hermes`；由 Companion **spawn 本机可执行文件**，用户三选一。 |

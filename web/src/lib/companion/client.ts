@@ -7,6 +7,7 @@ import {
   companionProjectUploadUrl,
   companionProjectTreeUrl,
   companionProjectsEnsureUrl,
+  companionProjectsEnsureDefaultTaskUrl,
   companionProjectsImportFolderUrl,
   companionProjectsUrl,
   companionUrl,
@@ -103,11 +104,29 @@ export async function importCompanionFolder(input: {
   return (await res.json()) as CompanionProjectSummary;
 }
 
+export async function ensureCompanionDefaultTaskProject(input: {
+  moduleId: string;
+  taskTitle?: string;
+  taskId?: string;
+}): Promise<CompanionProjectSummary> {
+  const res = await companionFetch(companionProjectsEnsureDefaultTaskUrl(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(err.error ?? `ensure_default_failed_${res.status}`);
+  }
+  return (await res.json()) as CompanionProjectSummary;
+}
+
 export async function ensureCompanionProject(input: {
   projectId: string;
   workspaceKind: WorkspaceKind;
   name: string;
   baseDir?: string;
+  bindingSource?: "user_picked" | "platform_default";
 }): Promise<CompanionProjectSummary> {
   const res = await companionFetch(companionProjectsEnsureUrl(), {
     method: "POST",

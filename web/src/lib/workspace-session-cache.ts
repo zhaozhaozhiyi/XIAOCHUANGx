@@ -7,6 +7,7 @@ export type WorkspaceSessionSnapshot = {
   browserStates?: Record<string, BrowserTabState>;
   expandedFolders?: string[];
   selectedFileId?: string | null;
+  fileViewModesByFileId?: Record<string, string>;
 };
 
 const CACHE_PREFIX = "jlc-workspace-session-v1:";

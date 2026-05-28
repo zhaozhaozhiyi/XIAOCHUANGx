@@ -1,6 +1,7 @@
 import { chatExecutionMode, companionConfig } from "@/lib/companion/config";
 import { fetchCompanionProjectFilesIndex } from "@/lib/companion/client";
 import { resolveCompanionWorkspaceProjectId } from "@/lib/research-projects-server";
+import { NO_PROJECT_ID } from "@/lib/research-projects";
 import { flattenWorkspaceFiles, WORKSPACE_ROOT } from "@/lib/workspace";
 
 export const runtime = "nodejs";
@@ -11,6 +12,10 @@ type RouteContext = { params: Promise<{ projectId: string }> };
 export async function GET(request: Request, context: RouteContext) {
   const { projectId } = await context.params;
   const q = new URL(request.url).searchParams.get("q")?.trim() ?? "";
+
+  if (projectId === NO_PROJECT_ID) {
+    return Response.json({ projectId, files: [], mode: "draft" });
+  }
 
   if (chatExecutionMode() !== "companion" || companionConfig.useMock) {
     const paths = flattenWorkspaceFiles(WORKSPACE_ROOT.children ?? [])
@@ -27,9 +32,9 @@ export async function GET(request: Request, context: RouteContext) {
   }
 
   try {
-    const workspaceProjectId = await resolveCompanionWorkspaceProjectId(
-      projectId,
-    );
+
+    const { workspaceProjectId } =
+      await resolveCompanionWorkspaceProjectId(projectId);
     const { files } = await fetchCompanionProjectFilesIndex(
       workspaceProjectId,
       q || undefined,

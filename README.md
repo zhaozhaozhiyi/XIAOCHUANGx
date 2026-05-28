@@ -8,7 +8,7 @@
 | [`companion/`](./companion/) | 本机 Companion（模式 B） |
 | [`apps/desktop/`](./apps/desktop/) | Electron 桌面壳（`pnpm desktop:dev`） |
 
-文档：[PRD v3.5](./PRD-小窗.md)（**MVP = 对话 + 桌面壳 + 多 CLI / 多模型/API 接入核心能力**；实现快照 §12.5.9）· [技术方案](./技术方案.md) · [功能清单](./功能清单.md) · [MVP 收口清单](./web/docs/mvp-closure-checklist.md) · [执行路线图](./web/docs/chat-execution-roadmap.md) · [桌面壳](./web/docs/desktop-shell.md) · [Companion API](./web/docs/companion-api.md) · [业务 API](./api/README.md)
+文档：[PRD v3.6.7](./PRD-小窗.md)（**MVP = 对话 + 桌面壳 + 多 CLI / 多模型/API 接入核心能力**；实现快照 §12.5.9）· [工作区架构](./web/docs/workspace-architecture.md) · [设计文档审计建议](./docs/design-doc-audit-recommendations.md) · [技术方案](./技术方案.md) · [功能清单](./功能清单.md) · [会议纪要模块 PRD](./web/docs/meeting-module-prd.md) · [写作模块 PRD](./web/docs/writing-module-prd.md) · [PPT 模块 PRD](./web/docs/ppt-module-prd.md) · [MVP 收口清单](./web/docs/mvp-closure-checklist.md) · [执行路线图](./web/docs/chat-execution-roadmap.md) · [桌面壳](./web/docs/desktop-shell.md) · [Companion API](./web/docs/companion-api.md) · [业务 API](./api/README.md)
 
 ## 本地开发
 

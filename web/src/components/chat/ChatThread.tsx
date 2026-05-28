@@ -34,8 +34,10 @@ import { useWorkspaceOptional } from "@/components/workspace/WorkspaceContext";
 import {
   getResearchProject,
   getSessionProjectId,
+  isPlatformDefaultProject,
   isUsingLocalProject,
   NO_PROJECT_ID,
+  projectWorkLabel,
 } from "@/lib/research-projects";
 import type { ChatModeId } from "@/lib/navigation";
 import { normalizeChatMode } from "@/lib/navigation";
@@ -95,7 +97,26 @@ export function ChatThread({ id }: { id: string }) {
     },
   );
 
-  const sessionProjectId = getSessionProjectId(id);
+  const [sessionProjectId, setSessionProjectIdLocal] = useState(() =>
+    getSessionProjectId(id),
+  );
+
+  useEffect(() => {
+    setSessionProjectIdLocal(getSessionProjectId(id));
+  }, [id]);
+
+  useEffect(() => {
+    const onProjectUpdate = (event: Event) => {
+      const detail = (event as CustomEvent<{ sessionId: string; projectId: string }>)
+        .detail;
+      if (detail?.sessionId === id) {
+        setSessionProjectIdLocal(detail.projectId);
+      }
+    };
+    window.addEventListener("jlc-session-project-updated", onProjectUpdate);
+    return () =>
+      window.removeEventListener("jlc-session-project-updated", onProjectUpdate);
+  }, [id]);
   const { setWorkspaceProject } = useWorkspaceProject();
   const workspace = useWorkspaceOptional();
   const chatSession = useChatSessionOptional();
@@ -125,7 +146,13 @@ export function ChatThread({ id }: { id: string }) {
 
   useEffect(() => {
     const p = getResearchProject(sessionProjectId);
-    setWorkspaceProject(sessionProjectId, p?.name ?? "临时工作区");
+    const label =
+      p ?
+        isPlatformDefaultProject(sessionProjectId) ?
+          p.pathSummary
+        : projectWorkLabel(p)
+      : "默认工作文件夹（XIAOCHUANG）";
+    setWorkspaceProject(sessionProjectId, label);
   }, [sessionProjectId, setWorkspaceProject]);
 
   const showProjectPicker =
@@ -264,6 +291,12 @@ export function ChatThread({ id }: { id: string }) {
   const project = isUsingLocalProject(sessionProjectId)
     ? getResearchProject(sessionProjectId)
     : undefined;
+  const projectDisplayLabel =
+    project ?
+      isPlatformDefaultProject(sessionProjectId) ?
+        project.pathSummary
+      : project.name
+    : null;
 
   useEffect(() => {
     if (!hydrated || pendingHandled.current) return;
@@ -433,9 +466,9 @@ export function ChatThread({ id }: { id: string }) {
             <h1 className="font-display line-clamp-1 w-full text-center text-sm text-[var(--fg)]">
               {title}
             </h1>
-            {project && (
+            {projectDisplayLabel && (
               <span className="line-clamp-1 max-w-full text-center text-[11px] text-[var(--fg-tertiary)]">
-                {project.name}
+                {projectDisplayLabel}
               </span>
             )}
           </div>

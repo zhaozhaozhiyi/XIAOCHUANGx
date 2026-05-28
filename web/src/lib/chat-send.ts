@@ -13,7 +13,7 @@ export type ChatSendContext = {
   agentId: AgentId;
   agentModel: string;
   apiProvider?: ApiProviderConfig;
-  /** UI 层项目绑定（none = 无项目） */
+  /** UI 层项目绑定（none = 未绑定课题文件夹） */
   projectId: string;
   attachments?: ChatPendingAttachment[];
 };

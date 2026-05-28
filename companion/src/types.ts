@@ -15,6 +15,9 @@ export type ModuleId =
 
 export type WorkspaceKind = "sandbox" | "local_bound" | "cloud";
 
+/** local_bound 绑定来源（PRD §5.3.2.2.1） */
+export type LocalBoundSource = "user_picked" | "platform_default";
+
 export type CliDetectStatus =
   | "available"
   | "not_installed"
@@ -95,13 +98,15 @@ export type CompanionProjectSummary = {
   workspaceKind: WorkspaceKind;
   pathSummary: string;
   baseDir?: string;
+  /** 仅 local_bound；platform_default = XIAOCHUANG 预授权目录 */
+  bindingSource?: LocalBoundSource;
 };
 
 export type CreateRunBinding =
   | { moduleId: "chat"; mode: ChatModeId }
   | { moduleId: "writing"; templateId: string }
   | { moduleId: "ppt"; task: "deck" }
-  | { moduleId: "meeting"; task: "summary" }
+  | { moduleId: "meeting"; task: "summary"; templateId?: string }
   | { moduleId: "knowledge"; task: "kb-qa" };
 
 export type ChatRunMessage = {

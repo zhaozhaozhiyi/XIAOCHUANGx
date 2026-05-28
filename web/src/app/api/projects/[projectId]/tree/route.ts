@@ -10,6 +10,7 @@ import {
 import { resolveCompanionWorkspaceProjectId } from "@/lib/research-projects-server";
 import {
   getResearchProject,
+  NO_PROJECT_ID,
   SANDBOX_PROJECT_ID,
 } from "@/lib/research-projects";
 import { findWorkspaceFile, WORKSPACE_ROOT } from "@/lib/workspace";
@@ -22,13 +23,38 @@ type RouteContext = { params: Promise<{ projectId: string }> };
 function projectLabel(projectId: string): string {
   const mock = getResearchProject(projectId);
   if (mock) return mock.name;
-  if (projectId === SANDBOX_PROJECT_ID) return "临时工作区";
+  if (projectId === SANDBOX_PROJECT_ID) return "默认工作区";
   return projectId;
 }
 
 export async function GET(request: Request, context: RouteContext) {
   const { projectId } = await context.params;
   const relPath = new URL(request.url).searchParams.get("path")?.trim() ?? "";
+
+  // 草稿态尚未创建任务目录：返回空树而不是抛 module_id_required。
+  if (projectId === NO_PROJECT_ID) {
+    if (relPath) {
+      return Response.json({
+        projectId,
+        mode: "draft",
+        path: relPath,
+        nodes: [],
+      });
+    }
+    return Response.json({
+      projectId,
+      mode: "draft",
+      root: null,
+      tree: [],
+      rootNode: {
+        id: "root",
+        name: "默认工作区（XIAOCHUANG）",
+        type: "folder",
+        children: [],
+      },
+      label: "默认工作区（XIAOCHUANG）",
+    });
+  }
 
   if (chatExecutionMode() !== "companion" || companionConfig.useMock) {
     if (relPath) {
@@ -68,9 +94,8 @@ export async function GET(request: Request, context: RouteContext) {
   }
 
   try {
-    const workspaceProjectId = await resolveCompanionWorkspaceProjectId(
-      projectId,
-    );
+    const { workspaceProjectId } =
+      await resolveCompanionWorkspaceProjectId(projectId);
     if (relPath) {
       const { nodes } = await fetchCompanionProjectTreeChildren(
         workspaceProjectId,

@@ -18,6 +18,10 @@ import {
   setSessionRunStatus,
   upsertChatSession,
 } from "@/lib/chat-history";
+import {
+  rememberEnsuredResearchProject,
+  setSessionProjectId,
+} from "@/lib/research-projects";
 import type { ChatSendContext } from "@/lib/chat-send";
 import {
   applyPartsStateToMessage,
@@ -48,6 +52,7 @@ import {
   useChatRunController,
   type AssistantStateUpdater,
 } from "@/components/chat/useChatRunController";
+import { workspaceErrorMessage } from "@/lib/workspace-errors";
 
 function inferNextStreamSeq(parts: ChatPart[] | undefined): number {
   if (!parts?.length) return 0;
@@ -468,6 +473,22 @@ export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = 
               message,
             );
           },
+          onProjectEnsured: (project) => {
+            rememberEnsuredResearchProject({
+              id: project.id,
+              kind: "local_bound",
+              name: project.name,
+              pathSummary: project.pathSummary,
+              bindingSource: "platform_default",
+            });
+            setSessionProjectId(sessionId, project.id);
+            upsertChatSession({
+              id: sessionId,
+              title: trimmed.slice(0, 48),
+              projectId: project.id,
+              runStatus: "running",
+            });
+          },
         });
       } catch (error) {
         if (controller.signal.aborted || !isCurrentRun(runId)) {
@@ -558,8 +579,9 @@ function accumulatedErrorMessage(
   agentId: Parameters<typeof agentLabel>[0],
   executionSource: ChatSendContext["executionSource"],
 ) {
+  const readable = workspaceErrorMessage(error) ?? error;
   if (executionSource === "api") {
-    return `无法通过模型 API 完成请求：${error}\n\n请检查 Provider 地址、API Key、模型 ID 与网络连通性；若是企业网关，也请确认该地址未被安全策略拦截。`;
+    return `无法通过模型 API 完成请求：${readable}\n\n请检查 Provider 地址、API Key、模型 ID 与网络连通性；若是企业网关，也请确认该地址未被安全策略拦截。`;
   }
-  return `无法通过 ${agentLabel(agentId)} 完成请求：${error}\n\n请检查本机 Companion、对应 CLI 登录/权限与网络状态；若使用 Hermes 捷径，请确认 gateway 已启动且 HERMES_API_URL 可访问。`;
+  return `无法通过 ${agentLabel(agentId)} 完成请求：${readable}\n\n请检查本机 Companion、对应 CLI 登录/权限与网络状态；若使用 Hermes 捷径，请确认 gateway 已启动且 HERMES_API_URL 可访问。`;
 }

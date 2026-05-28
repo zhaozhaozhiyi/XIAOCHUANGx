@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "postinstall": "node -e \"const fs=require('fs');const p=require('path');fs.copyFileSync(p.join('node_modules','pdfjs-dist','build','pdf.worker.min.mjs'),p.join('public','pdf.worker.min.mjs'));\"",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed"
   },
@@ -14,8 +15,11 @@
     "@jlc/contracts": "workspace:*",
     "@jlc/runtime-core": "workspace:*",
     "@jvmr/pptx-to-html": "^1.0.1",
+    "docx-preview": "^0.3.7",
     "lucide-react": "^1.16.0",
+    "mermaid": "^11.15.0",
     "next": "16.2.6",
+    "pdfjs-dist": "5.3.93",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },

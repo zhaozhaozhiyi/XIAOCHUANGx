@@ -3,6 +3,7 @@
 import type { PartPresentation } from "@/components/chat/parts/PartRenderer";
 import type { ToolBatchPart } from "@/lib/chat-parts";
 import { toolStatusTextClass } from "@/lib/activity-status-tone";
+import { toolDisplayName } from "@/lib/tool-family";
 import { ChevronDown, ChevronRight, FolderSearch } from "lucide-react";
 import { useState } from "react";
 
@@ -38,7 +39,7 @@ export function ToolBatchCard({
             {part.items.map((item, i) => (
               <li key={`${item.tool}-${i}`} className="flex items-start gap-2 py-0.5">
                 <span className="shrink-0 font-mono text-[var(--fg-tertiary)]">
-                  {item.tool}
+                  {toolDisplayName(item.tool)}
                 </span>
                 {item.message ? (
                   <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">
@@ -82,7 +83,7 @@ export function ToolBatchCard({
           {part.items.map((item, i) => (
             <li key={`${item.tool}-${i}`} className="flex items-start gap-2 py-1">
               <span className="shrink-0 font-medium text-[var(--fg-tertiary)]">
-                {item.tool}
+                {toolDisplayName(item.tool)}
               </span>
               {item.message && (
                 <span className="min-w-0 flex-1 whitespace-pre-wrap break-words text-[var(--fg-tertiary)]">

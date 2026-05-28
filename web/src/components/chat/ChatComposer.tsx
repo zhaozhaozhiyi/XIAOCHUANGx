@@ -307,7 +307,11 @@ export function ChatComposer({
 
   useEffect(() => {
     const p = getResearchProject(projectId);
-    setWorkspaceProject(projectId, p?.name ?? "临时工作区");
+    const display =
+      p?.bindingSource === "platform_default"
+        ? p.pathSummary
+        : p?.name;
+    setWorkspaceProject(projectId, display ?? "默认工作文件夹（XIAOCHUANG）");
   }, [projectId, setWorkspaceProject]);
 
   const workspaceProjectId = useMemo(
@@ -399,7 +403,7 @@ export function ChatComposer({
       setSwitchHint(
         project
           ? `已选择「${project.name}」，正在新建对话…`
-          : "已切换为不使用项目，正在新建对话…",
+          : "已切换到默认工作文件夹，正在新建对话…",
       );
       window.setTimeout(() => {
         router.push(`/chat/${newId}`);
@@ -413,8 +417,8 @@ export function ChatComposer({
     setProjectId(nextId);
     setSwitchHint(
       project
-        ? `将在「${project.name}」中开始对话`
-        : "未绑定本地项目，将使用沙箱工作区",
+        ? `将在文件夹「${project.name}」中开始对话`
+        : "将使用默认工作文件夹（XIAOCHUANG）",
     );
     window.setTimeout(() => setSwitchHint(null), 3200);
   };
@@ -696,8 +700,8 @@ export function ChatComposer({
         <p className="chat-composer-stack__hint">
           {switchHint ??
             (isUsingLocalProject(projectId)
-              ? `${getResearchProject(projectId)?.pathSummary} · 发送后将归入该项目历史`
-              : "未绑定本地项目 · 发送后将出现在侧栏「无项目」")}
+              ? `当前工作文件夹：${getResearchProject(projectId)?.pathSummary}`
+              : "当前工作文件夹：默认工作区（XIAOCHUANG）")}
         </p>
       )}
     </div>

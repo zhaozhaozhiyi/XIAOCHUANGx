@@ -15,7 +15,7 @@ export default function ChatHistoryPage() {
     <div className="flex flex-1 flex-col overflow-y-auto p-6">
       <h1 className="text-xl font-semibold">历史会话</h1>
       <p className="mt-1 text-sm text-[var(--fg-secondary)]">
-        按研究项目分组；圆点表示执行与阅读状态（灰=已读、蓝=未读、橙=待确认、转圈=执行中）
+        按工作文件夹分组；圆点表示执行与阅读状态（灰=已读、蓝=未读、橙=待确认、转圈=执行中）
       </p>
 
       <div className="mt-6 space-y-6">
@@ -30,7 +30,7 @@ export default function ChatHistoryPage() {
         ))}
         {unassigned.length > 0 && (
           <section>
-            <h2 className="text-overline mb-2 text-[var(--fg-tertiary)]">无项目</h2>
+            <h2 className="text-overline mb-2 text-[var(--fg-tertiary)]">默认工作文件夹（XIAOCHUANG）</h2>
             <SessionTable sessions={unassigned} />
           </section>
         )}

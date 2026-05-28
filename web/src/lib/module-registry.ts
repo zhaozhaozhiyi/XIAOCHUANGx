@@ -30,6 +30,13 @@ export type ModuleRegistryEntry = {
   domainServices: DomainService[];
   /** MVP 是否以 Agent + 流程 Skill 为主路径 */
   agentPrimaryPath: boolean;
+  /**
+   * 是否可能产生 XIAOCHUANG 工作区文件（§5.3.2.1a）。
+   * 翻译：仅文档翻译或用户导出译文时建任务目录；纯文本历史可仅存 DB。
+   */
+  producesWorkspaceArtifacts: boolean;
+  /** XIAOCHUANG 一级目录名；仅 producesWorkspaceArtifacts=true 时有效 */
+  workspaceSegment?: string;
 };
 
 export const MODULE_REGISTRY: Record<ModuleId, ModuleRegistryEntry> = {
@@ -38,38 +45,54 @@ export const MODULE_REGISTRY: Record<ModuleId, ModuleRegistryEntry> = {
     label: "对话",
     domainServices: ["choice-terminal", "chart-engine"],
     agentPrimaryPath: true,
+    producesWorkspaceArtifacts: true,
+    workspaceSegment: "会话",
   },
   meeting: {
     moduleId: "meeting",
-    label: "会议纪要",
+    label: "会议",
     domainServices: ["asr"],
     agentPrimaryPath: true,
+    producesWorkspaceArtifacts: true,
+    workspaceSegment: "会议",
   },
   knowledge: {
     moduleId: "knowledge",
     label: "知识库",
     domainServices: ["doc-storage", "rag"],
     agentPrimaryPath: false,
+    producesWorkspaceArtifacts: false,
   },
   writing: {
     moduleId: "writing",
     label: "写作",
     domainServices: ["choice-terminal", "chart-engine"],
     agentPrimaryPath: true,
+    producesWorkspaceArtifacts: true,
+    workspaceSegment: "写作",
   },
   ppt: {
     moduleId: "ppt",
     label: "PPT",
     domainServices: ["slide-engine"],
     agentPrimaryPath: true,
+    producesWorkspaceArtifacts: true,
+    workspaceSegment: "PPT",
   },
   translate: {
     moduleId: "translate",
     label: "翻译",
     domainServices: ["translate-engine"],
     agentPrimaryPath: false,
+    producesWorkspaceArtifacts: true,
+    workspaceSegment: "翻译",
   },
 };
+
+/** §5.3.2.1a：模块 → XIAOCHUANG 一级目录名 */
+export function getModuleWorkspaceSegment(moduleId: ModuleId): string | undefined {
+  return MODULE_REGISTRY[moduleId].workspaceSegment;
+}
 
 /** 对话页内模式 → 流程 Skill（`research` 为 API 别名，见 normalizeChatMode） */
 export const CHAT_MODE_SKILL: Record<string, string> = {
@@ -90,6 +113,49 @@ export const WRITING_TEMPLATE_SKILL: Record<string, string> = {
 /**
  * PPT 路演 templateId → 流程 Skill（由 Open Design 批量同步，见 skills/ppt-sync-manifest.json）
  */
+/** 会议 templateId（可选）→ 流程 Skill；缺省见 resolveSkills meeting 分支 */
+export const MEETING_TEMPLATE_SKILL: Record<string, string> = {
+  default: "skill-mm-summary",
+  "daily-standup": "skill-mm-daily-standup",
+  "client-review": "skill-mm-client-review",
+  "internal-decision": "skill-mm-internal-decision",
+};
+
+export const MEETING_TEMPLATE_PACK: Record<string, string> = {
+  default: "tpl-mm-default",
+  "daily-standup": "tpl-mm-daily-standup",
+  "client-review": "tpl-mm-client-review",
+  "internal-decision": "tpl-mm-internal-decision",
+};
+
+/** 会议类型展示（新建纪要页；不选则走 default / skill-mm-summary） */
+export const MEETING_TEMPLATE_CATALOG: Array<{
+  templateId: string;
+  label: string;
+  description: string;
+}> = [
+  {
+    templateId: "default",
+    label: "通用会议纪要",
+    description: "概要、大纲、QA、待办与全文转写（默认）",
+  },
+  {
+    templateId: "daily-standup",
+    label: "站会 / 周会速记",
+    description: "昨日进展、今日计划、阻塞项",
+  },
+  {
+    templateId: "client-review",
+    label: "客户沟通纪要",
+    description: "客户诉求、我方回应、跟进事项",
+  },
+  {
+    templateId: "internal-decision",
+    label: "内部研讨 / 投决",
+    description: "议题、观点、结论与决策待办",
+  },
+];
+
 export const PPT_TEMPLATE_SKILL: Record<string, string> = {
   default: "skill-ppt-deck",
   "pitch-deck": "skill-ppt-pitch-deck",
@@ -141,7 +207,7 @@ export const PPT_TEMPLATE_CATALOG: Array<{
 
 export type SkillResolveInput =
   | { moduleId: "chat"; binding: { mode: string } }
-  | { moduleId: "meeting"; binding: { task: "summary" } }
+  | { moduleId: "meeting"; binding: { task: "summary"; templateId?: string } }
   | { moduleId: "knowledge"; binding: { task: "kb-qa" } }
   | { moduleId: "writing"; binding: { templateId: string } }
   | { moduleId: "ppt"; binding: { task: "deck"; templateId?: string } }
@@ -167,10 +233,14 @@ export function resolveSkills(input: SkillResolveInput): ResolvedSkills {
       base.processSkill = CHAT_MODE_SKILL[mode] ?? "skill-qa-fast";
       return base;
     }
-    case "meeting":
-      base.processSkill = "skill-mm-summary";
-      base.templatePackId = "tpl-mm-default";
+    case "meeting": {
+      const tid = input.binding.templateId?.trim() || "default";
+      base.processSkill =
+        MEETING_TEMPLATE_SKILL[tid] ?? MEETING_TEMPLATE_SKILL.default;
+      base.templatePackId =
+        MEETING_TEMPLATE_PACK[tid] ?? MEETING_TEMPLATE_PACK.default;
       return base;
+    }
     case "knowledge":
       base.processSkill = "skill-kb-qa";
       return base;

@@ -8,6 +8,7 @@ import {
   FolderPlus,
 } from "lucide-react";
 import type { WorkspaceFileNode } from "@/lib/workspace";
+import { workspaceErrorMessage } from "@/lib/workspace-errors";
 import { useWorkspace } from "./WorkspaceContext";
 
 function promptNewName(label: string, placeholder: string): string | null {
@@ -113,6 +114,7 @@ function TreeNode({
 
 export function FileTree() {
   const { root, treeLoading, treeError, refreshTree } = useWorkspace();
+  const treeErrorText = workspaceErrorMessage(treeError);
 
   const handleNewFile = () => {
     const name = promptNewName("新建文件", "untitled.md");
@@ -159,9 +161,9 @@ export function FileTree() {
         {treeLoading && (
           <p className="px-3 py-2 text-xs text-[var(--fg-tertiary)]">加载目录…</p>
         )}
-        {treeError && !treeLoading && (
+        {treeErrorText && !treeLoading && (
           <div className="px-3 py-2 text-xs text-[var(--danger)]">
-            <p>{treeError}</p>
+            <p>{treeErrorText}</p>
             <button
               type="button"
               className="mt-1 underline"
