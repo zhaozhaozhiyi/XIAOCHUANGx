@@ -216,13 +216,9 @@ function ImagePreview({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [showLightbox, setShowLightbox] = useState(false);
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    setPreviewUrl(null);
-    setFailed(false);
-    setShowLightbox(false);
     const reader = new FileReader();
     reader.addEventListener("load", () => {
       if (!cancelled && typeof reader.result === "string") {
@@ -240,10 +236,6 @@ function ImagePreview({
       }
     };
   }, [file]);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     if (!showLightbox) return;
@@ -311,7 +303,7 @@ function ImagePreview({
         </button>
       </li>
 
-      {showLightbox && mounted && previewUrl
+      {showLightbox && previewUrl && typeof document !== "undefined"
         ? createPortal(
             <div
               className="fixed inset-0 z-[999] flex cursor-zoom-out items-center justify-center bg-black/75 backdrop-blur-md animate-fade-in"
