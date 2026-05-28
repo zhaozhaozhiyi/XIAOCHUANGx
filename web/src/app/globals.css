@@ -1621,9 +1621,7 @@ body {
 }
 
 .chat-pinned-todo {
-  width: min(100%, 42rem);
-  margin-left: 0;
-  margin-right: auto;
+  width: 100%;
 }
 
 .chat-pinned-todo .chat-todo-block {
