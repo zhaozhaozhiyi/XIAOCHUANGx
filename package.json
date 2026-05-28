@@ -16,7 +16,7 @@
     "mvp:verify": "pnpm skills:verify && pnpm smoke:companion",
     "skills:sync-ppt": "node scripts/sync-open-design-ppt-skills.mjs --force",
     "skills:verify-ppt": "pnpm skills:sync-ppt && pnpm runtime-core:build && node --input-type=module -e \"import { loadSkill, loadSkillBundle } from './packages/runtime-core/dist/index.js'; const b=loadSkillBundle({processSkill:'skill-ppt-pitch-deck',platformNormSkill:'skill-platform-research-norms'}); if(b.missing.length) throw new Error('missing: '+b.missing.join(',')); const deck=loadSkill('skill-ppt-deck'); const html=loadSkill('skill-ppt-html-studio'); if(!deck||!html) throw new Error('ppt skills not on disk'); console.log('ok ppt', b.process?.slug, 'refs', b.process?.referencePaths.length, 'html-studio', html.referencePaths.length);\"",
-    "companion:dev": "pnpm --filter @jlcresearch/companion dev",
+    "companion:dev": "pnpm runtime-core:build && pnpm --filter @jlcresearch/companion dev",
     "dev:web": "pnpm --filter web dev",
     "desktop:icons": "node scripts/generate-brand-icons.mjs",
     "desktop:dev": "pnpm --filter @jlc/desktop dev",

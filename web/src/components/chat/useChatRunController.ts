@@ -108,9 +108,11 @@ export function useChatRunController(sessionId: string) {
   );
 
   const stopCurrentRun = useCallback(
-    (finalizeMessages: () => void) => {
-      const companionRunId = companionRunIdRef.current;
-      companionRunIdRef.current = null;
+    (finalizeMessages: () => void, runIdOverride?: string) => {
+      const companionRunId = runIdOverride ?? companionRunIdRef.current;
+      if (!runIdOverride || companionRunIdRef.current === runIdOverride) {
+        companionRunIdRef.current = null;
+      }
       if (companionRunId) {
         void cancelCompanionRun(companionRunId);
       }
@@ -129,8 +131,8 @@ export function useChatRunController(sessionId: string) {
   );
 
   const interruptCurrentRun = useCallback(
-    (finalizeMessages: () => void) => {
-      stopCurrentRun(finalizeMessages);
+    (finalizeMessages: () => void, runIdOverride?: string) => {
+      stopCurrentRun(finalizeMessages, runIdOverride);
     },
     [stopCurrentRun],
   );

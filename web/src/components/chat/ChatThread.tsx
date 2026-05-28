@@ -129,6 +129,26 @@ export function ChatThread({ id }: { id: string }) {
   const showProjectPicker =
     !isSessionStarted(id) && messages.length === 0;
 
+  let hasInflightAssistant = false;
+  let inflightRunId: string | undefined;
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i];
+    if (
+      message?.role === "assistant" &&
+      (message.status === "loading" || message.status === "streaming")
+    ) {
+      hasInflightAssistant = true;
+      inflightRunId = message.runId;
+      break;
+    }
+  }
+
+  const composerGenerating = isReplying || hasInflightAssistant;
+
+  const handleStop = useCallback(() => {
+    stopReply(inflightRunId);
+  }, [inflightRunId, stopReply]);
+
   const handleSend = useCallback(
     (payload: {
       text: string;
@@ -475,8 +495,8 @@ export function ChatThread({ id }: { id: string }) {
                   : "继续提问… 输入 @ 提及当前项目文件"
               }
               onSend={handleSend}
-              generating={isReplying}
-              onStop={stopReply}
+              generating={composerGenerating}
+              onStop={handleStop}
             />
             <ChatAiDisclaimer />
           </div>

@@ -488,9 +488,10 @@ export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = 
     ],
   );
 
-  const stopReply = useCallback(() => {
+  const stopReply = useCallback((runId?: string) => {
     interruptCurrentRun(() =>
       setMessages((prev) => finalizeInFlightMessages(prev)),
+      runId,
     );
   }, [interruptCurrentRun, setMessages]);
 

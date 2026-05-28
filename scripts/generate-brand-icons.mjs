@@ -3,7 +3,7 @@
  * 从 apps/desktop/build/icon.svg 生成桌面壳与 Web 用图标。
  * 依赖：rsvg-convert（macOS 可用 brew install librsvg）；mac 上额外生成 .icns。
  */
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,6 +17,14 @@ const webPublicDir = join(root, "web/public");
 
 function run(cmd, args) {
   execFileSync(cmd, args, { stdio: "inherit" });
+}
+
+function hasCommand(cmd) {
+  const check =
+    process.platform === "win32"
+      ? spawnSync("where.exe", [cmd], { stdio: "ignore" })
+      : spawnSync("command", ["-v", cmd], { stdio: "ignore", shell: true });
+  return check.status === 0;
 }
 
 function rsvg(size, out) {
@@ -36,6 +44,34 @@ if (!existsSync(svgPath)) {
 mkdirSync(buildDir, { recursive: true });
 mkdirSync(webAppDir, { recursive: true });
 mkdirSync(webPublicDir, { recursive: true });
+
+const generatedAssets = [
+  join(buildDir, "icon.png"),
+  join(buildDir, "icon@512.png"),
+  join(buildDir, "icon@256.png"),
+  join(webAppDir, "apple-icon.png"),
+  join(buildDir, "icon@32.png"),
+  join(buildDir, "icon@16.png"),
+  join(webAppDir, "icon.svg"),
+  join(webPublicDir, "icon.svg"),
+];
+
+if (!hasCommand("rsvg-convert")) {
+  if (generatedAssets.every((asset) => existsSync(asset))) {
+    console.warn(
+      "[generate-brand-icons] rsvg-convert not found; reusing existing generated icon assets.",
+    );
+    console.warn(
+      "[generate-brand-icons] Install librsvg/rsvg-convert to refresh icons from apps/desktop/build/icon.svg.",
+    );
+    process.exit(0);
+  }
+
+  console.error(
+    "Missing rsvg-convert and generated icon assets. Install librsvg/rsvg-convert, then rerun pnpm desktop:icons.",
+  );
+  process.exit(1);
+}
 
 rsvg(1024, join(buildDir, "icon.png"));
 rsvg(512, join(buildDir, "icon@512.png"));

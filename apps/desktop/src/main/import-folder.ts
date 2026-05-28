@@ -16,6 +16,23 @@ export type PickAndImportFailure = {
 
 export type PickAndImportResult = PickAndImportSuccess | PickAndImportFailure;
 
+function projectImportErrorMessage(code: string): string {
+  switch (code) {
+    case "baseDir_not_accessible":
+      return "目录不存在或无法读取，请检查路径是否正确";
+    case "baseDir_must_be_under_home":
+      return "目录须位于用户主目录下";
+    case "baseDir_forbidden":
+      return "不能绑定系统目录";
+    case "baseDir_in_data_dir":
+      return "不能绑定 Companion 数据目录，请选择您的课题目录";
+    case "baseDir_required":
+      return "请填写文件夹路径";
+    default:
+      return code;
+  }
+}
+
 function companionBaseUrl(): string {
   return (process.env.COMPANION_BASE_URL ?? "http://127.0.0.1:9477").replace(
     /\/$/,
@@ -53,7 +70,9 @@ export async function pickAndImportFolder(): Promise<PickAndImportResult> {
     if (!res.ok || !body.projectId) {
       return {
         ok: false,
-        message: body.error ?? `import_failed_${res.status}`,
+        message: projectImportErrorMessage(
+          body.error ?? `import_failed_${res.status}`,
+        ),
       };
     }
     return {

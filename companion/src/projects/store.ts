@@ -14,9 +14,10 @@ import {
   isAbsolute,
   basename,
   sep,
+  parse,
 } from "node:path";
 import { randomUUID } from "node:crypto";
-import { homedir } from "node:os";
+import { homedir, platform } from "node:os";
 import type {
   CompanionProjectSummary,
   WorkspaceKind,
@@ -121,19 +122,46 @@ function formatPathSummary(absPath: string): string {
 
 function validateLocalBaseDir(baseDir: string): string {
   const resolved = resolve(baseDir);
-  const home = homedir();
-  const rel = relative(home, resolved);
-  if (rel.startsWith("..") || isAbsolute(rel)) {
-    throw new Error("baseDir_must_be_under_home");
-  }
-  const forbidden = ["/etc", "/usr", "/bin", "/sbin", "/var", "/System"];
-  if (forbidden.some((f) => resolved.startsWith(f))) {
+  if (parse(resolved).root === resolved) {
     throw new Error("baseDir_forbidden");
   }
-  const dataResolved = resolve(config.dataDir);
+  const home = homedir();
+  const rel = relative(home, resolved);
+  if (platform() !== "win32" && (rel.startsWith("..") || isAbsolute(rel))) {
+    throw new Error("baseDir_must_be_under_home");
+  }
+  const normalizedResolved =
+    platform() === "win32" ? resolved.toLowerCase() : resolved;
+  const forbidden =
+    platform() === "win32"
+      ? [
+          resolve(process.env.SystemRoot ?? "C:\\Windows"),
+          resolve(process.env.ProgramFiles ?? "C:\\Program Files"),
+          resolve(
+            process.env["ProgramFiles(x86)"] ?? "C:\\Program Files (x86)",
+          ),
+          resolve(process.env.ProgramData ?? "C:\\ProgramData"),
+        ]
+      : ["/etc", "/usr", "/bin", "/sbin", "/var", "/System"];
   if (
-    resolved === dataResolved ||
-    resolved.startsWith(`${dataResolved}${sep}`)
+    forbidden.some((f) => {
+      const normalizedForbidden =
+        platform() === "win32" ? resolve(f).toLowerCase() : resolve(f);
+      return (
+        normalizedResolved === normalizedForbidden ||
+        normalizedResolved.startsWith(`${normalizedForbidden}${sep}`)
+      );
+    })
+  ) {
+    throw new Error("baseDir_forbidden");
+  }
+  const dataResolved =
+    platform() === "win32"
+      ? resolve(config.dataDir).toLowerCase()
+      : resolve(config.dataDir);
+  if (
+    normalizedResolved === dataResolved ||
+    normalizedResolved.startsWith(`${dataResolved}${sep}`)
   ) {
     throw new Error("baseDir_in_data_dir");
   }
