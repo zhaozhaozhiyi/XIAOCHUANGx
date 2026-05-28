@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
-import { ChevronDown, Plus } from "lucide-react";
+import { useCallback, useState } from "react";
+import { ChevronDown, Folder, Plus } from "lucide-react";
 import { ChatSessionStatusIndicator } from "./ChatSessionStatusIndicator";
 import {
   formatRelativeTime,
@@ -50,12 +50,8 @@ export function ChatHistorySidebar() {
   }));
   const activeId = pathname.match(/^\/chat\/([^/]+)$/)?.[1];
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(
-    {},
+    () => readCollapsedGroups(),
   );
-
-  useEffect(() => {
-    setCollapsedGroups(readCollapsedGroups());
-  }, []);
   const [visibleByGroup, setVisibleByGroup] = useState<Record<string, number>>(
     {},
   );
@@ -107,6 +103,7 @@ export function ChatHistorySidebar() {
           projectId={group.projectId}
           sessions={group.sessions}
           activeId={activeId}
+          active={group.sessions.some((session) => session.id === activeId)}
           collapsed={!!collapsedGroups[group.projectId]}
           onToggleCollapsed={() => toggleGroupCollapsed(group.projectId)}
           onNewChat={() => startChatInProject(group.projectId)}
@@ -123,6 +120,7 @@ export function ChatHistorySidebar() {
           muted
           sessions={unassigned}
           activeId={activeId}
+          active={unassigned.some((session) => session.id === activeId)}
           collapsed={!!collapsedGroups.__unassigned__}
           onToggleCollapsed={() => toggleGroupCollapsed("__unassigned__")}
           onNewChat={() => startChatInProject(NO_PROJECT_ID)}
@@ -144,6 +142,7 @@ function HistoryGroupSection({
   collapsed,
   onToggleCollapsed,
   onNewChat,
+  active,
   muted,
   last,
 }: {
@@ -157,6 +156,7 @@ function HistoryGroupSection({
   collapsed: boolean;
   onToggleCollapsed: () => void;
   onNewChat: () => void;
+  active?: boolean;
   muted?: boolean;
   last?: boolean;
 }) {
@@ -168,7 +168,9 @@ function HistoryGroupSection({
       className={`chat-history-sidebar__section ${last ? "chat-history-sidebar__section--last" : ""}`}
     >
       <div
-        className={`chat-history-sidebar__project ${muted ? "chat-history-sidebar__project--muted" : ""}`}
+        className={`chat-history-sidebar__project ${muted ? "chat-history-sidebar__project--muted" : ""} ${
+          active ? "chat-history-sidebar__project--active" : ""
+        }`}
       >
         <div className="chat-history-sidebar__project-text">
           <button
@@ -178,6 +180,11 @@ function HistoryGroupSection({
             aria-expanded={!collapsed}
             aria-label={collapsed ? `展开「${label}」` : `收起「${label}」`}
           >
+            <Folder
+              className="chat-history-sidebar__project-icon h-3.5 w-3.5 shrink-0"
+              strokeWidth={1.75}
+              aria-hidden
+            />
             <span className="truncate">{label}</span>
             <ChevronDown
               className={`chat-history-sidebar__chevron h-3.5 w-3.5 shrink-0 ${collapsed ? "chat-history-sidebar__chevron--collapsed" : ""}`}
