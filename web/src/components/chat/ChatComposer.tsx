@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useWorkspaceProject } from "@/components/workspace/WorkspaceProjectContext";
 import { useRouter } from "next/navigation";
 import { useSettings } from "@/components/settings/SettingsContext";
@@ -214,9 +215,14 @@ function ImagePreview({
 }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  const [showLightbox, setShowLightbox] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    setPreviewUrl(null);
+    setFailed(false);
+    setShowLightbox(false);
     const reader = new FileReader();
     reader.addEventListener("load", () => {
       if (!cancelled && typeof reader.result === "string") {
@@ -235,37 +241,106 @@ function ImagePreview({
     };
   }, [file]);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!showLightbox) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowLightbox(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showLightbox]);
+
+  const canPreview = Boolean(previewUrl && !failed);
+
   return (
-    <li
-      className="relative group h-14 w-14 shrink-0"
-      title={`${file.name} · ${formatAttachmentSize(file.size)}`}
-    >
-      {failed || !previewUrl ? (
-        <div className="flex h-full w-full flex-col items-center justify-center gap-1 rounded-xl border border-neutral-200/60 bg-neutral-100 px-2 text-center text-neutral-500">
-          <FileText className="h-5 w-5 shrink-0" strokeWidth={1.75} />
-          <span className="line-clamp-2 max-w-full break-all text-[10px] leading-tight">
-            {file.name}
-          </span>
-        </div>
-      ) : (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={previewUrl}
-          alt={file.name}
-          className="h-full w-full rounded-xl border border-neutral-200/60 bg-[var(--surface-elevated)] object-cover"
-          onError={() => setFailed(true)}
-        />
-      )}
-      <button
-        type="button"
-        onClick={onRemove}
-        disabled={disabled}
-        className="absolute top-1 right-1 z-10 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-black text-white hover:bg-neutral-800 transition-colors shadow-sm cursor-pointer"
-        aria-label={`移除图片 ${file.name}`}
+    <>
+      <li
+        className="relative group h-14 w-14 shrink-0"
+        title={`${file.name} · ${formatAttachmentSize(file.size)}`}
       >
-        <X className="h-2.5 w-2.5" strokeWidth={3} />
-      </button>
-    </li>
+        <div
+          role={canPreview ? "button" : undefined}
+          tabIndex={canPreview ? 0 : undefined}
+          aria-label={canPreview ? `预览图片 ${file.name}` : undefined}
+          onClick={() => {
+            if (canPreview) setShowLightbox(true);
+          }}
+          onKeyDown={(e) => {
+            if (!canPreview) return;
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setShowLightbox(true);
+            }
+          }}
+          className={`h-full w-full ${canPreview ? "cursor-zoom-in" : ""}`}
+        >
+          {failed || !previewUrl ? (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-1 rounded-xl border border-neutral-200/60 bg-neutral-100 px-2 text-center text-neutral-500">
+              <FileText className="h-5 w-5 shrink-0" strokeWidth={1.75} />
+              <span className="line-clamp-2 max-w-full break-all text-[10px] leading-tight">
+                {file.name}
+              </span>
+            </div>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={previewUrl}
+              alt={file.name}
+              className="h-full w-full rounded-xl border border-neutral-200/60 bg-[var(--surface-elevated)] object-cover transition-transform hover:-translate-y-0.5"
+              onError={() => setFailed(true)}
+            />
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          disabled={disabled}
+          className="absolute top-1 right-1 z-10 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-black text-white hover:bg-neutral-800 transition-colors shadow-sm cursor-pointer"
+          aria-label={`移除图片 ${file.name}`}
+        >
+          <X className="h-2.5 w-2.5" strokeWidth={3} />
+        </button>
+      </li>
+
+      {showLightbox && mounted && previewUrl
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[999] flex cursor-zoom-out items-center justify-center bg-black/75 backdrop-blur-md animate-fade-in"
+              onClick={() => setShowLightbox(false)}
+            >
+              <div className="relative max-h-[70vh] max-w-[75vw] select-none transition-all duration-300 ease-out">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={previewUrl}
+                  alt={file.name}
+                  className="max-h-[70vh] max-w-full rounded-2xl border border-white/10 object-contain shadow-2xl animate-scale-up"
+                />
+                <button
+                  type="button"
+                  className="absolute -top-12 right-0 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-white/10 bg-white/10 text-white shadow-md transition-colors hover:bg-white/20"
+                  aria-label="关闭预览"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowLightbox(false);
+                  }}
+                >
+                  <X className="h-5 w-5" strokeWidth={2.5} />
+                </button>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }
 
