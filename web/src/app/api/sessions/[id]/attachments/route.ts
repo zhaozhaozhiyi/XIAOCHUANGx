@@ -160,7 +160,7 @@ export async function POST(
   return Response.json({
     id: crypto.randomUUID(),
     name: path.basename(dest),
-    path: dest,
+    path: path.basename(dest),
     size: file.size,
     mimeType,
     isImage: mimeType.startsWith("image/"),

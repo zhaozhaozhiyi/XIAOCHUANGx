@@ -11,6 +11,7 @@ type BackgroundRunState = {
   userMessageId: string;
   assistantMessageId: string;
   userContent: string;
+  /** Attachment metadata forwarded from the client. */
   userAttachments?: unknown[];
   assistantContent: string;
   assistantStatus:
@@ -73,15 +74,30 @@ async function upsertSessionMessages(
 ): Promise<void> {
   const existing = await loadSessionMessages(req.sessionId);
   const persisted = existing?.messages ?? [];
-  const existingUserMsgIndex = persisted.findIndex(
+  const existingUserMsg = persisted.find(
     (item) => item.id === state.userMessageId,
   );
   const filtered = persisted.filter(
     (item) =>
       item.id !== state.userMessageId && item.id !== state.assistantMessageId,
   );
-  if (existingUserMsgIndex >= 0) {
-    filtered.splice(existingUserMsgIndex, 0, persisted[existingUserMsgIndex]!);
+  if (existingUserMsg) {
+    const precedingIds = new Set(
+      persisted
+        .slice(0, persisted.indexOf(existingUserMsg))
+        .filter(
+          (item) =>
+            item.id !== state.userMessageId &&
+            item.id !== state.assistantMessageId,
+        )
+        .map((item) => item.id),
+    );
+    const insertAt = filtered.findIndex((item) => !precedingIds.has(item.id));
+    filtered.splice(
+      insertAt >= 0 ? insertAt : filtered.length,
+      0,
+      existingUserMsg,
+    );
   } else {
     filtered.push(buildUserMessage(state));
   }

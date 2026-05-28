@@ -32,6 +32,7 @@ import type { AgentId } from "@/lib/settings";
 import { useProjectFileIndex } from "@/hooks/useProjectFileIndex";
 import type { WorkspaceFileNode } from "@/lib/workspace";
 import type { ChatPendingAttachment } from "@/lib/chat";
+import { formatAttachmentSize } from "@/lib/chat-attachments";
 
 export type ChatComposerSendPayload = {
   text: string;
@@ -130,13 +131,7 @@ function isImageAttachment(file: File): boolean {
   );
 }
 
-function formatAttachmentSize(size: number): string {
-  if (size < 1024) return `${size} B`;
-  const kb = size / 1024;
-  if (kb < 1024) return `${Number(kb.toFixed(kb >= 10 ? 0 : 1))} KB`;
-  const mb = kb / 1024;
-  return `${Number(mb.toFixed(mb >= 10 ? 0 : 1))} MB`;
-}
+
 
 async function attachmentFromFile(file: File): Promise<ChatPendingAttachment> {
   const extension = file.name.includes(".")
@@ -389,10 +384,9 @@ export function ChatComposer({
       if (settings.rememberLastChatMode) {
         updateSettings({ defaultChatMode: mode });
       }
-    } catch (error) {
+    } catch {
       setText(textToSend);
       setSelectedAttachments(attachmentsToSend);
-      throw error;
     } finally {
       setSending(false);
     }
@@ -548,7 +542,7 @@ export function ChatComposer({
               }
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                handleSend();
+                void handleSend();
               }
             }}
             onClick={(e) =>

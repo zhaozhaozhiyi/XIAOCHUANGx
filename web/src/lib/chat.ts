@@ -45,6 +45,7 @@ export type ChatAttachment = {
   size: number;
   mimeType?: string;
   isImage?: boolean;
+  /** @deprecated Use mimeType instead. */
   type?: string;
   extension?: string;
   lastModified?: number;

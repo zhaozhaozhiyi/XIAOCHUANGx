@@ -373,7 +373,7 @@ export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = 
       const historyForApi = [...baseMessages, userMsg];
       messagesRef.current = [...historyForApi, assistantPlaceholder];
       setMessages(messagesRef.current);
-      void saveSessionMessagesHybrid(sessionId, historyForApi, context.projectId);
+      void saveSessionMessagesHybrid(sessionId, historyForApi, context.projectId).catch(console.error);
       markReplying();
 
       const schedulePatch = (updater: AssistantStateUpdater) => {

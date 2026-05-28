@@ -15,6 +15,16 @@ export async function login(page: Page, phone = AUTH_PHONE) {
 
 export async function seedAuthenticatedSession(page: Page, phone = AUTH_PHONE) {
   await page.context().addCookies([
+    // Also set for localhost domain to cover direct localhost access
+    {
+      name: "jlc_session",
+      value: phone,
+      domain: "localhost",
+      path: "/",
+      httpOnly: false,
+      secure: false,
+      sameSite: "Lax",
+    },
     {
       name: "jlc_session",
       value: phone,

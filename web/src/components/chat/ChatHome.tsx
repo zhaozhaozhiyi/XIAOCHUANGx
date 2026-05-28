@@ -32,6 +32,7 @@ export function ChatHome() {
       ? fromQuery
       : NO_PROJECT_ID;
   });
+  const [sending, setSending] = useState(false);
   const { setWorkspaceProject } = useWorkspaceProject();
 
   useEffect(() => {
@@ -50,18 +51,25 @@ export function ChatHome() {
   ) => {
     const trimmed = text.trim();
     if (!trimmed && !attachments?.length) return;
-    const id = String(Date.now());
-    const uploadedAttachments = await uploadChatAttachments(id, attachments);
-    setPendingSession(id, {
-      text: trimmed,
-      attachments: uploadedAttachments,
-      mode,
-      executionSource,
-      agentId,
-      agentModel,
-      projectId: projId,
-    });
-    router.push(`/chat/${id}`);
+    setSending(true);
+    try {
+      const id = String(Date.now());
+      const uploadedAttachments = await uploadChatAttachments(id, attachments);
+      setPendingSession(id, {
+        text: trimmed,
+        attachments: uploadedAttachments,
+        mode,
+        executionSource,
+        agentId,
+        agentModel,
+        projectId: projId,
+      });
+      router.push(`/chat/${id}`);
+    } catch {
+      // upload failed — stay on page, user can retry
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -88,6 +96,7 @@ export function ChatHome() {
           </p>
           <ChatComposer
             showProjectPicker
+            disabled={sending}
             projectId={projectId}
             onProjectIdChange={setProjectId}
             executionSource={executionSource}

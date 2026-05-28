@@ -5,14 +5,9 @@ import { createPortal } from "react-dom";
 import { useParams } from "next/navigation";
 import { FileText } from "lucide-react";
 import type { ChatAttachment, ChatMessage } from "@/lib/chat";
+import { formatAttachmentSize } from "@/lib/chat-attachments";
 
-function formatAttachmentSize(size: number): string {
-  if (size < 1024) return `${size} B`;
-  const kb = size / 1024;
-  if (kb < 1024) return `${Number(kb.toFixed(kb >= 10 ? 0 : 1))} KB`;
-  const mb = kb / 1024;
-  return `${Number(mb.toFixed(mb >= 10 ? 0 : 1))} MB`;
-}
+
 
 function getAttachmentIconInfo(name: string, extension?: string) {
   const ext = (extension || name.split(".").pop() || "").toLowerCase();
