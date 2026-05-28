@@ -1,5 +1,4 @@
 import {
-  appendSessionMessages,
   loadSessionMessages,
   saveSessionMessages,
   type StoredChatMessage,
@@ -12,6 +11,7 @@ type BackgroundRunState = {
   userMessageId: string;
   assistantMessageId: string;
   userContent: string;
+  userAttachments?: unknown[];
   assistantContent: string;
   assistantStatus:
     | "loading"
@@ -28,15 +28,25 @@ function messageId(prefix: "user" | "assistant", runId: string): string {
   return `${prefix}-${runId}`;
 }
 
-function findLastUserMessage(req: CreateRunRequest): string {
-  return [...req.messages].reverse().find((m) => m.role === "user")?.content ?? "";
+function cleanUserContent(content: string): string {
+  let cleaned = content.trim();
+  cleaned = cleaned.replace(/\n\n\[Attached files: [^\]]+\]$/, "");
+  if (/^I've uploaded \d+ file\(s\): /.test(cleaned)) {
+    cleaned = "";
+  }
+  return cleaned;
+}
+
+function findLastUserMessage(req: CreateRunRequest) {
+  return [...req.messages].reverse().find((m) => m.role === "user");
 }
 
 function buildUserMessage(state: BackgroundRunState): StoredChatMessage {
   return {
     id: state.userMessageId,
     role: "user",
-    content: state.userContent,
+    content: cleanUserContent(state.userContent),
+    attachments: state.userAttachments,
     status: "complete",
   };
 }
@@ -63,11 +73,18 @@ async function upsertSessionMessages(
 ): Promise<void> {
   const existing = await loadSessionMessages(req.sessionId);
   const persisted = existing?.messages ?? [];
+  const existingUserMsgIndex = persisted.findIndex(
+    (item) => item.id === state.userMessageId,
+  );
   const filtered = persisted.filter(
     (item) =>
       item.id !== state.userMessageId && item.id !== state.assistantMessageId,
   );
-  filtered.push(buildUserMessage(state));
+  if (existingUserMsgIndex >= 0) {
+    filtered.splice(existingUserMsgIndex, 0, persisted[existingUserMsgIndex]!);
+  } else {
+    filtered.push(buildUserMessage(state));
+  }
   filtered.push(buildAssistantMessage(runId, state));
   await saveSessionMessages(req.sessionId, filtered, req.projectId);
 }
@@ -76,21 +93,18 @@ export async function primeSessionForRun(
   req: CreateRunRequest,
   runId: string,
 ): Promise<BackgroundRunState> {
-  const userContent = findLastUserMessage(req);
+  const lastUser = findLastUserMessage(req);
   const state: BackgroundRunState = {
-    userMessageId: messageId("user", runId),
+    userMessageId: lastUser?.id || messageId("user", runId),
     assistantMessageId: messageId("assistant", runId),
-    userContent,
+    userContent: lastUser?.content ?? "",
+    userAttachments: lastUser?.attachments,
     assistantContent: "",
     assistantStatus: "streaming",
     runStartedAt: Date.now(),
     lastUpdatedAt: Date.now(),
   };
-  await appendSessionMessages(
-    req.sessionId,
-    [buildUserMessage(state), buildAssistantMessage(runId, state)],
-    req.projectId,
-  );
+  await upsertSessionMessages(req, runId, state);
   return state;
 }
 

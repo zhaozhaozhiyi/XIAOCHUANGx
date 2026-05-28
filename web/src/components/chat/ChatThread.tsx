@@ -37,14 +37,13 @@ import {
   isUsingLocalProject,
   NO_PROJECT_ID,
 } from "@/lib/research-projects";
-import type { ChatExecutionSource } from "@/lib/byok/shared";
 import type { ChatModeId } from "@/lib/navigation";
 import { normalizeChatMode } from "@/lib/navigation";
-import type { AgentId } from "@/lib/settings";
 import { fetchRunEvents, fetchRunRecord } from "@/lib/companion/runtime";
 import { applyRunEventsToMessage } from "@/lib/chat-run-events";
 import { useChatSessionOptional } from "@/contexts/ChatSessionContext";
 import { ChevronDown } from "lucide-react";
+import type { ChatComposerSendPayload } from "@/components/chat/ChatComposer";
 
 export function ChatThread({ id }: { id: string }) {
   const sidebarCollapsed = useSidebarCollapsed();
@@ -101,8 +100,11 @@ export function ChatThread({ id }: { id: string }) {
   const workspace = useWorkspaceOptional();
   const chatSession = useChatSessionOptional();
   const publishSessionRef = useRef(chatSession?.publishSession);
-  publishSessionRef.current = chatSession?.publishSession;
   const lastRefreshedDeliverablesKey = useRef("");
+
+  useEffect(() => {
+    publishSessionRef.current = chatSession?.publishSession;
+  }, [chatSession?.publishSession]);
 
   useEffect(() => {
     publishSessionRef.current?.(id, messages);
@@ -150,27 +152,21 @@ export function ChatThread({ id }: { id: string }) {
   }, [inflightRunId, stopReply]);
 
   const handleSend = useCallback(
-    (payload: {
-      text: string;
-      mode: ChatModeId;
-      executionSource: ChatExecutionSource;
-      agentId: AgentId;
-      agentModel: string;
-      projectId: string;
-    }) => {
+    async (payload: ChatComposerSendPayload) => {
       markPinned();
       setDismissedTodoKey(null);
       setLastMode(normalizeChatMode(payload.mode) ?? "fast");
-      sendMessage(payload.text, {
+      await sendMessage(payload.text, {
         executionSource: payload.executionSource,
         mode: payload.mode,
         agentId: payload.agentId,
         agentModel: payload.agentModel,
         apiProvider: settings.apiProvider,
         projectId: payload.projectId,
+        attachments: payload.attachments,
       });
     },
-    [markPinned, sendMessage],
+    [markPinned, sendMessage, settings.apiProvider],
   );
 
   const handleClarificationSubmitted = useCallback(
@@ -282,9 +278,17 @@ export function ChatThread({ id }: { id: string }) {
         agentModel: pending.agentModel,
         apiProvider: settings.apiProvider,
         projectId: pending.projectId ?? sessionProjectId ?? NO_PROJECT_ID,
+        attachments: pending.attachments,
       });
     }
-  }, [hydrated, id, markPinned, sendMessage, sessionProjectId]);
+  }, [
+    hydrated,
+    id,
+    markPinned,
+    sendMessage,
+    sessionProjectId,
+    settings.apiProvider,
+  ]);
 
   useEffect(() => {
     if (!hydrated || messages.length === 0) return;

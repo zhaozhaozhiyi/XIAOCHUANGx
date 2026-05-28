@@ -6,10 +6,10 @@ import { ChatAgentModelPicker } from "./ChatAgentModelPicker";
 import { ChatComposer } from "./ChatComposer";
 import { ChatHomeTaskSuggestions } from "./ChatHomeTaskSuggestions";
 import { ChatTopBar } from "./ChatTopBar";
+import type { ChatComposerSendPayload } from "./ChatComposer";
 import { useChatAgentSelection } from "./useChatAgentSelection";
 import { setPendingSession } from "@/lib/chat";
 import { useSidebarCollapsed } from "@/components/layout/SidebarLayoutContext";
-import { useSettings } from "@/components/settings/SettingsContext";
 import { useWorkspaceProject } from "@/components/workspace/WorkspaceProjectContext";
 import {
   getResearchProject,
@@ -18,15 +18,20 @@ import {
 import type { ChatExecutionSource } from "@/lib/byok/shared";
 import type { ChatModeId } from "@/lib/navigation";
 import type { AgentId } from "@/lib/settings";
+import { uploadChatAttachments } from "@/lib/chat-attachments";
 
 export function ChatHome() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sidebarCollapsed = useSidebarCollapsed();
-  const { settings } = useSettings();
   const { executionSource, agentId, agentModel, selectAgentModel } =
     useChatAgentSelection();
-  const [projectId, setProjectId] = useState(NO_PROJECT_ID);
+  const [projectId, setProjectId] = useState(() => {
+    const fromQuery = searchParams.get("project");
+    return fromQuery && getResearchProject(fromQuery)?.kind === "local_bound"
+      ? fromQuery
+      : NO_PROJECT_ID;
+  });
   const { setWorkspaceProject } = useWorkspaceProject();
 
   useEffect(() => {
@@ -34,27 +39,22 @@ export function ChatHome() {
     setWorkspaceProject(projectId, p?.name ?? "临时工作区");
   }, [projectId, setWorkspaceProject]);
 
-  useEffect(() => {
-    const fromQuery = searchParams.get("project");
-    if (!fromQuery) return;
-    if (getResearchProject(fromQuery)?.kind === "local_bound") {
-      setProjectId(fromQuery);
-    }
-  }, [searchParams]);
-
-  const startChat = (
+  const startChat = async (
     text: string,
     mode: ChatModeId,
     executionSource: ChatExecutionSource,
     agentId: AgentId,
     agentModel: string,
     projId: string,
+    attachments?: ChatComposerSendPayload["attachments"],
   ) => {
     const trimmed = text.trim();
-    if (!trimmed) return;
+    if (!trimmed && !attachments?.length) return;
     const id = String(Date.now());
+    const uploadedAttachments = await uploadChatAttachments(id, attachments);
     setPendingSession(id, {
       text: trimmed,
+      attachments: uploadedAttachments,
       mode,
       executionSource,
       agentId,
@@ -101,12 +101,13 @@ export function ChatHome() {
                 payload.agentId,
                 payload.agentModel,
                 payload.projectId,
+                payload.attachments,
               )
             }
           />
           <ChatHomeTaskSuggestions
             onSelect={(q) =>
-              startChat(
+              void startChat(
                 q,
                 "fast",
                 executionSource,

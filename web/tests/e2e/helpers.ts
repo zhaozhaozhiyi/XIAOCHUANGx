@@ -18,6 +18,14 @@ export async function seedAuthenticatedSession(page: Page, phone = AUTH_PHONE) {
     {
       name: "jlc_session",
       value: phone,
+      domain: "localhost",
+      path: "/",
+      httpOnly: false,
+      sameSite: "Lax",
+    },
+    {
+      name: "jlc_session",
+      value: phone,
       domain: "127.0.0.1",
       path: "/",
       httpOnly: false,

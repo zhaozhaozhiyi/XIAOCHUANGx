@@ -22,6 +22,8 @@ export type ChatMessage = {
   role: "user" | "assistant";
   /** 用户消息正文；assistant 与 parts 同步 */
   content: string;
+  /** 用户发送时携带的附件；文本类文件会带截断后的内容。 */
+  attachments?: ChatAttachment[];
   status?: "complete" | "loading" | "streaming" | "error" | "cancelled";
   parts?: ChatPart[];
   activityCollapse?: ActivityCollapse;
@@ -36,10 +38,30 @@ export type ChatMessage = {
   canonicalOutput?: CanonicalTurnOutput;
 };
 
+export type ChatAttachment = {
+  id: string;
+  name: string;
+  path?: string;
+  size: number;
+  mimeType?: string;
+  isImage?: boolean;
+  type?: string;
+  extension?: string;
+  lastModified?: number;
+  textContent?: string;
+  truncated?: boolean;
+};
+
+export type ChatPendingAttachment = ChatAttachment & {
+  file?: File;
+};
+
 const PENDING_KEY = (id: string) => `chat-pending-${id}`;
+const pendingSessions = new Map<string, PendingSession>();
 
 export type PendingSession = {
   text: string;
+  attachments?: ChatPendingAttachment[];
   mode: ChatModeId;
   executionSource: ChatExecutionSource;
   agentId: AgentId;
@@ -49,12 +71,27 @@ export type PendingSession = {
 
 export function setPendingSession(id: string, payload: PendingSession) {
   if (typeof window === "undefined") return;
-  sessionStorage.setItem(PENDING_KEY(id), JSON.stringify(payload));
+  pendingSessions.set(id, payload);
+  const persisted = {
+    ...payload,
+    attachments: payload.attachments?.map((attachment) => {
+      const persistedAttachment = { ...attachment };
+      delete persistedAttachment.file;
+      return persistedAttachment;
+    }),
+  };
+  sessionStorage.setItem(PENDING_KEY(id), JSON.stringify(persisted));
   setSessionProjectId(id, payload.projectId ?? NO_PROJECT_ID);
 }
 
 export function consumePendingSession(id: string): PendingSession | null {
   if (typeof window === "undefined") return null;
+  const pending = pendingSessions.get(id);
+  if (pending) {
+    pendingSessions.delete(id);
+    sessionStorage.removeItem(PENDING_KEY(id));
+    return pending;
+  }
   const raw = sessionStorage.getItem(PENDING_KEY(id));
   if (!raw) return null;
   sessionStorage.removeItem(PENDING_KEY(id));
@@ -65,7 +102,8 @@ export function consumePendingSession(id: string): PendingSession | null {
       typeof parsed.mode !== "string" ||
       (parsed.executionSource !== "cli" && parsed.executionSource !== "api") ||
       typeof parsed.agentId !== "string" ||
-      typeof parsed.agentModel !== "string"
+      typeof parsed.agentModel !== "string" ||
+      (parsed.attachments != null && !Array.isArray(parsed.attachments))
     ) {
       return null;
     }
@@ -79,6 +117,7 @@ export function createMessage(
   role: ChatMessage["role"],
   content: string,
   status: ChatMessage["status"] = "complete",
+  attachments?: ChatAttachment[],
 ): ChatMessage {
   const msg: ChatMessage = {
     id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -86,6 +125,9 @@ export function createMessage(
     content,
     status,
   };
+  if (role === "user" && attachments?.length) {
+    msg.attachments = attachments;
+  }
   if (role === "assistant") {
     msg.parts = partsFromPlainContent(content, status);
     msg.activityCollapse = defaultActivityCollapse(status);

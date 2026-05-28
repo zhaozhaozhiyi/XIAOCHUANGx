@@ -1,4 +1,5 @@
 import type { ChatModeId } from "@/lib/navigation";
+import type { ChatPendingAttachment } from "@/lib/chat";
 import type { AgentId } from "@/lib/settings";
 import type {
   ApiProviderConfig,
@@ -14,4 +15,5 @@ export type ChatSendContext = {
   apiProvider?: ApiProviderConfig;
   /** UI 层项目绑定（none = 无项目） */
   projectId: string;
+  attachments?: ChatPendingAttachment[];
 };

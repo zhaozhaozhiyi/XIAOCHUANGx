@@ -2,6 +2,7 @@
 
 import type { ChatMessage } from "@/lib/chat";
 import { AssistantMessageBubble } from "@/components/chat/parts/AssistantMessageBubble";
+import { UserMessageBubble } from "@/components/chat/UserMessageBubble";
 
 type Props = {
   messages: ChatMessage[];
@@ -32,7 +33,7 @@ export function ChatMessageList({
           className="w-full"
         >
           {msg.role === "user" ? (
-            <div className="bubble-user w-full whitespace-pre-wrap">{msg.content}</div>
+            <UserMessageBubble message={msg} />
           ) : (
             <AssistantMessageBubble
               message={msg}

@@ -26,6 +26,7 @@ function parseMessages(body: unknown): StoredChatMessage[] | null {
       id: row.id,
       role: row.role,
       content: row.content,
+      attachments: Array.isArray(row.attachments) ? row.attachments : undefined,
       status:
         row.status === "complete" ||
         row.status === "loading" ||

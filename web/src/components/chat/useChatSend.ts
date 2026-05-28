@@ -62,6 +62,11 @@ import { useSettings } from "@/components/settings/SettingsContext";
 import { assertAgentAvailable } from "@/lib/hermes/agent";
 import { streamChatCompletion } from "@/lib/hermes/client";
 import { agentLabel } from "@/lib/settings";
+import {
+  persistedAttachment,
+  uploadChatAttachments,
+} from "@/lib/chat-attachments";
+import { saveSessionMessagesHybrid } from "@/lib/chat-session-sync";
 
 function finalizeInFlightMessages(prev: ChatMessage[]): ChatMessage[] {
   return prev.map((m) => {
@@ -271,7 +276,11 @@ export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = 
   const sendMessage = useCallback(
     async (text: string, context: ChatSendContext) => {
       const trimmed = text.trim();
-      if (!trimmed) return;
+      if (!trimmed && !context.attachments?.length) return;
+      const sessionTitle =
+        trimmed.slice(0, 48) ||
+        context.attachments?.[0]?.name.slice(0, 48) ||
+        "附件";
 
       const agentError =
         context.executionSource === "api"
@@ -283,11 +292,16 @@ export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = 
         markSessionStarted(sessionId);
         upsertChatSession({
           id: sessionId,
-          title: trimmed.slice(0, 48),
+          title: sessionTitle,
           projectId: context.projectId,
           runStatus: "idle",
         });
-        const userMsg = createMessage("user", trimmed);
+        const userMsg = createMessage(
+          "user",
+          trimmed,
+          "complete",
+          context.attachments?.map(persistedAttachment),
+        );
         setMessages((prev) => [
           ...prev,
           userMsg,
@@ -297,12 +311,43 @@ export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = 
       }
 
       const { runId, controller } = beginRun();
+      let uploadedAttachments;
+      try {
+        uploadedAttachments = await uploadChatAttachments(
+          sessionId,
+          context.attachments,
+          controller.signal,
+        );
+      } catch (error) {
+        finishRunUiState(runId, controller);
+        markSessionStarted(sessionId);
+        upsertChatSession({
+          id: sessionId,
+          title: sessionTitle,
+          projectId: context.projectId,
+          runStatus: "idle",
+        });
+        setMessages((prev) => [
+          ...prev,
+          createMessage("assistant", errorMessage(error), "error"),
+        ]);
+        throw error;
+      }
+      const sendContext: ChatSendContext = {
+        ...context,
+        attachments: uploadedAttachments,
+      };
 
-      const userMsg = createMessage("user", trimmed);
+      const userMsg = createMessage(
+        "user",
+        trimmed,
+        "complete",
+        uploadedAttachments,
+      );
       markSessionStarted(sessionId);
       upsertChatSession({
         id: sessionId,
-        title: trimmed.slice(0, 48),
+        title: sessionTitle,
         projectId: context.projectId,
         runStatus: "running",
       });
@@ -328,6 +373,7 @@ export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = 
       const historyForApi = [...baseMessages, userMsg];
       messagesRef.current = [...historyForApi, assistantPlaceholder];
       setMessages(messagesRef.current);
+      void saveSessionMessagesHybrid(sessionId, historyForApi, context.projectId);
       markReplying();
 
       const schedulePatch = (updater: AssistantStateUpdater) => {
@@ -342,7 +388,7 @@ export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = 
       try {
         result = await streamChatCompletion({
           sessionId,
-          context,
+          context: sendContext,
           messages: historyForApi,
           useClientHistory,
           signal: controller.signal,

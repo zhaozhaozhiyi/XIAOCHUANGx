@@ -40,9 +40,190 @@ test.describe("MVP chat", () => {
     await page.getByRole("button", { name: "发送" }).click();
 
     await page.waitForURL(/\/chat\/\d+/);
-    await expect(page.getByText(question)).toBeVisible();
+    await expect(
+      page.locator(".bubble-user").filter({ hasText: question }),
+    ).toBeVisible();
     await expect(page.getByText("这是原型环境的模拟回复")).toBeVisible();
     await expect(page.getByLabel("执行中")).toHaveCount(0);
+  });
+
+  test("opens the attachment file picker from the composer menu", async ({
+    page,
+  }) => {
+    await page.getByRole("button", { name: "更多", exact: true }).click();
+
+    const fileChooserPromise = page.waitForEvent("filechooser", {
+      timeout: 3_000,
+    });
+    await page.getByRole("button", { name: "上传附件" }).click();
+
+    await expect(fileChooserPromise).resolves.toBeTruthy();
+  });
+
+  test("shows selected attachments in the composer", async ({ page }) => {
+    await page.getByRole("button", { name: "更多", exact: true }).click();
+
+    const fileChooserPromise = page.waitForEvent("filechooser");
+    await page.getByRole("button", { name: "上传附件" }).click();
+    const fileChooser = await fileChooserPromise;
+    await fileChooser.setFiles([
+      {
+        name: "market-report.pdf",
+        mimeType: "application/pdf",
+        buffer: Buffer.alloc(1536),
+      },
+      {
+        name: "库存数据.xlsx",
+        mimeType:
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        buffer: Buffer.alloc(2_098_176),
+      },
+    ]);
+
+    await expect(page.getByText("market-report.pdf")).toBeVisible();
+    await expect(page.getByText("1.5 KB")).toBeVisible();
+    await expect(page.getByText("库存数据.xlsx")).toBeVisible();
+    await expect(page.getByText("2 MB")).toBeVisible();
+
+    await page.getByRole("button", { name: "移除附件 market-report.pdf" }).click();
+    await expect(page.getByText("market-report.pdf")).toHaveCount(0);
+    await expect(page.getByText("库存数据.xlsx")).toBeVisible();
+  });
+
+  test("renders selected image attachments as thumbnails", async ({ page }) => {
+    const png1x1 = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lB3W1wAAAABJRU5ErkJggg==",
+      "base64",
+    );
+
+    await page.getByRole("button", { name: "更多", exact: true }).click();
+    const fileChooserPromise = page.waitForEvent("filechooser");
+    await page.getByRole("button", { name: "上传附件" }).click();
+    const fileChooser = await fileChooserPromise;
+    await fileChooser.setFiles([
+      {
+        name: "price-chart.png",
+        mimeType: "image/png",
+        buffer: png1x1,
+      },
+    ]);
+
+    const image = page.locator('.chat-composer img[alt="price-chart.png"]');
+    await expect(image).toBeVisible();
+    await expect
+      .poll(() =>
+        image.evaluate((el) =>
+          el instanceof HTMLImageElement ? el.naturalWidth : 0,
+        ),
+      )
+      .toBeGreaterThan(0);
+  });
+
+  test("uploads attachments before sending a message", async ({ page }) => {
+    const uploads: Array<{ url: string; fields: Record<string, string> }> = [];
+    await page.route("**/api/sessions/*/attachments", async (route) => {
+      const request = route.request();
+      const form = request.postDataBuffer();
+      uploads.push({
+        url: request.url(),
+        fields: {
+          contentType: request.headers()["content-type"] ?? "",
+          body: form?.toString("utf8") ?? "",
+        },
+      });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: "attachment-market-report",
+          name: "market-report.txt",
+          size: 24,
+          mimeType: "text/plain",
+          path: "D:\\tmp\\attachments\\market-report.txt",
+          isImage: false,
+          textContent: "库存环比下降 2.3%",
+        }),
+      });
+    });
+
+    await page.getByRole("button", { name: "更多", exact: true }).click();
+    const fileChooserPromise = page.waitForEvent("filechooser");
+    await page.getByRole("button", { name: "上传附件" }).click();
+    const fileChooser = await fileChooserPromise;
+    await fileChooser.setFiles([
+      {
+        name: "market-report.txt",
+        mimeType: "text/plain",
+        buffer: Buffer.from("库存环比下降 2.3%", "utf8"),
+      },
+    ]);
+
+    await page.getByPlaceholder(/可向助手询问任何事/).fill("请分析附件");
+    await page.getByRole("button", { name: "发送" }).click();
+
+    await page.waitForURL(/\/chat\/\d+/);
+    await expect(
+      page.locator(".bubble-user").filter({ hasText: "请分析附件" }),
+    ).toBeVisible();
+    await expect(page.getByText("market-report.txt")).toBeVisible();
+    await expect.poll(() => uploads.length).toBe(1);
+    expect(uploads[0].url).toContain("/api/sessions/");
+    expect(uploads[0].fields.contentType).toContain("multipart/form-data");
+    expect(uploads[0].fields.body).toContain("market-report.txt");
+  });
+
+  test("shows uploading state and prevents duplicate attachment sends", async ({
+    page,
+  }) => {
+    let uploadCount = 0;
+    let releaseUpload!: () => void;
+    const uploadStarted = new Promise<void>((resolve) => {
+      page.route("**/api/sessions/*/attachments", async (route) => {
+        uploadCount += 1;
+        resolve();
+        await new Promise<void>((release) => {
+          releaseUpload = release;
+        });
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            id: "attachment-market-report",
+            name: "market-report.txt",
+            size: 24,
+            mimeType: "text/plain",
+            path: "D:\\tmp\\attachments\\market-report.txt",
+            isImage: false,
+          }),
+        });
+      });
+    });
+
+    await page.getByRole("button", { name: "更多", exact: true }).click();
+    const fileChooserPromise = page.waitForEvent("filechooser");
+    await page.getByRole("button", { name: "上传附件" }).click();
+    const fileChooser = await fileChooserPromise;
+    await fileChooser.setFiles([
+      {
+        name: "market-report.txt",
+        mimeType: "text/plain",
+        buffer: Buffer.from("库存环比下降 2.3%", "utf8"),
+      },
+    ]);
+
+    await page.getByPlaceholder(/可向助手询问任何事/).fill("请分析附件");
+    const sendButton = page.getByRole("button", { name: "发送" });
+    await sendButton.click();
+    await uploadStarted;
+    await sendButton.click({ force: true });
+
+    await expect(page.getByText("正在上传附件…")).toBeVisible();
+    await expect(sendButton).toBeDisabled();
+    expect(uploadCount).toBe(1);
+
+    releaseUpload();
+    await page.waitForURL(/\/chat\/\d+/);
+    await expect.poll(() => uploadCount).toBe(1);
   });
 
   test("opens an existing seeded history session", async ({ page }) => {

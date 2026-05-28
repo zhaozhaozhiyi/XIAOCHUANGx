@@ -1,5 +1,7 @@
 # dependencies
 node_modules/
+.xiaochuang
+output/
 
 # Python (参考项目)
 venv/

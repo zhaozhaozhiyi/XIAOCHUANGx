@@ -105,8 +105,10 @@ export type CreateRunBinding =
   | { moduleId: "knowledge"; task: "kb-qa" };
 
 export type ChatRunMessage = {
+  id?: string;
   role: "user" | "assistant";
   content: string;
+  attachments?: unknown[];
   agentId?: string;
 };
 

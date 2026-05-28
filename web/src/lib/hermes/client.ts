@@ -23,8 +23,10 @@ function historyFromMessages(
         messageContentForApi(m).trim().length > 0,
     )
     .map((m) => ({
+      id: m.id,
       role: m.role,
       content: messageContentForApi(m),
+      attachments: m.attachments,
       ...(m.role === "assistant"
         ? { agentId: m.agentId ?? currentAgentId }
         : {}),

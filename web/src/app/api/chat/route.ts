@@ -85,15 +85,17 @@ function parseBody(body: unknown): ChatCompletionRequestBody | null {
 
   const messages = b.messages
     .filter(
-      (m): m is { role: string; content: string } =>
+      (m): m is { role: string; content: string; id?: string; attachments?: unknown[] } =>
         !!m &&
         typeof m === "object" &&
         (m as { role: string }).role in { user: 1, assistant: 1 } &&
         typeof (m as { content: string }).content === "string",
     )
     .map((m) => ({
+      id: m.id,
       role: m.role as "user" | "assistant",
       content: m.content,
+      attachments: m.attachments,
     }));
 
   const projectId =

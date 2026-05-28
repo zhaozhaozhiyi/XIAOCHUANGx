@@ -4,13 +4,18 @@ import {
   activityContextForHistory,
 } from "@/lib/activity-log";
 
-/**
- * 发给 Companion / Hermes 的单条消息正文：结论 + 过程摘要（仅 API，不进 UI）。
- */
 export function messageContentForApi(msg: ChatMessage): string {
   const body =
     msg.role === "assistant" ? selectAssistantDisplayContent(msg) : msg.content;
-  if (msg.role !== "assistant") return body;
+  if (msg.role !== "assistant") {
+    const attachments = msg.attachments ?? [];
+    if (attachments.length === 0) return body;
+    const paths = attachments.map((u) => u.path || u.name);
+    if (!body.trim()) {
+      return `I've uploaded ${attachments.length} file(s): ${paths.join(", ")}`;
+    }
+    return `${body.trim()}\n\n[Attached files: ${paths.join(", ")}]`;
+  }
 
   const activity = activityContextForHistory(msg.parts);
   if (!activity) return body;

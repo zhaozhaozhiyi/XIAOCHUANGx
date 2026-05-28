@@ -80,15 +80,17 @@ function parseCreateRun(body: unknown): CreateRunRequest | null {
 
   const messages = b.messages
     .filter(
-      (m): m is { role: string; content: string; agentId?: string } =>
+      (m): m is { role: string; content: string; agentId?: string; id?: string; attachments?: unknown[] } =>
         !!m &&
         typeof m === "object" &&
         (m as { role: string }).role in { user: 1, assistant: 1 } &&
         typeof (m as { content: string }).content === "string",
     )
     .map((m) => ({
+      id: m.id,
       role: m.role as "user" | "assistant",
       content: m.content,
+      attachments: m.attachments,
       ...(typeof m.agentId === "string" && m.agentId.trim()
         ? { agentId: m.agentId.trim() }
         : {}),
@@ -259,7 +261,7 @@ export async function runRoutes(app: FastifyInstance): Promise<void> {
           ...baseRequest,
           messages: [
             ...baseRequest.messages,
-            { role: "user", content: body.text },
+            { role: "user", content: body.text, attachments: body.attachments },
           ],
         };
         const queuedRunId = `run-${Date.now()}`;

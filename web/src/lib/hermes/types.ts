@@ -8,8 +8,10 @@ import type {
 export type HermesChatRole = "user" | "assistant";
 
 export type HermesHistoryMessage = {
+  id?: string;
   role: HermesChatRole;
   content: string;
+  attachments?: unknown[];
   agentId?: string;
 };
 

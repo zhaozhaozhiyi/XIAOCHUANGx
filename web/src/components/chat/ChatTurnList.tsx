@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import type { ChatMessage } from "@/lib/chat";
 import { groupMessagesIntoTurns } from "@/lib/chat-turns";
 import { AssistantMessageBubble } from "@/components/chat/parts/AssistantMessageBubble";
+import { UserMessageBubble } from "@/components/chat/UserMessageBubble";
 
 type Props = {
   messages: ChatMessage[];
@@ -43,11 +44,9 @@ export function ChatTurnList({
             data-turn-id={turn.id}
             className="chat-turn"
           >
-            {turn.user.content.trim() ? (
+            {turn.user.content.trim() || turn.user.attachments?.length ? (
               <div className="chat-turn-user-panel" data-role="user">
-                <div className="bubble-user whitespace-pre-wrap">
-                  {turn.user.content}
-                </div>
+                <UserMessageBubble message={turn.user} />
               </div>
             ) : null}
 

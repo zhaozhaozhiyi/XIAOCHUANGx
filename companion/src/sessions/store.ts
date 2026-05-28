@@ -6,6 +6,7 @@ export type StoredChatMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
+  attachments?: unknown[];
   status?: "complete" | "loading" | "streaming" | "error" | "cancelled";
   parts?: unknown[];
   activityCollapse?: string;
