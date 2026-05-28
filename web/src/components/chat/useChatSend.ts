@@ -316,6 +316,7 @@ export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = 
         uploadedAttachments = await uploadChatAttachments(
           sessionId,
           context.attachments,
+          context.projectId,
           controller.signal,
         );
       } catch (error) {
@@ -327,10 +328,6 @@ export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = 
           projectId: context.projectId,
           runStatus: "idle",
         });
-        setMessages((prev) => [
-          ...prev,
-          createMessage("assistant", errorMessage(error), "error"),
-        ]);
         throw error;
       }
       const sendContext: ChatSendContext = {

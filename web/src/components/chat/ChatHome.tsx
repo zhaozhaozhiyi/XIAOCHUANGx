@@ -54,7 +54,11 @@ export function ChatHome() {
     setSending(true);
     try {
       const id = String(Date.now());
-      const uploadedAttachments = await uploadChatAttachments(id, attachments);
+      const uploadedAttachments = await uploadChatAttachments(
+        id,
+        attachments,
+        projId,
+      );
       setPendingSession(id, {
         text: trimmed,
         attachments: uploadedAttachments,

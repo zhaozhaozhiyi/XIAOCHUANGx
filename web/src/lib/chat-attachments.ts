@@ -25,6 +25,7 @@ export function persistedAttachment(
 export async function uploadChatAttachments(
   sessionId: string,
   attachments: ChatPendingAttachment[] | undefined,
+  projectId?: string,
   signal?: AbortSignal,
 ): Promise<ChatAttachment[] | undefined> {
   if (!attachments?.length) return undefined;
@@ -32,20 +33,20 @@ export async function uploadChatAttachments(
     attachments.map(async (attachment) => {
       if (!attachment.file) return { ...attachment };
 
-      const form = new FormData();
-      form.append("file", attachment.file, attachment.file.name);
-      if (attachment.textContent) {
-        form.append("textContent", attachment.textContent);
-      }
-      if (attachment.truncated != null) {
-        form.append("truncated", String(attachment.truncated));
-      }
-
       const res = await fetch(
         `/api/sessions/${encodeURIComponent(sessionId)}/attachments`,
         {
           method: "POST",
-          body: form,
+          headers: {
+            "Content-Type": attachment.file.type || "application/octet-stream",
+            "X-JLC-Upload-Mode": "raw",
+            "X-JLC-File-Name": encodeURIComponent(attachment.file.name),
+            "X-JLC-File-Size": String(attachment.file.size),
+            ...(projectId
+              ? { "X-JLC-Project-Id": encodeURIComponent(projectId) }
+              : {}),
+          },
+          body: attachment.file,
           signal,
         },
       );
