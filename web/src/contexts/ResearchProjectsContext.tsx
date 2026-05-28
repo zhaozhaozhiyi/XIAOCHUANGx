@@ -21,6 +21,7 @@ type ApiProject = {
   name: string;
   workspaceKind: string;
   pathSummary: string;
+  bindingSource?: "user_picked" | "platform_default";
 };
 
 type ResearchProjectsContextValue = {
@@ -62,6 +63,7 @@ function mapApiProject(p: ApiProject): ResearchProject | null {
     kind: "local_bound",
     name: p.name,
     pathSummary: p.pathSummary,
+    bindingSource: p.bindingSource ?? "user_picked",
   };
 }
 

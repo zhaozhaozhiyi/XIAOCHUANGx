@@ -66,8 +66,8 @@ COMPANION_CLI_FALLBACK=error
 
 | # | 项 | 通过 |
 |---|-----|------|
-| W1 | 未选文件夹 → 执行仍用 sandbox `projectId` | ⬜ |
-| W2 | 侧栏/下拉能列项目（含「无项目」） | ⬜ |
+| W1 | 未选课题文件夹 → 首条消息前可草稿；发送后 `ensure-default-task-project` 创建 XIAOCHUANG 任务目录（§5.3.2.1a） | ✅ |
+| W2 | 侧栏/下拉能列项目；平台默认任务归入「默认工作区（XIAOCHUANG）」 | ✅ |
 | W3 | Web 手填路径导入文件夹 → 新建会话绑定 | ⬜ |
 | W4 | 对话内点击文件路径打开工作区（F-QA-010） | ⬜ |
 

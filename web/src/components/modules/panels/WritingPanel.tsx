@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useEnsureDefaultTaskWorkspace } from "@/hooks/useEnsureDefaultTaskWorkspace";
 
 const STEPS = ["参数设置", "写作方向", "大纲确认", "撰写"];
 
@@ -12,6 +13,16 @@ type Props = {
 export function WritingPanel({ pathname, flow = "template" }: Props) {
   const [step, setStep] = useState(0);
   const [mode, setMode] = useState<"multi" | "fast">("multi");
+  const [topic, setTopic] = useState("");
+  const { ensuring, error, ensureWorkspace, clearEnsureError } =
+    useEnsureDefaultTaskWorkspace();
+
+  const triggerGenerate = async () => {
+    await ensureWorkspace({
+      moduleId: "writing",
+      taskTitle: topic.trim() || undefined,
+    });
+  };
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -57,6 +68,11 @@ export function WritingPanel({ pathname, flow = "template" }: Props) {
             <input
               className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm"
               placeholder="如：螺纹钢"
+              value={topic}
+              onChange={(e) => {
+                setTopic(e.target.value);
+                if (error) clearEnsureError();
+              }}
             />
           </label>
           <label className="text-sm">
@@ -68,6 +84,11 @@ export function WritingPanel({ pathname, flow = "template" }: Props) {
           </label>
         </div>
       </div>
+      {error && (
+        <p className="rounded-lg border border-[var(--danger)]/30 bg-[var(--danger)]/10 px-3 py-2 text-xs text-[var(--danger)]">
+          {error}
+        </p>
+      )}
       <div className="flex justify-end gap-2">
         {step > 0 && mode === "multi" && (
           <button
@@ -80,10 +101,21 @@ export function WritingPanel({ pathname, flow = "template" }: Props) {
         )}
         <button
           type="button"
-          onClick={() => setStep((s) => Math.min(s + 1, STEPS.length - 1))}
+          onClick={() => {
+            if (mode === "fast" || step >= STEPS.length - 1) {
+              void triggerGenerate();
+              return;
+            }
+            setStep((s) => Math.min(s + 1, STEPS.length - 1));
+          }}
+          disabled={ensuring}
           className="rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-medium text-white"
         >
-          {mode === "fast" || step >= STEPS.length - 1 ? "生成文稿" : "下一步"}
+          {mode === "fast" || step >= STEPS.length - 1
+            ? ensuring
+              ? "创建工作区…"
+              : "生成文稿"
+            : "下一步"}
         </button>
       </div>
     </div>

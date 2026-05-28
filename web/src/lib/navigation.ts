@@ -34,27 +34,6 @@ export const NAV_MODULES: NavModule[] = [
     ],
   },
   {
-    id: "meeting",
-    label: "会议纪要",
-    href: "/meeting",
-    icon: Mic,
-    subNav: [
-      { label: "新建纪要", href: "/meeting/new" },
-      { label: "纪要历史", href: "/meeting/history" },
-    ],
-  },
-  {
-    id: "knowledge",
-    label: "知识库",
-    href: "/knowledge",
-    icon: Library,
-    subNav: [
-      { label: "我的文档", href: "/knowledge/documents" },
-      { label: "知识库问答", href: "/knowledge/qa" },
-      { label: "多信源分析", href: "/knowledge/sources" },
-    ],
-  },
-  {
     id: "writing",
     label: "写作",
     href: "/writing",
@@ -90,6 +69,27 @@ export const NAV_MODULES: NavModule[] = [
       { label: "文档翻译", href: "/translate/document" },
       { label: "文本翻译", href: "/translate/text" },
       { label: "翻译历史", href: "/translate/history" },
+    ],
+  },
+  {
+    id: "meeting",
+    label: "会议",
+    href: "/meeting",
+    icon: Mic,
+    subNav: [
+      { label: "新建纪要", href: "/meeting/new" },
+      { label: "纪要历史", href: "/meeting/history" },
+    ],
+  },
+  {
+    id: "knowledge",
+    label: "知识库",
+    href: "/knowledge",
+    icon: Library,
+    subNav: [
+      { label: "我的文档", href: "/knowledge/documents" },
+      { label: "知识库问答", href: "/knowledge/qa" },
+      { label: "多信源分析", href: "/knowledge/sources" },
     ],
   },
 ];

@@ -9,7 +9,7 @@ export function companionProjectErrorMessage(code: string): string {
     case "baseDir_forbidden":
       return "不能绑定系统目录";
     case "baseDir_in_data_dir":
-      return "不能绑定 Companion 数据目录，请选择您的课题目录";
+      return "不能绑定 Companion 数据目录，请选择您的工作文件夹";
     case "baseDir_required":
       return "请填写文件夹路径";
     case "use_import_folder":

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { workspaceKindSchema } from "./common";
+import { localBoundSourceSchema, workspaceKindSchema } from "./common";
 
 export const createProjectRequestSchema = z
   .object({
@@ -24,11 +24,37 @@ export const createProjectRequestSchema = z
     }
   });
 
+export const ensureDefaultTaskProjectRequestSchema = z.object({
+  moduleId: z.enum(["chat", "meeting", "knowledge", "writing", "ppt", "translate"]),
+  taskTitle: z.string().max(200).optional(),
+  taskId: z.string().max(200).optional(),
+});
+
+export type EnsureDefaultTaskProjectRequest = z.infer<
+  typeof ensureDefaultTaskProjectRequestSchema
+>;
+
+/** Companion ensure-default 响应（字段名 projectId，与 CompanionProjectSummary 对齐） */
+export const ensureDefaultTaskProjectResponseSchema = z.object({
+  projectId: z.string(),
+  name: z.string(),
+  workspaceKind: z.literal("local_bound"),
+  bindingSource: z.literal("platform_default"),
+  pathSummary: z.string(),
+  baseDir: z.string(),
+});
+
+export type EnsureDefaultTaskProjectResponse = z.infer<
+  typeof ensureDefaultTaskProjectResponseSchema
+>;
+
 export const projectSchema = z.object({
   id: z.string(),
   workspaceKind: workspaceKindSchema,
   baseDir: z.string().nullable(),
   name: z.string().nullable(),
+  /** 仅 local_bound；platform_default = XIAOCHUANG 预授权目录 */
+  bindingSource: localBoundSourceSchema.optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });

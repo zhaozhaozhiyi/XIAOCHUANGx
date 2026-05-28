@@ -72,6 +72,10 @@ export function companionProjectsImportFolderUrl(): string {
   return companionUrl("/v1/projects/import-folder");
 }
 
+export function companionProjectsEnsureDefaultTaskUrl(): string {
+  return companionUrl("/v1/projects/ensure-default-task-project");
+}
+
 export function companionProjectTreeUrl(
   projectId: string,
   relPath?: string,

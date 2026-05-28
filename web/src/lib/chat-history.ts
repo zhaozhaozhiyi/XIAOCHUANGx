@@ -1,8 +1,13 @@
 import {
   getResearchProject,
+  isPlatformDefaultProject,
   isUsingLocalProject,
   NO_PROJECT_ID,
+  PLATFORM_DEFAULT_GROUP_LABEL,
 } from "@/lib/research-projects";
+
+/** 侧栏「默认工作区（XIAOCHUANG）」合成组 ID */
+export const PLATFORM_DEFAULT_GROUP_ID = "__platform_default__";
 
 /** Agent 执行态（侧栏状态点主维度之一） */
 export type ChatSessionRunStatus = "idle" | "running" | "waiting_user";
@@ -327,8 +332,13 @@ export function formatRelativeTime(ts: number): string {
 }
 
 function projectGroupLabel(projectId: string): string {
-  if (!isUsingLocalProject(projectId)) return "无项目";
-  return getResearchProject(projectId)?.name ?? "未命名项目";
+  if (projectId === PLATFORM_DEFAULT_GROUP_ID) {
+    return PLATFORM_DEFAULT_GROUP_LABEL;
+  }
+  if (projectId === NO_PROJECT_ID) return "默认工作文件夹（XIAOCHUANG）";
+  const p = getResearchProject(projectId);
+  if (p?.bindingSource === "platform_default") return p.pathSummary;
+  return p?.name ?? "未命名工作文件夹";
 }
 
 export type GroupedChatHistory = {
@@ -337,20 +347,29 @@ export type GroupedChatHistory = {
 };
 
 function groupChatSessions(sessions: ChatSessionRecord[]): GroupedChatHistory {
-  const byProject = new Map<string, ChatSessionRecord[]>();
+  const byUserProject = new Map<string, ChatSessionRecord[]>();
+  const platformDefault: ChatSessionRecord[] = [];
   const unassigned: ChatSessionRecord[] = [];
 
   for (const s of sessions) {
-    if (!isUsingLocalProject(s.projectId)) {
+    if (s.projectId === NO_PROJECT_ID) {
       unassigned.push(s);
       continue;
     }
-    const list = byProject.get(s.projectId) ?? [];
-    list.push(s);
-    byProject.set(s.projectId, list);
+    if (isPlatformDefaultProject(s.projectId)) {
+      platformDefault.push(s);
+      continue;
+    }
+    if (isUsingLocalProject(s.projectId)) {
+      const list = byUserProject.get(s.projectId) ?? [];
+      list.push(s);
+      byUserProject.set(s.projectId, list);
+      continue;
+    }
+    unassigned.push(s);
   }
 
-  const projectGroups: ChatHistoryProjectGroup[] = [...byProject.entries()]
+  const projectGroups: ChatHistoryProjectGroup[] = [...byUserProject.entries()]
     .map(([projectId, list]) => ({
       projectId,
       label: projectGroupLabel(projectId),
@@ -361,9 +380,32 @@ function groupChatSessions(sessions: ChatSessionRecord[]): GroupedChatHistory {
         (b.sessions[0]?.updatedAt ?? 0) - (a.sessions[0]?.updatedAt ?? 0),
     );
 
+  if (platformDefault.length > 0) {
+    projectGroups.unshift({
+      projectId: PLATFORM_DEFAULT_GROUP_ID,
+      label: PLATFORM_DEFAULT_GROUP_LABEL,
+      sessions: platformDefault.sort((a, b) => b.updatedAt - a.updatedAt),
+    });
+  }
+
   unassigned.sort((a, b) => b.updatedAt - a.updatedAt);
 
   return { projectGroups, unassigned };
+}
+
+/** 分支新会话：继承父会话 projectId（PRD §5.3.2.1a） */
+export function branchChatSession(
+  parentSessionId: string,
+  newSessionId: string,
+  title?: string,
+): ChatSessionRecord {
+  const parent = getChatSession(parentSessionId);
+  return upsertChatSession({
+    id: newSessionId,
+    title: title ?? (parent?.title ? `${parent.title}（分支）` : "新对话"),
+    projectId: parent?.projectId ?? NO_PROJECT_ID,
+    runStatus: "idle",
+  });
 }
 
 /** SSR / 注水前稳定快照（仅种子数据，不读 localStorage；引用稳定供 useSyncExternalStore） */

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import {
   createProject,
+  ensureDefaultTaskProject,
   ensureProject,
   getProject,
   importFolder,
@@ -32,9 +33,11 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       workspaceKind?: string;
       name?: string;
       baseDir?: string;
+      bindingSource?: "user_picked" | "platform_default";
     };
   }>("/v1/projects/ensure", async (request, reply) => {
-    const { projectId, workspaceKind, name, baseDir } = request.body ?? {};
+    const { projectId, workspaceKind, name, baseDir, bindingSource } =
+      request.body ?? {};
     if (!projectId?.trim()) {
       return reply.code(400).send({ error: "project_id_required" });
     }
@@ -47,6 +50,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
         workspaceKind,
         name: name ?? "未命名项目",
         baseDir,
+        bindingSource,
       });
       return { project };
     } catch (e) {
@@ -64,6 +68,26 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     }
     try {
       const project = await importFolder({ name, baseDir });
+      return reply.code(201).send(project);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return reply.code(400).send({ error: msg });
+    }
+  });
+
+  app.post<{
+    Body: { moduleId?: string; taskTitle?: string; taskId?: string };
+  }>("/v1/projects/ensure-default-task-project", async (request, reply) => {
+    const { moduleId, taskTitle, taskId } = request.body ?? {};
+    if (!moduleId?.trim()) {
+      return reply.code(400).send({ error: "module_id_required" });
+    }
+    try {
+      const project = await ensureDefaultTaskProject({
+        moduleId: moduleId.trim(),
+        taskTitle,
+        taskId,
+      });
       return reply.code(201).send(project);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

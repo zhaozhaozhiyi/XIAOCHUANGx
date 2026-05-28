@@ -1786,6 +1786,58 @@ body {
   );
 }
 
+.workspace-code-token--keyword {
+  color: #2563eb;
+}
+
+.workspace-code-token--string {
+  color: #b45309;
+}
+
+.workspace-code-token--number {
+  color: #7c3aed;
+}
+
+.workspace-code-token--comment {
+  color: var(--fg-tertiary);
+}
+
+.workspace-code-token--operator {
+  color: #0f766e;
+}
+
+.workspace-code-token--punctuation {
+  color: var(--fg-secondary);
+}
+
+.workspace-code-token--tag {
+  color: #be185d;
+}
+
+.workspace-code-token--attr {
+  color: #0f766e;
+}
+
+.docx-preview-host .docx-wrapper {
+  margin: 0 auto;
+  background: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.docx-preview-host .docx-wrapper > section.docx {
+  background: white;
+  color: #1a1a1a;
+}
+
+.docx-preview-host .docx table {
+  border-collapse: collapse;
+}
+
+.docx-preview-host .docx td,
+.docx-preview-host .docx th {
+  border: 1px solid #d1d5db;
+}
+
 /* —— 全局设置：用户区弹出菜单 + 右侧抽屉 —— */
 .settings-popover {
   position: absolute;
@@ -1801,9 +1853,10 @@ body {
 }
 
 .settings-popover--collapsed {
-  left: 50%;
-  transform: translateX(-50%);
+  left: calc(100% + 8px);
+  bottom: 0;
   min-width: 220px;
+  max-width: calc(100vw - 80px);
 }
 
 .settings-popover-item {

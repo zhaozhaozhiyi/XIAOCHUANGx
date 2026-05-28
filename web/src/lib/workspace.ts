@@ -85,7 +85,20 @@ export type WorkspaceFileNode = {
   type: "file" | "folder";
   /** 相对项目根目录路径，用于 API 读取 */
   relativePath?: string;
-  language?: "markdown" | "json" | "sql" | "typescript" | "text" | "pptx" | "html";
+  language?:
+    | "markdown"
+    | "json"
+    | "sql"
+    | "typescript"
+    | "javascript"
+    | "yaml"
+    | "shell"
+    | "css"
+    | "toml"
+    | "text"
+    | "pptx"
+    | "html"
+    | "python";
   content?: string;
   children?: WorkspaceFileNode[];
 };

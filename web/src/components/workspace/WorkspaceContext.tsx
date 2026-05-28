@@ -54,7 +54,7 @@ import {
   resolveFileMessage,
 } from "@/lib/file-path-resolve";
 
-export type FileViewMode = "preview" | "source";
+export type FileViewMode = "preview" | "source" | "render";
 
 type FileCacheEntry = {
   content: string | null;
@@ -239,6 +239,7 @@ function emptyWorkspaceState() {
     browserStates: {} as Record<string, BrowserTabState>,
     expandedFolders: new Set(DEFAULT_EXPANDED),
     selectedFileId: null as string | null,
+    fileViewModesByFileId: {} as Record<string, FileViewMode>,
     fileNavHistory: [null] as (string | null)[],
     fileNavIndex: 0,
   };
@@ -290,7 +291,10 @@ export function WorkspaceProvider({
   useEffect(() => {
     fileNavIndexRef.current = fileNavIndex;
   }, [fileNavIndex]);
-  const [fileViewMode, setFileViewMode] = useState<FileViewMode>("preview");
+  const [fileViewMode, setFileViewModeState] = useState<FileViewMode>("preview");
+  const [fileViewModesByFileId, setFileViewModesByFileId] = useState<
+    Record<string, FileViewMode>
+  >({});
   const [fileCache, setFileCache] = useState<Record<string, FileCacheEntry>>({});
   const fileCacheRef = useRef(fileCache);
   fileCacheRef.current = fileCache;
@@ -329,6 +333,19 @@ export function WorkspaceProvider({
         new Set(snapshot.expandedFolders ?? [...DEFAULT_EXPANDED]),
       );
       setSelectedFileId(snapshot.selectedFileId ?? null);
+      const restoredModes = Object.fromEntries(
+        Object.entries(snapshot.fileViewModesByFileId ?? {}).filter(
+          ([, mode]) =>
+            mode === "preview" ||
+            mode === "source" ||
+            mode === "render",
+        ),
+      ) as Record<string, FileViewMode>;
+      setFileViewModesByFileId(restoredModes);
+      const initialMode = snapshot.selectedFileId
+        ? restoredModes[snapshot.selectedFileId]
+        : undefined;
+      setFileViewModeState(initialMode ?? "preview");
       setFileNavHistory([snapshot.selectedFileId ?? null]);
       setFileNavIndex(0);
       fileNavIndexRef.current = 0;
@@ -338,6 +355,8 @@ export function WorkspaceProvider({
       setBrowserStates(empty.browserStates);
       setExpandedFolders(empty.expandedFolders);
       setSelectedFileId(empty.selectedFileId);
+      setFileViewModesByFileId(empty.fileViewModesByFileId);
+      setFileViewModeState("preview");
       setFileNavHistory(empty.fileNavHistory);
       setFileNavIndex(empty.fileNavIndex);
       fileNavIndexRef.current = 0;
@@ -357,6 +376,7 @@ export function WorkspaceProvider({
         browserStates,
         expandedFolders: [...expandedFolders],
         selectedFileId,
+        fileViewModesByFileId,
       });
     }, 300);
     return () => window.clearTimeout(timer);
@@ -367,7 +387,28 @@ export function WorkspaceProvider({
     browserStates,
     expandedFolders,
     selectedFileId,
+    fileViewModesByFileId,
   ]);
+
+  useEffect(() => {
+    if (!selectedFileId) return;
+    const rememberedMode = fileViewModesByFileId[selectedFileId];
+    if (rememberedMode && rememberedMode !== fileViewMode) {
+      setFileViewModeState(rememberedMode);
+    }
+  }, [selectedFileId, fileViewModesByFileId, fileViewMode]);
+
+  const setFileViewMode = useCallback(
+    (mode: FileViewMode) => {
+      setFileViewModeState(mode);
+      if (!selectedFileId) return;
+      setFileViewModesByFileId((prev) => {
+        if (prev[selectedFileId] === mode) return prev;
+        return { ...prev, [selectedFileId]: mode };
+      });
+    },
+    [selectedFileId],
+  );
 
   const findFile = useCallback(
     (fileId: string) => findFileNodeInRoot(root, fileId),
@@ -683,7 +724,6 @@ export function WorkspaceProvider({
         if (node?.type === "file") void loadFileContent(tab.fileId, node);
       }
       if (tab.kind === "explorer") {
-        setSelectedFileId(null);
         setExpandedFolders(
           new Set([
             "root",
@@ -810,7 +850,7 @@ export function WorkspaceProvider({
       setFileActionMessage(null);
       return true;
     },
-    [expandPanelToMax, openFileTabById],
+    [expandPanelToMax, openFileTabById, setFileViewMode],
   );
 
   const openFileAt = useCallback(
@@ -1220,6 +1260,7 @@ export function WorkspaceProvider({
       clearPendingReveal,
       fileActionMessage,
       clearFileActionMessage,
+      setFileViewMode,
     ],
   );
 

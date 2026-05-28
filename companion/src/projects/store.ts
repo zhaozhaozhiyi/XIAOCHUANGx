@@ -24,9 +24,15 @@ import type {
   WorkspaceKind,
 } from "../types.js";
 import { config, projectsDir } from "../config.js";
+import {
+  MODULE_DEFAULT_TASK_NAMES,
+  resolveModuleWorkspaceSegment,
+} from "../module-segments.js";
 
 type ProjectRecord = CompanionProjectSummary & {
   createdAt: string;
+  /** 平台默认任务幂等键（platform_default:{moduleId}:{taskId}） */
+  defaultTaskKey?: string;
 };
 
 type ProjectsDb = {
@@ -110,7 +116,7 @@ function expandUserPath(input: string): string {
   return trimmed;
 }
 
-function formatPathSummary(absPath: string): string {
+export function formatPathSummary(absPath: string): string {
   const home = homedir();
   const resolved = resolve(absPath);
   const rel = relative(home, resolved);
@@ -121,7 +127,7 @@ function formatPathSummary(absPath: string): string {
   return resolved;
 }
 
-function validateLocalBaseDir(baseDir: string): string {
+export function validateLocalBaseDir(baseDir: string): string {
   const resolved = resolve(baseDir);
   if (parse(resolved).root === resolved) {
     throw new Error("baseDir_forbidden");
@@ -217,6 +223,7 @@ export async function importFolder(input: {
     workspaceKind: "local_bound",
     pathSummary,
     baseDir: resolved,
+    bindingSource: "user_picked",
     createdAt: new Date().toISOString(),
   };
   db.projects.push(record);
@@ -230,6 +237,7 @@ export async function ensureProject(input: {
   workspaceKind: WorkspaceKind;
   name: string;
   baseDir?: string;
+  bindingSource?: "user_picked" | "platform_default";
 }): Promise<CompanionProjectSummary> {
   await ensureDataDir();
   if (input.workspaceKind === "sandbox") {
@@ -243,6 +251,8 @@ export async function ensureProject(input: {
     await access(baseDir, constants.R_OK).catch(() => {
       throw new Error("baseDir_not_accessible");
     });
+
+    const bindingSource = input.bindingSource ?? "user_picked";
 
     if (existing) {
       if (existing.workspaceKind !== "local_bound") {
@@ -259,6 +269,7 @@ export async function ensureProject(input: {
             name: input.name.trim() || existing.name,
             baseDir,
             pathSummary: formatPathSummary(baseDir),
+            bindingSource,
           };
           await saveDb(db);
           return toSummary(db.projects[idx]!);
@@ -274,6 +285,7 @@ export async function ensureProject(input: {
       workspaceKind: "local_bound",
       pathSummary: formatPathSummary(baseDir),
       baseDir,
+      bindingSource,
       createdAt: new Date().toISOString(),
     };
     db.projects.push(record);
@@ -408,6 +420,106 @@ export async function writeProjectUpload(input: {
   const safeName = sanitizeFilename(input.filename);
   const { relativePath } = await uniqueRootFilePath(root, safeName, input.bytes);
   return { path: relativePath, size: input.bytes.length };
+}
+
+const XIAOCHUANG_DIR = "XIAOCHUANG";
+
+export function defaultWorkspaceRoot(): string {
+  const fromEnv = process.env.JLC_DEFAULT_WORKSPACE_ROOT?.trim();
+  if (fromEnv) {
+    return validateLocalBaseDir(expandUserPath(fromEnv));
+  }
+  return join(homedir(), "Documents");
+}
+
+function sanitizeTaskTitle(title?: string): string {
+  const raw = (title?.trim() ?? "").slice(0, 80);
+  return raw
+    .replace(/[\\/:*?"<>|]/g, "_")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function todaySegment(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function defaultTaskDedupeKey(moduleId: string, taskId: string): string {
+  return `platform_default:${moduleId}:${taskId}`;
+}
+
+async function resolveUniqueLeafDir(
+  parentDir: string,
+  baseName: string,
+): Promise<string> {
+  let name = baseName;
+  let suffix = 2;
+  for (;;) {
+    const candidate = join(parentDir, name);
+    try {
+      await access(candidate);
+      name = `${baseName}_${suffix}`;
+      suffix += 1;
+    } catch {
+      return candidate;
+    }
+  }
+}
+
+/**
+ * 平台默认工作区：{Documents}/XIAOCHUANG/{module}/{YYYY-MM-DD}/{标题}/（PRD §5.3.2.1a）
+ */
+export async function ensureDefaultTaskProject(input: {
+  moduleId: string;
+  taskTitle?: string;
+  taskId?: string;
+}): Promise<CompanionProjectSummary> {
+  const segment = resolveModuleWorkspaceSegment(input.moduleId);
+  if (!segment) throw new Error("module_no_workspace_segment");
+
+  const db = await loadDb();
+  const dedupeKey =
+    input.taskId?.trim() ?
+      defaultTaskDedupeKey(input.moduleId, input.taskId.trim())
+    : undefined;
+
+  if (dedupeKey) {
+    const existing = db.projects.find((p) => p.defaultTaskKey === dedupeKey);
+    if (existing) return toSummary(existing);
+  }
+
+  const title =
+    sanitizeTaskTitle(input.taskTitle) ||
+    MODULE_DEFAULT_TASK_NAMES[input.moduleId] ||
+    "未命名任务";
+
+  const moduleParent = join(
+    defaultWorkspaceRoot(),
+    XIAOCHUANG_DIR,
+    segment,
+    todaySegment(),
+  );
+  await mkdir(moduleParent, { recursive: true });
+
+  const leafDir = await resolveUniqueLeafDir(moduleParent, title);
+  await mkdir(leafDir, { recursive: true });
+  validateLocalBaseDir(leafDir);
+
+  const projectId = `proj-${randomUUID().slice(0, 8)}`;
+  const record: ProjectRecord = {
+    projectId,
+    name: basename(leafDir),
+    workspaceKind: "local_bound",
+    pathSummary: formatPathSummary(leafDir),
+    baseDir: leafDir,
+    bindingSource: "platform_default",
+    defaultTaskKey: dedupeKey,
+    createdAt: new Date().toISOString(),
+  };
+
+  db.projects.push(record);
+  await saveDb(db);
+  return toSummary(record);
 }
 
 export function safeRelativePath(projectRoot: string, relPath: string): string {

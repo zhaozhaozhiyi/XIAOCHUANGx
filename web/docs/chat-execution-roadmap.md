@@ -69,7 +69,7 @@ flowchart TB
 | S3.2 | ✅ | F-QA-010 文件深链 |
 | S3.3 | ✅ | Companion `GET/PUT /v1/sessions/.../messages` + Web BFF |
 | S3.1 | ✅ | 节奏化 parts（`tool_batch` 等） |
-| **S3.5** | 🔶 | SSE `deliverables` 有；`DeliverablesCard` UI ⬜ |
+| **S3.5** | 🔶 | 思考耗时 ✅；`DeliverablesCard` UI ✅；探索摘要 ⬜ |
 | **Nest** | 🔶 | `api/` auth + chat-sessions；Web 未全量切（PRD §8.6） |
 
 ---
@@ -376,9 +376,9 @@ COMPANION_DEFAULT_AGENT=codex
 
 | ID | 任务 | 说明 | 状态 |
 |----|------|------|------|
-| S3.5a | **思考耗时** | 步间 `思考 Ns`（`ThinkingGapRow` / 渲染层计算）；与 `turn_meta` 互补 | ⬜ |
+| S3.5a | **思考耗时** | 步间 `思考 Ns`（`ThinkingGapRow` / 渲染层计算）；与 `turn_meta` 互补 | ✅ |
 | S3.5b | **探索摘要** | `tool_batch` 中文标题（探索/读取/搜索/检索）；Read 行号；完成后默认折叠 | ⬜ |
-| S3.5c | **成品列表卡** | 契约 `deliverables` + `DeliverablesCard`；主交付 + 多行打开 | ⬜ |
+| S3.5c | **成品列表卡** | 契约 `deliverables` + `DeliverablesCard`；主交付 + 多行打开 | ✅ |
 
 **验收：**
 
@@ -467,9 +467,9 @@ curl -s http://localhost:3000/api/runtime/health | jq
 | ✅ | **S2.3** | 文件夹导入 import-folder + Web 表单 | 1.5d |
 | ✅ | S3.1 | P1 节奏化 parts | 2d |
 | ✅ | S3.2 | F-QA-010 深链 | 1.5d |
-| ⬜ | S3.5a | 思考耗时 | 0.5d |
+| ✅ | S3.5a | 思考耗时 | 0.5d |
 | ⬜ | S3.5b | 探索摘要 | 1d |
-| ⬜ | S3.5c | 成品列表卡 | 1.5d |
+| ✅ | S3.5c | 成品列表卡 | 1.5d |
 | ⬜ | S3.3 | part.append（可选） | 1d |
 | ⬜ | S3.4 | Session API | 3d+ |
 | ✅ | **S4.0～S4.1** | Electron 最小壳 + pickAndImport | 2d |

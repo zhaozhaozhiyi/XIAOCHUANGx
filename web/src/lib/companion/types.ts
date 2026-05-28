@@ -8,6 +8,9 @@ export const COMPANION_API_VERSION = "v1";
 
 export type WorkspaceKind = "sandbox" | "local_bound" | "cloud";
 
+/** local_bound 绑定来源（PRD §5.3.2.2.1） */
+export type LocalBoundSource = "user_picked" | "platform_default";
+
 export type CliDetectStatus =
   | "available"
   | "not_installed"
@@ -82,13 +85,15 @@ export type CompanionProjectSummary = {
   workspaceKind: WorkspaceKind;
   pathSummary: string;
   baseDir?: string;
+  /** 仅 local_bound；platform_default = XIAOCHUANG 预授权目录 */
+  bindingSource?: LocalBoundSource;
 };
 
 export type CreateRunBinding =
   | { moduleId: "chat"; mode: ChatModeId }
   | { moduleId: "writing"; templateId: string }
   | { moduleId: "ppt"; task: "deck"; templateId?: string }
-  | { moduleId: "meeting"; task: "summary" }
+  | { moduleId: "meeting"; task: "summary"; templateId?: string }
   | { moduleId: "knowledge"; task: "kb-qa" };
 
 export type ChatRunMessage = {
@@ -101,7 +106,7 @@ export type ChatRunMessage = {
 
 /**
  * 创建 Agent 运行（对话主路径）。
- * `workspaceProjectId`：解析后的沙箱/本地绑定 ID（UI 的 none → sandbox-default）。
+ * `workspaceProjectId`：Companion 可扫描的项目 ID（未选课题时由 ensure-default-task-project 解析）。
  */
 export type CreateRunRequest = {
   sessionId: string;

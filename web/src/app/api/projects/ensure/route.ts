@@ -23,7 +23,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const workspaceProjectId =
+    const { workspaceProjectId } =
       await resolveCompanionWorkspaceProjectId(uiProjectId);
     const mock = getResearchProject(uiProjectId);
     return Response.json({

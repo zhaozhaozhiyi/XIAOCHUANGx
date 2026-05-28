@@ -40,8 +40,14 @@ export function ProjectWorkPicker({
   const { localBoundProjects, getProject, refresh } = useResearchProjects();
 
   const usingProject = isUsingLocalProject(projectId);
-  const projects = localBoundProjects;
+  const projects = localBoundProjects.filter(
+    (p) => p.bindingSource !== "platform_default",
+  );
   const current = getProject(projectId) ?? projects.find((p) => p.id === projectId);
+  const currentDisplay =
+    current?.bindingSource === "platform_default"
+      ? current.pathSummary
+      : current?.name;
 
   const filtered = projects.filter((p) => {
     const q = query.trim().toLowerCase();
@@ -141,7 +147,7 @@ export function ProjectWorkPicker({
         className={`project-work-picker__trigger ${usingProject ? "project-work-picker__trigger--active" : ""}`}
         aria-expanded={open}
         aria-haspopup="listbox"
-        aria-label={usingProject ? `当前项目：${current?.name}` : "进入项目工作"}
+        aria-label={usingProject ? `当前工作文件夹：${currentDisplay}` : "选择工作文件夹"}
         onClick={() => setOpen((o) => !o)}
       >
         {usingProject && current ? (
@@ -151,7 +157,7 @@ export function ProjectWorkPicker({
               strokeWidth={1.75}
             />
             <span className="min-w-0 flex-1 truncate text-left font-medium">
-              {current.name}
+              {currentDisplay}
             </span>
           </>
         ) : (
@@ -160,7 +166,7 @@ export function ProjectWorkPicker({
               <FolderPlus className="h-4 w-4" strokeWidth={1.75} />
             </span>
             <span className="min-w-0 flex-1 truncate text-left">
-              进入项目工作
+              选择工作文件夹
             </span>
           </>
         )}
@@ -175,7 +181,7 @@ export function ProjectWorkPicker({
           {bindDraft ? (
             <div className="project-work-picker__bind px-3 py-3">
               <p className="mb-2 text-xs text-[var(--fg-secondary)]">
-                填写本机课题目录路径（支持 <code className="font-mono">~/</code>
+                填写本机工作文件夹路径（支持 <code className="font-mono">~/</code>
                 ）。可在 Finder 中右键文件夹 →「显示简介」或复制路径后粘贴。
               </p>
               <label className="mb-2 block text-xs text-[var(--fg-tertiary)]">
@@ -242,7 +248,7 @@ export function ProjectWorkPicker({
                   type="search"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="搜索项目"
+                  placeholder="搜索文件夹"
                   className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--fg-tertiary)]"
                 />
               </div>
@@ -295,7 +301,7 @@ export function ProjectWorkPicker({
                   }}
                 >
                   <XCircle className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-                  <span>不使用项目</span>
+                  <span>不选择项目文件夹</span>
                 </button>
                 <button
                   type="button"
@@ -303,7 +309,7 @@ export function ProjectWorkPicker({
                   onClick={() => void startAddProject()}
                 >
                   <FolderPlus className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-                  <span>添加新项目</span>
+                  <span>添加文件夹</span>
                 </button>
               </div>
             </>

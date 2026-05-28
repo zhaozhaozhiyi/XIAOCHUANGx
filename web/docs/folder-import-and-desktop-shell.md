@@ -72,7 +72,7 @@ flowchart TB
 | `baseDir` | `realpath` 后的绝对路径，存 Companion `projects.json` |
 | Agent `cwd` | `baseDir` 根 |
 | Skill / Prompt | **不**写入 `baseDir`；走 Agent Kit（`~/.jlcresearch/agent-kit/runs/<runId>/`） |
-| 沙箱 | UI「不使用项目」→ 执行 `sandbox-default`（§12.5.3） |
+| 平台默认工作区 | UI「不绑定课题文件夹」→ Companion `ensure-default-task-project` 建 `{文稿}/XIAOCHUANG/…`（PRD §5.3.2.1a、§12.5.3）；**非** `sandbox-default` |
 
 ### 3.2 路径校验（Companion）
 

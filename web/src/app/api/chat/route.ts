@@ -215,8 +215,28 @@ export async function POST(request: Request) {
   }
 
   if (chatExecutionMode() === "companion") {
-    const runReq = await buildCreateRunRequest(parsed);
-    return companionRunResponse(runReq, request.signal);
+    let runBuild:
+      | Awaited<ReturnType<typeof buildCreateRunRequest>>
+      | null = null;
+    try {
+      runBuild = await buildCreateRunRequest(parsed);
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "run_build_failed";
+      const status =
+        code === "project_id_unresolved" ||
+        code === "module_id_required_for_default_workspace"
+          ? 422
+          : 502;
+      return Response.json({ error: code }, { status });
+    }
+    const { request: runReq, ensuredProject } = runBuild;
+    const extraHeaders: Record<string, string> = {};
+    if (ensuredProject) {
+      extraHeaders["X-JLC-Project-Id"] = ensuredProject.id;
+      extraHeaders["X-JLC-Project-Name"] = ensuredProject.name;
+      extraHeaders["X-JLC-Project-Path"] = ensuredProject.pathSummary;
+    }
+    return companionRunResponse(runReq, request.signal, extraHeaders);
   }
 
   if (hermesConfig.useMock) {

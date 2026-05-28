@@ -4,6 +4,11 @@ import type { ChatPart } from "@/lib/chat-parts";
 import { isRenderablePart, normalizeMarkdown } from "@/lib/chat-parts-utils";
 import { ArtifactRow } from "@/components/chat/parts/ArtifactRow";
 import { DeliverablesCard } from "@/components/chat/parts/DeliverablesCard";
+import { ImagePartCard } from "@/components/chat/parts/ImagePartCard";
+import { CitationPartCard } from "@/components/chat/parts/CitationPartCard";
+import { JsonPartCard } from "@/components/chat/parts/JsonPartCard";
+import { ResearchMapCard } from "@/components/chat/parts/ResearchMapCard";
+import { UnsupportedPartCard } from "@/components/chat/parts/UnsupportedPartCard";
 import {
   DocumentEditRow,
   DocumentReadRow,
@@ -241,13 +246,17 @@ export function PartRenderer({
       return <ArtifactRow part={part} />;
     case "deliverables":
       return <DeliverablesCard part={part} />;
+    case "image":
+      return <ImagePartCard part={part} />;
+    case "citation":
+      return <CitationPartCard part={part} />;
+    case "json":
+      return <JsonPartCard part={part} />;
+    case "research_map":
+      return <ResearchMapCard part={part} />;
     case "error":
       return <ErrorInline part={part} />;
     default:
-      return (
-        <p className="text-xs text-[var(--fg-tertiary)]">
-          [{part.kind}] 块类型待实现
-        </p>
-      );
+      return <UnsupportedPartCard part={part} presentation={presentation} />;
   }
 }

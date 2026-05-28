@@ -63,3 +63,30 @@ pnpm skills:verify-ppt    # 同步 + 校验关键 Skill 可读
 同步后自动生成 `skills/ppt-registry.generated.md`（仅供对照，注册表以 `module-registry.ts` 为准）。
 
 工具类 Skill（由 `skill-ppt-deck` 按需引用，不单独绑模板）：`skill-ppt-html-studio`、`skill-ppt-pptx`、`skill-ppt-pptx-generator`、`skill-ppt-slides`、`skill-ppt-fidelity-audit`。
+
+## Skill 落地状态表（PRD §6.10.1a）
+
+与 `web/src/lib/module-registry.ts` 对照；**存在** = 仓库含 `skills/<slug>/SKILL.md`。
+
+| 流程 Skill | 模块 | 仓库 | 阶段 | 备注 |
+|------------|------|------|------|------|
+| `skill-platform-research-norms` | 横切 | ✅ | MVP | 每次 Agent Run 注入 |
+| `skill-qa-fast` | 对话 | ✅ | MVP | 快速模式 |
+| `skill-qa-deep` | 对话 | ✅ | MVP | 深度模式 |
+| `skill-mm-summary` | 会议 | ❌ | V1.1 | 默认通用纪要；见 A-01 |
+| `skill-mm-daily-standup` | 会议 | ❌ | V1.1+ | 可选模板 |
+| `skill-mm-client-review` | 会议 | ❌ | V1.1+ | 可选模板 |
+| `skill-mm-internal-decision` | 会议 | ❌ | V1.1+ | 可选模板 |
+| `skill-kb-qa` | 知识库 | ❌ | V1.1 | 库内问答；见 A-03 |
+| `skill-wr-policy` | 写作 | ❌ | V1.1 | templateId `policy` |
+| `skill-wr-topic` | 写作 | ❌ | V1.1 | `topic` |
+| `skill-wr-industry` | 写作 | ❌ | V1.1 | `industry` |
+| `skill-wr-macro` | 写作 | ❌ | V1.1 | `macro` |
+| `skill-wr-sector-data` | 写作 | ❌ | V1.1 | `sector-data` |
+| `skill-ppt-deck` | PPT | ✅ | V1.1 | 默认 deck |
+| `skill-ppt-pitch-deck` 等 | PPT | ✅ | V1.1 | 见 `PPT_TEMPLATE_SKILL` |
+| `skill-tr-polish` | 翻译 | ❌ | V1.1 可选 | API 主路径，非必须 |
+
+**模板资产包 `tpl-*`：** 会议 `tpl-mm-*` 多数 ❌；PPT `tpl-ppt-*` 随 Open Design 同步部分 ✅。详见各模块子 PRD。
+
+**维护：** 新增注册表 Skill 时同步更新本表与 [设计文档审计 §5](../docs/design-doc-audit-recommendations.md)；验收以 MVP/V1.1 分期为准。

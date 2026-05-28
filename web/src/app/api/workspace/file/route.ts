@@ -4,7 +4,7 @@ import { inferMimeFromPath, isBinaryWorkspacePath } from "@/lib/workspace-binary
 import { chatExecutionMode, companionConfig } from "@/lib/companion/config";
 import { fetchCompanionProjectFile } from "@/lib/companion/client";
 import { resolveCompanionWorkspaceProjectId } from "@/lib/research-projects-server";
-import { SANDBOX_PROJECT_ID } from "@/lib/research-projects";
+import { NO_PROJECT_ID, SANDBOX_PROJECT_ID } from "@/lib/research-projects";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,14 +29,17 @@ export async function GET(request: Request) {
     return Response.json({ error: "path is required" }, { status: 400 });
   }
 
+  if (projectId === NO_PROJECT_ID) {
+    return Response.json({ error: "workspace_not_ready" }, { status: 409 });
+  }
+
   if (
     chatExecutionMode() === "companion" &&
     !companionConfig.useMock
   ) {
     try {
-      const workspaceProjectId = await resolveCompanionWorkspaceProjectId(
-        projectId,
-      );
+      const { workspaceProjectId } =
+        await resolveCompanionWorkspaceProjectId(projectId);
       const file = await fetchCompanionProjectFile(
         workspaceProjectId,
         rel.trim(),
