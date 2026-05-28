@@ -102,7 +102,7 @@ function TreeNode({
     >
       {active && (
         <span
-          className="absolute bottom-0 left-0 top-0 w-0.5 bg-[var(--focus)]"
+          className="absolute bottom-0 left-0 top-0 w-0.5 bg-[var(--accent)]"
           aria-hidden
         />
       )}
