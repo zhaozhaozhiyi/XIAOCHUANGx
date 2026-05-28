@@ -1488,10 +1488,15 @@ body {
 }
 
 .chat-timeline-complete-row__icon {
+  position: relative;
+  z-index: 1;
   display: flex;
+  height: 1.25rem;
   width: 1.25rem;
   align-items: center;
   justify-content: center;
+  border-radius: 999px;
+  background: var(--bg);
   color: var(--success-muted-dot);
 }
 

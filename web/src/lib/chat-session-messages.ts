@@ -168,9 +168,49 @@ export function sanitizeMessages(
   messages: ChatMessage[],
   options?: SanitizeOptions,
 ): ChatMessage[] {
-  return messages
+  const sanitized = messages
     .map((message) => sanitizeMessage(message, options))
     .filter((message): message is ChatMessage => message != null);
+  return dedupeMessages(sanitized);
+}
+
+function attachmentKey(message: ChatMessage): string {
+  return JSON.stringify(
+    (message.attachments ?? []).map((attachment) => ({
+      id: attachment.id,
+      name: attachment.name,
+      path: attachment.path,
+      size: attachment.size,
+      lastModified: attachment.lastModified,
+    })),
+  );
+}
+
+function duplicateUserKey(message: ChatMessage): string | null {
+  if (message.role !== "user") return null;
+  return `${message.content.trim()}\u0000${attachmentKey(message)}`;
+}
+
+function dedupeMessages(messages: ChatMessage[]): ChatMessage[] {
+  const result: ChatMessage[] = [];
+  const seenIds = new Set<string>();
+  let lastUserKey: string | null = null;
+
+  for (const message of messages) {
+    if (seenIds.has(message.id)) continue;
+
+    const userKey = duplicateUserKey(message);
+    if (userKey && userKey === lastUserKey) {
+      seenIds.add(message.id);
+      continue;
+    }
+
+    result.push(message);
+    seenIds.add(message.id);
+    lastUserKey = userKey;
+  }
+
+  return result;
 }
 
 export function loadChatSessionMessages(sessionId: string): ChatMessage[] | null {

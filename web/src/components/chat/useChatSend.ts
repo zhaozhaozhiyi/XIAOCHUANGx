@@ -341,12 +341,10 @@ export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = 
         "complete",
         uploadedAttachments?.map(persistedAttachment),
       );
-      const userMsgForApi = createMessage(
-        "user",
-        trimmed,
-        "complete",
-        uploadedAttachments,
-      );
+      const userMsgForApi: ChatMessage = {
+        ...userMsg,
+        attachments: uploadedAttachments,
+      };
       markSessionStarted(sessionId);
       upsertChatSession({
         id: sessionId,
