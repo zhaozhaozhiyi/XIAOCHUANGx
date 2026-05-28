@@ -16,6 +16,7 @@ import { useSettings } from "@/components/settings/SettingsContext";
 import type { ChatExecutionSource } from "@/lib/byok/shared";
 import { MentionMenu } from "@/components/chat/MentionMenu";
 import { ProjectWorkPicker } from "@/components/chat/ProjectWorkPicker";
+import { formatAttachmentSize } from "@/lib/chat-attachments";
 import { CHAT_MODES, type ChatModeId } from "@/lib/navigation";
 import { isSessionStarted } from "@/lib/chat-history";
 import {
@@ -211,17 +212,34 @@ function ImagePreview({
   onRemove: () => void;
   disabled?: boolean;
 }) {
-  const previewUrl = useMemo(() => URL.createObjectURL(file), [file]);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      if (!cancelled && typeof reader.result === "string") {
+        setPreviewUrl(reader.result);
+      }
+    });
+    reader.addEventListener("error", () => {
+      if (!cancelled) setFailed(true);
+    });
+    reader.readAsDataURL(file);
     return () => {
-      URL.revokeObjectURL(previewUrl);
+      cancelled = true;
+      if (reader.readyState === FileReader.LOADING) {
+        reader.abort();
+      }
     };
-  }, [previewUrl]);
+  }, [file]);
 
   return (
-    <div className="relative group shrink-0 w-14 h-14">
+    <li
+      className="relative group h-14 w-14 shrink-0"
+      title={`${file.name} · ${formatAttachmentSize(file.size)}`}
+    >
       {failed || !previewUrl ? (
         <div className="flex h-full w-full flex-col items-center justify-center gap-1 rounded-xl border border-neutral-200/60 bg-neutral-100 px-2 text-center text-neutral-500">
           <FileText className="h-5 w-5 shrink-0" strokeWidth={1.75} />
@@ -247,7 +265,7 @@ function ImagePreview({
       >
         <X className="h-2.5 w-2.5" strokeWidth={3} />
       </button>
-    </div>
+    </li>
   );
 }
 
@@ -476,8 +494,8 @@ export function ChatComposer({
                     <span className="truncate text-[12px] font-medium text-[var(--fg)]" title={file.name}>
                       {file.name}
                     </span>
-                    <span className="text-[10px] font-normal text-[var(--fg-tertiary)] uppercase">
-                      {file.name.split(".").pop()?.toUpperCase() || "FILE"}
+                    <span className="text-[10px] font-normal text-[var(--fg-tertiary)]">
+                      {formatAttachmentSize(file.size)}
                     </span>
                   </div>
                   <button
@@ -615,6 +633,7 @@ export function ChatComposer({
                     <button
                       type="button"
                       className="control-picker-menu__item chat-composer__attach-item"
+                      aria-label="上传附件"
                       onClick={handleAttachClick}
                     >
                       <Paperclip className="h-3.5 w-3.5" strokeWidth={1.75} />

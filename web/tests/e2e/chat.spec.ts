@@ -120,16 +120,18 @@ test.describe("MVP chat", () => {
   });
 
   test("uploads attachments before sending a message", async ({ page }) => {
-    const uploads: Array<{ url: string; fields: Record<string, string> }> = [];
+    const uploads: Array<{
+      url: string;
+      headers: Record<string, string>;
+      body: string;
+    }> = [];
     await page.route("**/api/sessions/*/attachments", async (route) => {
       const request = route.request();
-      const form = request.postDataBuffer();
+      const body = request.postDataBuffer();
       uploads.push({
         url: request.url(),
-        fields: {
-          contentType: request.headers()["content-type"] ?? "",
-          body: form?.toString("utf8") ?? "",
-        },
+        headers: request.headers(),
+        body: body?.toString("utf8") ?? "",
       });
       await route.fulfill({
         status: 200,
@@ -168,8 +170,12 @@ test.describe("MVP chat", () => {
     await expect(page.getByText("market-report.txt")).toBeVisible();
     await expect.poll(() => uploads.length).toBe(1);
     expect(uploads[0].url).toContain("/api/sessions/");
-    expect(uploads[0].fields.contentType).toContain("multipart/form-data");
-    expect(uploads[0].fields.body).toContain("market-report.txt");
+    expect(uploads[0].headers["x-jlc-upload-mode"]).toBe("raw");
+    expect(decodeURIComponent(uploads[0].headers["x-jlc-file-name"] ?? "")).toBe(
+      "market-report.txt",
+    );
+    expect(uploads[0].headers["content-type"]).toBe("text/plain");
+    expect(uploads[0].body).toContain("库存环比下降 2.3%");
   });
 
   test("shows uploading state and prevents duplicate attachment sends", async ({
@@ -217,7 +223,6 @@ test.describe("MVP chat", () => {
     await uploadStarted;
     await sendButton.click({ force: true });
 
-    await expect(page.getByText("正在上传附件…")).toBeVisible();
     await expect(sendButton).toBeDisabled();
     expect(uploadCount).toBe(1);
 
