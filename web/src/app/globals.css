@@ -1036,7 +1036,8 @@ body {
   font-size: 15px;
   line-height: 1.6;
   color: var(--chat-user-bubble-text);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  word-break: keep-all;
 }
 
 /* 用户消息右对齐，位置负责区分身份 */
@@ -1046,9 +1047,9 @@ body {
 }
 
 .chat-user-message {
-  display: flex;
-  width: 100%;
-  max-width: 100%;
+  display: inline-flex;
+  width: fit-content;
+  max-width: min(60%, 34rem);
   flex-direction: column;
   align-items: flex-end;
   gap: 0.375rem;

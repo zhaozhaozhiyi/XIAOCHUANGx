@@ -113,7 +113,6 @@ export function ChatHistorySidebar() {
           projectId={group.projectId}
           sessions={group.sessions}
           activeId={activeId}
-          active={group.sessions.some((session) => session.id === activeId)}
           collapsed={!!collapsedGroups[group.projectId]}
           onToggleCollapsed={() => toggleGroupCollapsed(group.projectId)}
           onNewChat={() => startChatInProject(group.projectId)}
@@ -130,7 +129,6 @@ export function ChatHistorySidebar() {
           muted
           sessions={unassigned}
           activeId={activeId}
-          active={unassigned.some((session) => session.id === activeId)}
           collapsed={!!collapsedGroups.__unassigned__}
           onToggleCollapsed={() => toggleGroupCollapsed("__unassigned__")}
           onNewChat={() => startChatInProject(NO_PROJECT_ID)}
@@ -152,7 +150,6 @@ function HistoryGroupSection({
   collapsed,
   onToggleCollapsed,
   onNewChat,
-  active,
   muted,
   last,
 }: {
@@ -166,7 +163,6 @@ function HistoryGroupSection({
   collapsed: boolean;
   onToggleCollapsed: () => void;
   onNewChat: () => void;
-  active?: boolean;
   muted?: boolean;
   last?: boolean;
 }) {
@@ -178,9 +174,7 @@ function HistoryGroupSection({
       className={`chat-history-sidebar__section ${last ? "chat-history-sidebar__section--last" : ""}`}
     >
       <div
-        className={`chat-history-sidebar__project ${muted ? "chat-history-sidebar__project--muted" : ""} ${
-          active ? "chat-history-sidebar__project--active" : ""
-        }`}
+        className={`chat-history-sidebar__project ${muted ? "chat-history-sidebar__project--muted" : ""}`}
       >
         <div className="chat-history-sidebar__project-text">
           <button
