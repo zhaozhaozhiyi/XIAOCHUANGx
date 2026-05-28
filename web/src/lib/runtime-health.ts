@@ -13,6 +13,7 @@ export type RuntimeHealthResponse = {
   model?: string;
   agents?: CompanionAgentState[];
   inferenceChannel?: string;
+  agentsStatus?: number | "skipped";
   error?: string;
 };
 
@@ -48,6 +49,9 @@ export function runtimeStatusTitle(
       return agent.status === "available"
         ? `Companion 已连接 · ${selectedAgentId} CLI 可用${runSuffix}`
         : `Companion 已连接 · ${selectedAgentId}: ${agent.status}${runSuffix}`;
+    }
+    if (health.agentsStatus === "skipped") {
+      return `Companion 已连接${runSuffix} · Agent 状态请在设置中检测`;
     }
     return `Companion 已连接${runSuffix}`;
   }

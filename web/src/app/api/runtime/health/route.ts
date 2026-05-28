@@ -1,7 +1,6 @@
 import {
   chatExecutionMode,
   companionConfig,
-  companionAgentsUrl,
   companionHealthUrl,
 } from "@/lib/companion/config";
 import { mockCompanionAgents, mockCompanionHealth } from "@/lib/companion/mock";
@@ -9,6 +8,8 @@ import { hermesConfig, hermesHealthUrl } from "@/lib/hermes/config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const HEALTH_TIMEOUT_MS = 2500;
 
 export async function GET() {
   const execution = chatExecutionMode();
@@ -29,34 +30,19 @@ export async function GET() {
     }
 
     try {
-      const [healthRes, agentsRes] = await Promise.all([
-        fetch(companionHealthUrl(), {
-          method: "GET",
-          headers: companionConfig.apiToken
-            ? { Authorization: `Bearer ${companionConfig.apiToken}` }
-            : {},
-          signal: AbortSignal.timeout(5000),
-        }),
-        fetch(companionAgentsUrl(), {
-          method: "GET",
-          headers: companionConfig.apiToken
-            ? { Authorization: `Bearer ${companionConfig.apiToken}` }
-            : {},
-          signal: AbortSignal.timeout(5000),
-        }),
-      ]);
+      const healthRes = await fetch(companionHealthUrl(), {
+        method: "GET",
+        headers: companionConfig.apiToken
+          ? { Authorization: `Bearer ${companionConfig.apiToken}` }
+          : {},
+        signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS),
+      });
 
       const health = (await healthRes.json().catch(() => ({}))) as {
         ok?: boolean;
         version?: string;
         runMode?: string;
       };
-      const agentsPayload = agentsRes.ok
-        ? ((await agentsRes.json().catch(() => null)) as {
-            agents?: unknown[];
-            inferenceChannel?: string;
-          } | null)
-        : null;
 
       return Response.json({
         execution,
@@ -65,9 +51,8 @@ export async function GET() {
         baseUrl: companionConfig.baseUrl,
         version: health.version,
         runMode: health.runMode,
-        agents: agentsPayload?.agents,
-        inferenceChannel: agentsPayload?.inferenceChannel ?? "cli",
-        agentsStatus: agentsRes.status,
+        inferenceChannel: "unknown",
+        agentsStatus: "skipped",
       });
     } catch (err) {
       return Response.json({

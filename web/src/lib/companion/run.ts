@@ -9,6 +9,7 @@ import { uploadCompanionProjectFile } from "@/lib/companion/client";
 import { mockCompanionRunSse } from "@/lib/companion/mock";
 import type { CreateRunRequest } from "@/lib/companion/types";
 import type { ChatCompletionRequestBody } from "@/lib/hermes/types";
+import { proxySseStream } from "@/lib/sse-proxy";
 import { resolveCompanionWorkspaceProjectId } from "@/lib/research-projects-server";
 import {
   NO_PROJECT_ID,
@@ -207,10 +208,20 @@ export async function companionRunResponse(
         outHeaders.set(k, v);
       }
 
-      return new Response(upstream.body, {
-        status: upstream.status,
-        headers: outHeaders,
-      });
+      if (!upstream.body) {
+        return Response.json(
+          { error: "companion_error", message: "Empty response body from Companion" },
+          { status: 502 },
+        );
+      }
+
+      return new Response(
+        proxySseStream(upstream.body, signal ?? new AbortController().signal, "companion_stream_error"),
+        {
+          status: upstream.status,
+          headers: outHeaders,
+        },
+      );
     })
     .catch((err) => {
       const message =

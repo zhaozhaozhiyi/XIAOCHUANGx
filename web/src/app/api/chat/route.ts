@@ -28,6 +28,7 @@ import { buildChatCompletionMessages } from "@/lib/hermes/openai";
 import type { ChatModeId } from "@/lib/navigation";
 import { normalizeChatMode } from "@/lib/navigation";
 import type { ChatCompletionRequestBody } from "@/lib/hermes/types";
+import { proxySseStream } from "@/lib/sse-proxy";
 
 
 export const runtime = "nodejs";
@@ -334,5 +335,8 @@ export async function POST(request: Request) {
     responseHeaders.set("X-Hermes-Session-Key", sessionKey);
   }
 
-  return new Response(upstream.body, { status: 200, headers: responseHeaders });
+  return new Response(
+    proxySseStream(upstream.body, request.signal, "hermes_stream_error"),
+    { status: 200, headers: responseHeaders },
+  );
 }

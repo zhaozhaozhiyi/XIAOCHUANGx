@@ -70,6 +70,24 @@ function parseOpenAiDelta(data: string): string | null {
   }
 }
 
+function parseStreamError(data: string): { message: string; code?: string } {
+  try {
+    const json = JSON.parse(data) as { error?: unknown; message?: unknown };
+    const message =
+      typeof json.message === "string"
+        ? json.message
+        : typeof json.error === "string"
+          ? json.error
+          : "stream terminated";
+    return {
+      message,
+      code: typeof json.error === "string" ? json.error : undefined,
+    };
+  } catch {
+    return { message: data || "stream terminated" };
+  }
+}
+
 function parseCompanionPayload(
   eventName: string,
   data: string,
@@ -321,6 +339,12 @@ export async function consumeChatSse(
         if (data === "[DONE]") {
           callbacks.onRunFinished?.();
           return { ok: true };
+        }
+
+        if (eventName === "error") {
+          const parsed = parseStreamError(data);
+          callbacks.onRunError?.(parsed.message, parsed.code);
+          return { ok: false, error: parsed.message };
         }
 
         if (format === "companion") {

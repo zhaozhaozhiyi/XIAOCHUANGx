@@ -298,6 +298,7 @@ async function readRawUpload(request: Request): Promise<ParsedUpload> {
 }
 
 async function syncUploadToCompanion(input: {
+  sessionId: string;
   projectId?: string;
   name: string;
   bytes: Buffer;
@@ -305,8 +306,13 @@ async function syncUploadToCompanion(input: {
   if (chatExecutionMode() !== "companion" || companionConfig.useMock) {
     return null;
   }
-  const workspaceProjectId = await resolveCompanionWorkspaceProjectId(
+  const { workspaceProjectId } = await resolveCompanionWorkspaceProjectId(
     input.projectId?.trim() || NO_PROJECT_ID,
+    {
+      moduleId: "chat",
+      taskId: input.sessionId,
+      taskTitle: input.name,
+    },
   );
   const uploaded = await uploadCompanionProjectFile({
     projectId: workspaceProjectId,
@@ -412,18 +418,17 @@ export async function POST(
     fields.get("truncated") === "true" ||
     (textContent != null && bytes.toString("utf8").length > TEXT_ATTACHMENT_MAX_CHARS);
   let workspaceUpload: { path: string; size: number } | null = null;
+  let workspaceSyncError: string | undefined;
   try {
     workspaceUpload = await syncUploadToCompanion({
+      sessionId: id,
       projectId,
       name: file.name,
       bytes,
     });
   } catch (error) {
-    if (chatExecutionMode() === "companion" && !companionConfig.useMock) {
-      const message =
-        error instanceof Error ? error.message : "companion_upload_failed";
-      return Response.json({ error: message }, { status: 502 });
-    }
+    workspaceSyncError =
+      error instanceof Error ? error.message : "companion_upload_failed";
   }
 
   return Response.json({
@@ -436,6 +441,7 @@ export async function POST(
     extension,
     ...(textContent != null ? { textContent, truncated } : {}),
     ...(workspaceUpload ? {} : { contentBase64: bytes.toString("base64") }),
+    ...(workspaceSyncError ? { workspaceSyncError } : {}),
   });
 }
 
