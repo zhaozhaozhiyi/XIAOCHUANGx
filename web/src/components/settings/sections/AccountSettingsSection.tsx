@@ -9,7 +9,6 @@ const MOCK_MODULES_ENABLED = new Set([
   "knowledge",
   "writing",
   "ppt",
-  "translate",
 ]);
 
 export function AccountSettingsSection() {

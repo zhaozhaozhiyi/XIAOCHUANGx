@@ -10,8 +10,7 @@ export type ModuleId =
   | "meeting"
   | "knowledge"
   | "writing"
-  | "ppt"
-  | "translate";
+  | "ppt";
 
 export type WorkspaceKind = "sandbox" | "local_bound" | "cloud";
 

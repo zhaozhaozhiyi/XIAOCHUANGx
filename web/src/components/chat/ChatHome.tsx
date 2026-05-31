@@ -19,8 +19,18 @@ import type { ChatExecutionSource } from "@/lib/byok/shared";
 import type { ChatModeId } from "@/lib/navigation";
 import type { AgentId } from "@/lib/settings";
 import { uploadChatAttachments } from "@/lib/chat-attachments";
+import {
+  MODULE_CHAT_SURFACES,
+  sessionPath,
+  type ChatSurfaceModuleId,
+} from "@/lib/module-chat-config";
 
-export function ChatHome() {
+export function ChatHome({
+  surfaceModuleId = "chat",
+}: {
+  surfaceModuleId?: ChatSurfaceModuleId;
+}) {
+  const surface = MODULE_CHAT_SURFACES[surfaceModuleId];
   const router = useRouter();
   const searchParams = useSearchParams();
   const sidebarCollapsed = useSidebarCollapsed();
@@ -48,6 +58,8 @@ export function ChatHome() {
     agentModel: string,
     projId: string,
     attachments?: ChatComposerSendPayload["attachments"],
+    writingTemplateId?: ChatComposerSendPayload["writingTemplateId"],
+    pptTemplateId?: ChatComposerSendPayload["pptTemplateId"],
   ) => {
     const trimmed = text.trim();
     if (!trimmed && !attachments?.length) return;
@@ -62,13 +74,18 @@ export function ChatHome() {
       setPendingSession(id, {
         text: trimmed,
         attachments: uploadedAttachments,
-        mode,
+        mode: surface.showModePicker ? mode : "deep",
+        surfaceModuleId,
+        ...(surface.moduleId === "writing" && writingTemplateId
+          ? { writingTemplateId }
+          : {}),
+        ...(surface.moduleId === "ppt" && pptTemplateId ? { pptTemplateId } : {}),
         executionSource,
         agentId,
         agentModel,
         projectId: projId,
       });
-      router.push(`/chat/${id}`);
+      router.push(sessionPath(surface, id));
     } catch {
       // upload failed — stay on page, user can retry
     } finally {
@@ -89,17 +106,22 @@ export function ChatHome() {
           />
         }
         center={
-          <span className="text-sm text-[var(--fg-secondary)]">新对话</span>
+          <span className="text-sm text-[var(--fg-secondary)]">
+            {surface.newSessionLabel}
+          </span>
         }
       />
       <div className="chat-home-bg px-6 pb-24">
         <div className="chat-home-bg__content">
-          <h1 className="text-display mb-3 text-[var(--fg)]">今天要处理什么？</h1>
+          <h1 className="text-display mb-3 text-[var(--fg)]">{surface.homeTitle}</h1>
           <p className="prose-width mb-10 text-center text-[15px] text-[var(--fg-secondary)]">
-            查资料、写文档、记会议——小窗专注办公场景（works）
+            {surface.homeSubtitle}
           </p>
           <ChatComposer
             showProjectPicker
+            showModePicker={surface.showModePicker}
+            skillPickerModule={surface.skillPicker}
+            defaultMode="deep"
             disabled={sending}
             projectId={projectId}
             onProjectIdChange={setProjectId}
@@ -109,27 +131,31 @@ export function ChatHome() {
             onSend={(payload) =>
               startChat(
                 payload.text,
-                payload.mode,
+                surface.showModePicker ? payload.mode : "deep",
                 payload.executionSource,
                 payload.agentId,
                 payload.agentModel,
                 payload.projectId,
                 payload.attachments,
+                payload.writingTemplateId,
+                payload.pptTemplateId,
               )
             }
           />
-          <ChatHomeTaskSuggestions
-            onSelect={(q) =>
-              void startChat(
-                q,
-                "fast",
-                executionSource,
-                agentId,
-                agentModel,
-                projectId,
-              )
-            }
-          />
+          {surface.showModePicker ? (
+            <ChatHomeTaskSuggestions
+              onSelect={(q) =>
+                void startChat(
+                  q,
+                  "fast",
+                  executionSource,
+                  agentId,
+                  agentModel,
+                  projectId,
+                )
+              }
+            />
+          ) : null}
         </div>
       </div>
     </div>

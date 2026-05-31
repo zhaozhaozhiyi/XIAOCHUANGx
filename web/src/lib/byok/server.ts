@@ -285,7 +285,26 @@ export async function streamApiProviderChat(input: {
   signal?: AbortSignal;
 }): Promise<Response> {
   const config = trimApiProviderConfig(input.config);
-  await assertSafeProviderUrl(config.baseUrl);
+
+  // 验证配置
+  if (!config.baseUrl.trim()) {
+    throw new Error("Provider Base URL 为空");
+  }
+  if (!config.model.trim()) {
+    throw new Error("Provider Model ID 为空");
+  }
+
+  // 检查 URL 安全性
+  try {
+    await assertSafeProviderUrl(config.baseUrl);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "URL 安全检查失败";
+    console.error("[BYOK] URL security check failed:", {
+      baseUrl: config.baseUrl,
+      error: message,
+    });
+    throw new Error(`Provider URL 验证失败: ${message}`);
+  }
 
   const body =
     config.protocol === "anthropic"
@@ -307,12 +326,47 @@ export async function streamApiProviderChat(input: {
           stream: true,
         };
 
-  const upstream = await fetch(resolveProviderEndpoint(config, "chat"), {
-    method: "POST",
-    headers: buildProviderHeaders(config),
-    body: JSON.stringify(body),
-    signal: input.signal,
+  const endpoint = resolveProviderEndpoint(config, "chat");
+
+  console.log("[BYOK] Requesting provider:", {
+    endpoint,
+    model: config.model,
+    protocol: config.protocol,
+    hasApiKey: !!config.apiKey,
   });
+
+  let upstream: Response;
+  try {
+    upstream = await fetch(endpoint, {
+      method: "POST",
+      headers: buildProviderHeaders(config),
+      body: JSON.stringify(body),
+      signal: input.signal,
+    });
+  } catch (fetchError) {
+    const errorMsg = fetchError instanceof Error ? fetchError.message : "Unknown fetch error";
+    console.error("[BYOK] Fetch failed:", {
+      endpoint,
+      error: errorMsg,
+      errorType: fetchError instanceof Error ? fetchError.constructor.name : typeof fetchError,
+    });
+
+    // 提供更具体的错误信息
+    if (errorMsg.includes("ENOTFOUND")) {
+      throw new Error(`无法解析 Provider 域名: ${new URL(config.baseUrl).hostname}`);
+    }
+    if (errorMsg.includes("ECONNREFUSED")) {
+      throw new Error(`无法连接到 Provider 地址: ${config.baseUrl}`);
+    }
+    if (errorMsg.includes("ETIMEDOUT") || errorMsg.includes("timeout")) {
+      throw new Error(`连接 Provider 超时: ${config.baseUrl}`);
+    }
+    if (errorMsg.includes("UNABLE_TO_VERIFY_LEAF_SIGNATURE") || errorMsg.includes("CERT")) {
+      throw new Error(`Provider SSL 证书验证失败: ${config.baseUrl}`);
+    }
+
+    throw new Error(`网络请求失败: ${errorMsg}`);
+  }
 
   if (!upstream.ok) {
     const detail = await upstream.text().catch(() => "");

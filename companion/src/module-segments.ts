@@ -6,7 +6,6 @@ export const MODULE_WORKSPACE_SEGMENTS: Record<string, string> = {
   meeting: "会议",
   writing: "写作",
   ppt: "PPT",
-  translate: "翻译",
 };
 
 export const MODULE_DEFAULT_TASK_NAMES: Record<string, string> = {
@@ -14,7 +13,6 @@ export const MODULE_DEFAULT_TASK_NAMES: Record<string, string> = {
   meeting: "新会议",
   writing: "新写作",
   ppt: "新演示",
-  translate: "新翻译",
 };
 
 export function resolveModuleWorkspaceSegment(moduleId: string): string | null {

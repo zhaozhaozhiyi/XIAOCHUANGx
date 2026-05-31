@@ -1,5 +1,11 @@
 import { resolveChatOrchestration } from "@jlc/runtime-core";
+import {
+  type ChatSurfaceModuleId,
+  PPT_DEFAULT_SKILL,
+  WRITING_DEFAULT_SKILL,
+} from "@/lib/module-chat-config";
 import { normalizeChatMode } from "@/lib/navigation";
+import { resolveSkills } from "@/lib/module-registry";
 import {
   chatExecutionMode,
   companionConfig,
@@ -94,6 +100,12 @@ export async function buildCreateRunRequest(
   const uiProjectId = parsed.projectId ?? NO_PROJECT_ID;
   const lastUser = [...parsed.messages].reverse().find((m) => m.role === "user");
   const taskTitle = lastUser?.content.slice(0, 48);
+  const surfaceModuleId: ChatSurfaceModuleId =
+    parsed.surfaceModuleId === "writing"
+      ? "writing"
+      : parsed.surfaceModuleId === "ppt"
+        ? "ppt"
+        : "chat";
 
   let workspaceProjectId: string;
   let ensuredProject: ResearchProject | undefined;
@@ -101,7 +113,7 @@ export async function buildCreateRunRequest(
 
   if (chatExecutionMode() === "companion") {
     const resolved = await resolveCompanionWorkspaceProjectId(uiProjectId, {
-      moduleId: "chat",
+      moduleId: surfaceModuleId,
       taskId: parsed.sessionId,
       taskTitle,
     });
@@ -116,6 +128,38 @@ export async function buildCreateRunRequest(
 
   const mode = normalizeChatMode(parsed.mode) ?? "fast";
   const orchestration = resolveChatOrchestration({ mode });
+  const writingTemplateId =
+    surfaceModuleId === "writing"
+      ? parsed.writingTemplateId?.trim() || "general"
+      : "general";
+  const pptTemplateId =
+    surfaceModuleId === "ppt"
+      ? parsed.pptTemplateId?.trim() || "pitch-deck"
+      : "pitch-deck";
+
+  const moduleSkills =
+    surfaceModuleId === "writing"
+      ? resolveSkills({
+          moduleId: "writing",
+          binding: { templateId: writingTemplateId },
+        })
+      : surfaceModuleId === "ppt"
+        ? resolveSkills({
+            moduleId: "ppt",
+            binding: { task: "deck", templateId: pptTemplateId },
+          })
+        : null;
+
+  const processSkill =
+    surfaceModuleId === "writing"
+      ? (moduleSkills?.processSkill ?? WRITING_DEFAULT_SKILL)
+      : surfaceModuleId === "ppt"
+        ? (moduleSkills?.processSkill ?? PPT_DEFAULT_SKILL)
+        : orchestration.baseProcessSkill;
+  const platformNormSkill =
+    surfaceModuleId === "writing" || surfaceModuleId === "ppt"
+      ? (moduleSkills?.platformNormSkill ?? orchestration.platformNormSkill)
+      : orchestration.platformNormSkill;
   const executionMode = chatExecutionMode();
 
   if (
@@ -139,14 +183,26 @@ export async function buildCreateRunRequest(
       sessionId: parsed.sessionId,
       projectId: effectiveProjectId,
       workspaceProjectId,
-      moduleId: "chat",
-      binding: { moduleId: "chat", mode },
+      moduleId: surfaceModuleId,
+      binding:
+        surfaceModuleId === "writing"
+          ? {
+              moduleId: "writing" as const,
+              templateId: writingTemplateId,
+            }
+          : surfaceModuleId === "ppt"
+            ? {
+                moduleId: "ppt" as const,
+                task: "deck" as const,
+                templateId: pptTemplateId,
+              }
+            : { moduleId: "chat" as const, mode },
       agentId: parsed.agentId,
       agentModel: parsed.agentModel,
       messages,
       useClientHistory: parsed.useClientHistory,
-      processSkill: orchestration.baseProcessSkill,
-      platformNormSkill: orchestration.platformNormSkill,
+      processSkill,
+      platformNormSkill,
     },
   };
 }

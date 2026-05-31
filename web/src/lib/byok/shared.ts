@@ -22,6 +22,9 @@ export const DEFAULT_API_PROVIDER_CONFIG: ApiProviderConfig = {
   anthropicVersion: "2023-06-01",
 };
 
+/**
+ * 检查 API Provider 配置是否可用于对话（需要模型）
+ */
 export function hasUsableApiProviderConfig(
   config: Pick<ApiProviderConfig, "enabled" | "baseUrl" | "model"> | null | undefined,
 ): boolean {
@@ -29,6 +32,19 @@ export function hasUsableApiProviderConfig(
     config?.enabled &&
     config.baseUrl.trim().length > 0 &&
     config.model.trim().length > 0
+  );
+}
+
+/**
+ * 检查 API Provider 配置是否可用于测试连接和拉取模型（只需要 URL 和 Key）
+ */
+export function hasConnectableApiProviderConfig(
+  config: Pick<ApiProviderConfig, "enabled" | "baseUrl" | "apiKey"> | null | undefined,
+): boolean {
+  return !!(
+    config?.enabled &&
+    config.baseUrl.trim().length > 0 &&
+    config.apiKey.trim().length > 0
   );
 }
 

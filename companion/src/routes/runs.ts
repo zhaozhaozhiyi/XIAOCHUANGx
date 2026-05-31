@@ -33,7 +33,6 @@ const MODULE_IDS = new Set<string>([
   "knowledge",
   "writing",
   "ppt",
-  "translate",
 ]);
 
 function sleep(ms: number): Promise<void> {

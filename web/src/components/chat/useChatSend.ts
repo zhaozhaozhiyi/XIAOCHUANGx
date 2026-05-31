@@ -72,6 +72,10 @@ import {
   uploadChatAttachments,
 } from "@/lib/chat-attachments";
 import { saveSessionMessagesHybrid } from "@/lib/chat-session-sync";
+import {
+  MODULE_CHAT_SURFACES,
+  type ChatSurfaceModuleId,
+} from "@/lib/module-chat-config";
 
 function finalizeInFlightMessages(prev: ChatMessage[]): ChatMessage[] {
   return prev.map((m) => {
@@ -163,7 +167,12 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "请求失败";
 }
 
-export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = []) {
+export function useChatSend(
+  sessionId: string,
+  initialMessages: ChatMessage[] = [],
+  surfaceModuleId: ChatSurfaceModuleId = "chat",
+) {
+  const surface = MODULE_CHAT_SURFACES[surfaceModuleId];
   const { agentsRuntime } = useSettings();
   const [messages, setMessagesState] = useState<ChatMessage[]>(initialMessages);
   const messagesRef = useRef<ChatMessage[]>(initialMessages);
@@ -299,6 +308,7 @@ export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = 
           id: sessionId,
           title: sessionTitle,
           projectId: context.projectId,
+          surfaceModuleId,
           runStatus: "idle",
         });
         const userMsg = createMessage(
@@ -331,12 +341,16 @@ export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = 
           id: sessionId,
           title: sessionTitle,
           projectId: context.projectId,
+          surfaceModuleId,
           runStatus: "idle",
         });
         throw error;
       }
       const sendContext: ChatSendContext = {
         ...context,
+        surfaceModuleId,
+        writingTemplateId: context.writingTemplateId,
+        pptTemplateId: context.pptTemplateId,
         attachments: uploadedAttachments,
       };
 
@@ -353,8 +367,9 @@ export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = 
       markSessionStarted(sessionId);
       upsertChatSession({
         id: sessionId,
-        title: sessionTitle,
+        title: sessionTitle || surface.defaultSessionTitle,
         projectId: context.projectId,
+        surfaceModuleId,
         runStatus: "running",
       });
 
@@ -486,6 +501,7 @@ export function useChatSend(sessionId: string, initialMessages: ChatMessage[] = 
               id: sessionId,
               title: trimmed.slice(0, 48),
               projectId: project.id,
+              surfaceModuleId,
               runStatus: "running",
             });
           },

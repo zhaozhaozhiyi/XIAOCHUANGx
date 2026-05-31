@@ -1,3 +1,4 @@
+import type { ChatSurfaceModuleId } from "@/lib/module-chat-config";
 import type { ChatModeId } from "@/lib/navigation";
 import type { AgentId } from "@/lib/settings";
 import type {
@@ -27,6 +28,12 @@ export type ChatCompletionRequestBody = {
   projectId?: string;
   /** Use request-body history (e.g. mid-stream steer); skip gateway session DB override. */
   useClientHistory?: boolean;
+  /** 对话 UI 所属模块；写作会话传 `writing` */
+  surfaceModuleId?: ChatSurfaceModuleId;
+  /** 写作 Skill 模板 ID（general / official-doc / meeting-minutes） */
+  writingTemplateId?: string;
+  /** PPT Skill 模板 ID（pitch-deck / weekly-report / …） */
+  pptTemplateId?: string;
 };
 
 export type OpenAIChatMessage = {

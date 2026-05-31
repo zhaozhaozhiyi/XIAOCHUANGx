@@ -54,9 +54,14 @@ export function ChatAgentModelPicker({
     () => getLlmModels(settings.modelProviders),
     [settings.modelProviders],
   );
+
+  // API 选项可用：有可用的 Provider（有模型）或者有凭证就绪的 Provider
   const apiEnabled =
     hasAnyUsableProvider(settings.modelProviders) ||
-    hasUsableApiProviderConfig(settings.apiProvider);
+    hasUsableApiProviderConfig(settings.apiProvider) ||
+    settings.modelProviders.some(
+      (p) => p.enabled && p.baseUrl.trim() && p.apiKey.trim(),
+    );
 
   const activeApi = resolveApiSelection(
     settings.modelProviders,
@@ -218,6 +223,7 @@ export function ChatAgentModelPicker({
                             }`}
                             onClick={() => {
                               updateSettings({
+                                executionSource: "api",
                                 activeApiSelection: {
                                   providerId: provider.id,
                                   modelEntryId: model.id,
@@ -239,34 +245,40 @@ export function ChatAgentModelPicker({
               ))
             ) : (
               <li role="presentation" className="control-picker-menu__group">
-                <p className="control-picker-menu__heading">
-                  {providerDisplayName(settings.apiProvider)}
-                </p>
+                <p className="control-picker-menu__heading">模型 API</p>
                 <ul className="control-picker-menu__options">
-                  <li role="presentation">
-                    <button
-                      type="button"
-                      role="option"
-                      aria-selected={executionSource === "api"}
-                      className={`control-picker-menu__item ${
-                        executionSource === "api"
-                          ? "control-picker-menu__item--selected"
-                          : ""
-                      }`}
-                      onClick={() => {
-                        onChange(
-                          "api",
-                          resolvedAgentId,
-                          settings.apiProvider.model || "default",
-                        );
-                        setOpen(false);
-                      }}
-                    >
-                      <span className="whitespace-nowrap">
-                        {settings.apiProvider.model || "未配置模型"}
-                      </span>
-                    </button>
-                  </li>
+                  {settings.modelProviders
+                    .filter((p) => p.enabled && p.baseUrl.trim() && p.apiKey.trim())
+                    .slice(0, 3)
+                    .map((provider) => (
+                      <li key={provider.id} role="presentation">
+                        <button
+                          type="button"
+                          role="option"
+                          disabled
+                          className="control-picker-menu__item opacity-60"
+                          title="请先在设置中拉取模型"
+                        >
+                          <span className="whitespace-nowrap">
+                            {provider.displayName}（待配置模型）
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  {settings.modelProviders.filter(
+                    (p) => p.enabled && p.baseUrl.trim() && p.apiKey.trim(),
+                  ).length === 0 && (
+                    <li role="presentation">
+                      <button
+                        type="button"
+                        role="option"
+                        disabled
+                        className="control-picker-menu__item opacity-60"
+                      >
+                        <span className="whitespace-nowrap">未配置 Provider</span>
+                      </button>
+                    </li>
+                  )}
                 </ul>
               </li>
             ))}
@@ -304,6 +316,7 @@ export function ChatAgentModelPicker({
                           }`}
                           onClick={() => {
                             if (agentDisabled) return;
+                            updateSettings({ executionSource: "cli" });
                             onChange("cli", a.id, m.id);
                             setOpen(false);
                           }}

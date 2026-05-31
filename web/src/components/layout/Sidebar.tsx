@@ -5,7 +5,9 @@ import { usePathname } from "next/navigation";
 import { PanelLeftClose, Plus } from "lucide-react";
 import { UserSettingsTrigger } from "@/components/settings/UserSettingsMenu";
 import { ChatHistorySidebar } from "@/components/chat/ChatHistorySidebar";
+import { ChatHistorySidebarBoundary } from "@/components/chat/ChatHistorySidebarBoundary";
 import { BrandMark } from "@/components/brand/BrandMark";
+import { getChatSurfaceFromPathname } from "@/lib/module-chat-config";
 import { NAV_MODULES } from "@/lib/navigation";
 
 type SidebarProps = {
@@ -15,7 +17,14 @@ type SidebarProps = {
 
 export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname();
-  const isChatModule = pathname.startsWith("/chat");
+  const surface = getChatSurfaceFromPathname(pathname);
+  const showHistorySidebar =
+    pathname === "/chat" ||
+    pathname.startsWith("/chat/") ||
+    pathname === "/writing" ||
+    pathname.startsWith("/writing/") ||
+    pathname === "/ppt" ||
+    pathname.startsWith("/ppt/");
 
   return (
     <aside
@@ -27,16 +36,16 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
 
       <div className={`px-2 pb-2 ${collapsed ? "flex justify-center" : ""}`}>
         <Link
-          href="/chat"
+          href={surface.newSessionHref}
           className={`btn btn-sidebar-new flex items-center justify-center gap-2 py-2 ${
             collapsed ? "h-9 w-9 px-0" : "w-full px-3"
           }`}
-          title={collapsed ? "新对话" : undefined}
+          title={collapsed ? surface.newSessionLabel : undefined}
         >
           <Plus className="h-4 w-4 shrink-0" strokeWidth={1.75} />
           {!collapsed && (
             <>
-              <span className="flex-1 text-left">新对话</span>
+              <span className="flex-1 text-left">{surface.newSessionLabel}</span>
               <kbd className="hidden rounded border border-[var(--composer-border)] bg-white px-1.5 py-0.5 text-[10px] font-normal text-[var(--fg-tertiary)] sm:inline">
                 ⌘ K
               </kbd>
@@ -45,8 +54,11 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
         </Link>
       </div>
 
-      <nav className="flex min-h-0 flex-1 flex-col py-1">
-        <ul className="shrink-0 space-y-0.5 px-2">
+      <nav
+        aria-label="产品模块"
+        className="relative z-10 shrink-0 space-y-0.5 px-2 py-1"
+      >
+        <ul>
           {NAV_MODULES.map((mod) => {
             const active =
               pathname === mod.href || pathname.startsWith(`${mod.href}/`);
@@ -67,17 +79,19 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
             );
           })}
         </ul>
+      </nav>
 
-        {!collapsed && isChatModule && (
-          <div className="mt-4 flex min-h-0 flex-1 flex-col border-t border-[var(--border)] pt-3">
-            <div className="sidebar-history-scroll min-h-0 flex-1 overflow-y-auto">
-              <div className="sidebar-history-scroll__inner">
+      {!collapsed && showHistorySidebar && (
+        <div className="relative z-0 mt-1 flex min-h-0 flex-1 flex-col overflow-hidden border-t border-[var(--border)] pt-3">
+          <div className="sidebar-history-scroll min-h-0 flex-1 overflow-y-auto">
+            <div className="sidebar-history-scroll__inner">
+              <ChatHistorySidebarBoundary>
                 <ChatHistorySidebar />
-              </div>
+              </ChatHistorySidebarBoundary>
             </div>
           </div>
-        )}
-      </nav>
+        </div>
+      )}
 
       <div className="shrink-0 border-t border-[var(--border)] p-2">
         <UserSettingsTrigger collapsed={collapsed} />

@@ -25,7 +25,7 @@ export const createProjectRequestSchema = z
   });
 
 export const ensureDefaultTaskProjectRequestSchema = z.object({
-  moduleId: z.enum(["chat", "meeting", "knowledge", "writing", "ppt", "translate"]),
+  moduleId: z.enum(["chat", "meeting", "knowledge", "writing", "ppt"]),
   taskTitle: z.string().max(200).optional(),
   taskId: z.string().max(200).optional(),
 });

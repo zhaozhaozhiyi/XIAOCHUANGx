@@ -1,4 +1,5 @@
 import { isComplexDeepQuestion } from "@jlc/runtime-core/chat-mode";
+import type { ChatSurfaceModuleId } from "@/lib/module-chat-config";
 import type { ChatModeId } from "@/lib/navigation";
 import type {
   ActivityCollapse,
@@ -65,10 +66,13 @@ export type PendingSession = {
   text: string;
   attachments?: ChatPendingAttachment[];
   mode: ChatModeId;
+  surfaceModuleId?: ChatSurfaceModuleId;
   executionSource: ChatExecutionSource;
   agentId: AgentId;
   agentModel: string;
   projectId?: string;
+  writingTemplateId?: string;
+  pptTemplateId?: string;
 };
 
 export function setPendingSession(id: string, payload: PendingSession) {

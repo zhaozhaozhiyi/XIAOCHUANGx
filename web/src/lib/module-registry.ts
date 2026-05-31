@@ -7,13 +7,14 @@ import { normalizeChatMode } from "@jlc/runtime-core/chat-mode";
 
 export const PLATFORM_NORM_SKILL = "skill-platform-research-norms";
 
+export const WRITING_DEFAULT_SKILL = "skill-writing-general";
+
 export type ModuleId =
   | "chat"
   | "meeting"
   | "knowledge"
   | "writing"
-  | "ppt"
-  | "translate";
+  | "ppt";
 
 export type DomainService =
   | "choice-terminal"
@@ -21,8 +22,7 @@ export type DomainService =
   | "asr"
   | "rag"
   | "doc-storage"
-  | "slide-engine"
-  | "translate-engine";
+  | "slide-engine";
 
 export type ModuleRegistryEntry = {
   moduleId: ModuleId;
@@ -30,10 +30,7 @@ export type ModuleRegistryEntry = {
   domainServices: DomainService[];
   /** MVP 是否以 Agent + 流程 Skill 为主路径 */
   agentPrimaryPath: boolean;
-  /**
-   * 是否可能产生 XIAOCHUANG 工作区文件（§5.3.2.1a）。
-   * 翻译：仅文档翻译或用户导出译文时建任务目录；纯文本历史可仅存 DB。
-   */
+  /** 是否可能产生 XIAOCHUANG 工作区文件（§5.3.2.1a） */
   producesWorkspaceArtifacts: boolean;
   /** XIAOCHUANG 一级目录名；仅 producesWorkspaceArtifacts=true 时有效 */
   workspaceSegment?: string;
@@ -79,14 +76,6 @@ export const MODULE_REGISTRY: Record<ModuleId, ModuleRegistryEntry> = {
     producesWorkspaceArtifacts: true,
     workspaceSegment: "PPT",
   },
-  translate: {
-    moduleId: "translate",
-    label: "翻译",
-    domainServices: ["translate-engine"],
-    agentPrimaryPath: false,
-    producesWorkspaceArtifacts: true,
-    workspaceSegment: "翻译",
-  },
 };
 
 /** §5.3.2.1a：模块 → XIAOCHUANG 一级目录名 */
@@ -103,6 +92,9 @@ export const CHAT_MODE_SKILL: Record<string, string> = {
 
 /** 写作 templateId（路由段）→ 流程 Skill */
 export const WRITING_TEMPLATE_SKILL: Record<string, string> = {
+  general: WRITING_DEFAULT_SKILL,
+  "official-doc": "skill-writing-official-doc",
+  "meeting-minutes": "skill-writing-meeting-minutes",
   policy: "skill-wr-policy",
   topic: "skill-wr-topic",
   industry: "skill-wr-industry",
@@ -156,62 +148,175 @@ export const MEETING_TEMPLATE_CATALOG: Array<{
   },
 ];
 
+/** 与 skills/skill-ppt-* 及 skills/ppt-sync-manifest.json 对齐 */
+export const PPT_SKILL_CATALOG = [
+  {
+    templateId: "pitch-deck",
+    label: "路演 Pitch Deck",
+    description: "融资 / 客户路演，10 页结构",
+    skill: "skill-ppt-pitch-deck",
+    templatePackId: "tpl-ppt-pitch-deck",
+    kind: "workflow",
+  },
+  {
+    templateId: "deck",
+    label: "演示文稿（默认流程）",
+    description: "HTML 幻灯片默认生成与 PPTX 导出",
+    skill: "skill-ppt-deck",
+    templatePackId: "tpl-ppt-default",
+    kind: "workflow",
+  },
+  {
+    templateId: "weekly-report",
+    label: "周报",
+    description: "品种周度跟踪与数据摘要",
+    skill: "skill-ppt-weekly-report",
+    templatePackId: "tpl-ppt-weekly-report",
+    kind: "workflow",
+  },
+  {
+    templateId: "quarterly-review",
+    label: "复古季报回顾",
+    description: "季度复盘、路线图与关键指标",
+    skill: "skill-ppt-quarterly-review",
+    templatePackId: "tpl-ppt-quarterly-review",
+    kind: "workflow",
+  },
+  {
+    templateId: "tech-sharing",
+    label: "技术分享",
+    description: "内部分享与方法论",
+    skill: "skill-ppt-tech-sharing",
+    templatePackId: "tpl-ppt-tech-sharing",
+    kind: "workflow",
+  },
+  {
+    templateId: "fintech-swiss",
+    label: "金融科技瑞系",
+    description: "数据驱动、瑞士网格",
+    skill: "skill-ppt-fintech-swiss",
+    templatePackId: "tpl-ppt-fintech-swiss",
+    kind: "workflow",
+  },
+  {
+    templateId: "knowledge-arch",
+    label: "知识架构蓝图",
+    description: "框架与体系梳理",
+    skill: "skill-ppt-knowledge-arch",
+    templatePackId: "tpl-ppt-knowledge-arch",
+    kind: "workflow",
+  },
+  {
+    templateId: "blue-professional",
+    label: "专业蓝",
+    description: "机构研报风格幻灯片",
+    skill: "skill-ppt-blue-professional",
+    templatePackId: "tpl-ppt-blue-professional",
+    kind: "workflow",
+  },
+  {
+    templateId: "guizang-editorial",
+    label: "归藏编辑墨水",
+    description: "杂志风叙事与多调色板",
+    skill: "skill-ppt-guizang-editorial",
+    templatePackId: "tpl-ppt-guizang-editorial",
+    kind: "workflow",
+  },
+  {
+    templateId: "swiss-international",
+    label: "瑞士国际主义",
+    description: "极简网格与强排版",
+    skill: "skill-ppt-swiss-international",
+    templatePackId: "tpl-ppt-swiss-international",
+    kind: "workflow",
+  },
+  {
+    templateId: "editorial-burgundy",
+    label: "编辑工作室",
+    description: "文化叙事与原则清单",
+    skill: "skill-ppt-editorial-burgundy",
+    templatePackId: "tpl-ppt-editorial-burgundy",
+    kind: "workflow",
+  },
+  {
+    templateId: "open-canvas",
+    label: "自由画布",
+    description: "1920×1080 自定义排版",
+    skill: "skill-ppt-open-canvas",
+    templatePackId: "tpl-ppt-open-canvas",
+    kind: "workflow",
+  },
+  {
+    templateId: "html-studio",
+    label: "HTML 工作室",
+    description: "多风格 HTML 幻灯片主技能",
+    skill: "skill-ppt-html-studio",
+    kind: "utility",
+  },
+  {
+    templateId: "pptx",
+    label: "PPTX 读写",
+    description: "原生 PPTX 读写与编辑（Anthropic）",
+    skill: "skill-ppt-pptx",
+    kind: "utility",
+  },
+  {
+    templateId: "pptx-generator",
+    label: "PPTX 生成器",
+    description: "PptxGenJS 生成演示稿",
+    skill: "skill-ppt-pptx-generator",
+    kind: "utility",
+  },
+  {
+    templateId: "slides",
+    label: "Markdown 幻灯片",
+    description: "Markdown 转幻灯片（OpenAI Slides）",
+    skill: "skill-ppt-slides",
+    kind: "utility",
+  },
+  {
+    templateId: "fidelity-audit",
+    label: "保真度审计",
+    description: "HTML 与 PPTX 导出对照与修复",
+    skill: "skill-ppt-fidelity-audit",
+    kind: "utility",
+  },
+] as const;
+
+export type PptSkillCatalogEntry = (typeof PPT_SKILL_CATALOG)[number];
+
 export const PPT_TEMPLATE_SKILL: Record<string, string> = {
-  default: "skill-ppt-deck",
-  "pitch-deck": "skill-ppt-pitch-deck",
-  "tech-sharing": "skill-ppt-tech-sharing",
-  "weekly-report": "skill-ppt-weekly-report",
-  "quarterly-review": "skill-ppt-quarterly-review",
-  "fintech-swiss": "skill-ppt-fintech-swiss",
-  "guizang-editorial": "skill-ppt-guizang-editorial",
-  "swiss-international": "skill-ppt-swiss-international",
-  "open-canvas": "skill-ppt-open-canvas",
-  "knowledge-arch": "skill-ppt-knowledge-arch",
-  "blue-professional": "skill-ppt-blue-professional",
-  "editorial-burgundy": "skill-ppt-editorial-burgundy",
+  default: "skill-ppt-pitch-deck",
+  ...Object.fromEntries(
+    PPT_SKILL_CATALOG.map((e) => [e.templateId, e.skill]),
+  ),
 };
 
 export const PPT_TEMPLATE_PACK: Record<string, string> = {
-  default: "tpl-ppt-default",
-  "pitch-deck": "tpl-ppt-pitch-deck",
-  "tech-sharing": "tpl-ppt-tech-sharing",
-  "weekly-report": "tpl-ppt-weekly-report",
-  "quarterly-review": "tpl-ppt-quarterly-review",
-  "fintech-swiss": "tpl-ppt-fintech-swiss",
-  "guizang-editorial": "tpl-ppt-guizang-editorial",
-  "swiss-international": "tpl-ppt-swiss-international",
-  "open-canvas": "tpl-ppt-open-canvas",
-  "knowledge-arch": "tpl-ppt-knowledge-arch",
-  "blue-professional": "tpl-ppt-blue-professional",
-  "editorial-burgundy": "tpl-ppt-editorial-burgundy",
+  default: "tpl-ppt-pitch-deck",
+  ...Object.fromEntries(
+    PPT_SKILL_CATALOG.filter(
+      (e): e is PptSkillCatalogEntry & { templatePackId: string } =>
+        "templatePackId" in e && Boolean(e.templatePackId),
+    ).map((e) => [e.templateId, e.templatePackId]),
+  ),
 };
 
-/** 路演模板展示（PPT 模块 UI） */
-export const PPT_TEMPLATE_CATALOG: Array<{
-  templateId: string;
-  label: string;
-  description: string;
-}> = [
-  { templateId: "pitch-deck", label: "路演 Pitch", description: "融资 / 客户路演，10 页结构" },
-  { templateId: "weekly-report", label: "周报", description: "品种周度跟踪与数据摘要" },
-  { templateId: "quarterly-review", label: "季报回顾", description: "季度复盘与路线图" },
-  { templateId: "fintech-swiss", label: "金融科技瑞系", description: "数据驱动、瑞士网格" },
-  { templateId: "tech-sharing", label: "技术分享", description: "内部分享与方法论" },
-  { templateId: "knowledge-arch", label: "知识架构", description: "框架与体系梳理" },
-  { templateId: "blue-professional", label: "专业蓝", description: "机构研报风格" },
-  { templateId: "guizang-editorial", label: "杂志风编辑", description: "叙事与观点表达" },
-  { templateId: "swiss-international", label: "瑞士国际", description: "极简网格与强排版" },
-  { templateId: "editorial-burgundy", label: "编辑工作室", description: "文化叙事与原则清单" },
-  { templateId: "open-canvas", label: "自由画布", description: "自定义排版的 1920×1080 画布" },
-];
+/** PPT 模块模板展示（Composer 下拉等） */
+export const PPT_TEMPLATE_CATALOG = PPT_SKILL_CATALOG.map(
+  ({ templateId, label, description }) => ({
+    templateId,
+    label,
+    description,
+  }),
+);
 
 export type SkillResolveInput =
   | { moduleId: "chat"; binding: { mode: string } }
   | { moduleId: "meeting"; binding: { task: "summary"; templateId?: string } }
   | { moduleId: "knowledge"; binding: { task: "kb-qa" } }
-  | { moduleId: "writing"; binding: { templateId: string } }
-  | { moduleId: "ppt"; binding: { task: "deck"; templateId?: string } }
-  | { moduleId: "translate"; binding?: never };
+  | { moduleId: "writing"; binding?: { templateId?: string } }
+  | { moduleId: "ppt"; binding: { task: "deck"; templateId?: string } };
 
 export type ResolvedSkills = {
   processSkill: string | null;
@@ -245,22 +350,25 @@ export function resolveSkills(input: SkillResolveInput): ResolvedSkills {
       base.processSkill = "skill-kb-qa";
       return base;
     case "writing": {
-      const tid = input.binding.templateId;
-      base.processSkill =
-        WRITING_TEMPLATE_SKILL[tid] ?? `skill-wr-${tid}`;
-      base.templatePackId = `tpl-wr-${tid}`;
+      const tid = input.binding?.templateId?.trim();
+      if (tid) {
+        base.processSkill =
+          WRITING_TEMPLATE_SKILL[tid] ?? `skill-wr-${tid}`;
+        base.templatePackId = `tpl-wr-${tid}`;
+      } else {
+        base.processSkill = WRITING_DEFAULT_SKILL;
+      }
       return base;
     }
     case "ppt": {
-      const tid = input.binding.templateId ?? "default";
+      const tid = input.binding.templateId?.trim() || "pitch-deck";
       base.processSkill =
-        PPT_TEMPLATE_SKILL[tid] ?? PPT_TEMPLATE_SKILL.default;
-      base.templatePackId =
-        PPT_TEMPLATE_PACK[tid] ?? PPT_TEMPLATE_PACK.default;
+        PPT_TEMPLATE_SKILL[tid] ??
+        PPT_TEMPLATE_SKILL.default ??
+        `skill-ppt-${tid}`;
+      base.templatePackId = PPT_TEMPLATE_PACK[tid] ?? null;
       return base;
     }
-    case "translate":
-      return base;
     default:
       return base;
   }

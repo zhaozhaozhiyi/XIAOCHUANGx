@@ -16,6 +16,11 @@ import {
 import { useChatHistory } from "@/hooks/useChatHistory";
 import { useResearchProjects } from "@/contexts/ResearchProjectsContext";
 import {
+  getChatSurfaceFromPathname,
+  sessionPath,
+  type ModuleChatSurfaceConfig,
+} from "@/lib/module-chat-config";
+import {
   NO_PROJECT_ID,
   PLATFORM_DEFAULT_GROUP_LABEL,
 } from "@/lib/research-projects";
@@ -45,7 +50,8 @@ function writeCollapsedGroups(next: Record<string, boolean>) {
 export function ChatHistorySidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { projectGroups, unassigned } = useChatHistory();
+  const surface = getChatSurfaceFromPathname(pathname);
+  const { projectGroups, unassigned } = useChatHistory(surface.moduleId);
   const { getProject } = useResearchProjects();
 
   const resolvedGroups = projectGroups.map((group) => ({
@@ -55,7 +61,10 @@ export function ChatHistorySidebar() {
         ? PLATFORM_DEFAULT_GROUP_LABEL
         : (getProject(group.projectId)?.name ?? group.label),
   }));
-  const activeId = pathname.match(/^\/chat\/([^/]+)$/)?.[1];
+  const activeId =
+    pathname.match(/^\/chat\/([^/]+)$/)?.[1] ??
+    pathname.match(/^\/writing\/([^/]+)$/)?.[1] ??
+    pathname.match(/^\/ppt\/([^/]+)$/)?.[1];
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(
     () => readCollapsedGroups(),
   );
@@ -77,12 +86,14 @@ export function ChatHistorySidebar() {
         projectId === NO_PROJECT_ID ||
         projectId === PLATFORM_DEFAULT_GROUP_ID
       ) {
-        router.push("/chat");
+        router.push(surface.newSessionHref);
         return;
       }
-      router.push(`/chat?project=${encodeURIComponent(projectId)}`);
+      router.push(
+        `${surface.newSessionHref}?project=${encodeURIComponent(projectId)}`,
+      );
     },
-    [router],
+    [router, surface.newSessionHref],
   );
 
   const getVisibleCount = useCallback(
@@ -112,6 +123,7 @@ export function ChatHistorySidebar() {
           label={group.label}
           projectId={group.projectId}
           sessions={group.sessions}
+          surface={surface}
           activeId={activeId}
           collapsed={!!collapsedGroups[group.projectId]}
           onToggleCollapsed={() => toggleGroupCollapsed(group.projectId)}
@@ -126,6 +138,7 @@ export function ChatHistorySidebar() {
           groupKey="__unassigned__"
           label="默认工作文件夹（XIAOCHUANG）"
           projectId={NO_PROJECT_ID}
+          surface={surface}
           muted
           sessions={unassigned}
           activeId={activeId}
@@ -144,6 +157,7 @@ export function ChatHistorySidebar() {
 function HistoryGroupSection({
   label,
   sessions,
+  surface,
   activeId,
   visibleCount,
   onLoadMore,
@@ -156,6 +170,7 @@ function HistoryGroupSection({
   groupKey: string;
   label: string;
   projectId: string;
+  surface: ModuleChatSurfaceConfig;
   sessions: ChatSessionRecord[];
   activeId?: string;
   visibleCount: number;
@@ -214,6 +229,7 @@ function HistoryGroupSection({
                 key={item.id}
                 session={item}
                 active={activeId === item.id}
+                href={sessionPath(surface, item.id)}
               />
             ))}
           </ul>
@@ -238,16 +254,18 @@ function HistoryGroupSection({
 function ChatHistoryItem({
   session,
   active,
+  href,
 }: {
   session: ChatSessionRecord;
   active: boolean;
+  href: string;
 }) {
   const indicator = getSessionIndicator(session, { isActive: active });
 
   return (
     <li>
       <Link
-        href={`/chat/${session.id}`}
+        href={href}
         className={`chat-history-sidebar__item ${active ? "chat-history-sidebar__item--active" : ""}`}
       >
         <ChatSessionStatusIndicator indicator={indicator} />

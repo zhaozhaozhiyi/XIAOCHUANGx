@@ -1,3 +1,4 @@
+import type { ChatSurfaceModuleId } from "@/lib/module-chat-config";
 import {
   getResearchProject,
   isPlatformDefaultProject,
@@ -19,6 +20,8 @@ export type ChatSessionRecord = {
   id: string;
   title: string;
   projectId: string;
+  /** 会话所属 UI 模块；缺省为对话 */
+  surfaceModuleId?: ChatSurfaceModuleId;
   updatedAt: number;
   createdAt: number;
   /** 当前轮 Agent 是否在跑 / 是否等人 */
@@ -292,6 +295,7 @@ export function upsertChatSession(
         ChatSessionRecord,
         | "title"
         | "projectId"
+        | "surfaceModuleId"
         | "updatedAt"
         | "createdAt"
         | "runStatus"
@@ -306,6 +310,8 @@ export function upsertChatSession(
     id: partial.id,
     title: partial.title ?? existing?.title ?? "新对话",
     projectId: partial.projectId ?? existing?.projectId ?? NO_PROJECT_ID,
+    surfaceModuleId:
+      partial.surfaceModuleId ?? existing?.surfaceModuleId ?? "chat",
     createdAt: partial.createdAt ?? existing?.createdAt ?? now,
     updatedAt: partial.updatedAt ?? now,
     runStatus: partial.runStatus ?? existing?.runStatus ?? "idle",
@@ -420,6 +426,14 @@ export function getGroupedChatHistoryServerSnapshot(): GroupedChatHistory {
 /** Codex 式：按项目分组；无项目会话置底 */
 export function getGroupedChatHistory(): GroupedChatHistory {
   return groupChatSessions(readIndex());
+}
+
+export function getGroupedChatHistoryForSurface(
+  surfaceModuleId: ChatSurfaceModuleId,
+): GroupedChatHistory {
+  return groupChatSessions(
+    readIndex().filter((s) => (s.surfaceModuleId ?? "chat") === surfaceModuleId),
+  );
 }
 
 /** @deprecated 使用 getGroupedChatHistory / getChatSession */

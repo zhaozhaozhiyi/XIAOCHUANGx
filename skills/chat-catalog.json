@@ -3,22 +3,124 @@
   "description": "对话模块可见 Skill 目录（仅摘要进入 system；全文由 Agent 按需经 Agent Kit 读取）。维护说明见 web/docs/chat-core-architecture.md",
   "entries": [
     {
-      "slug": "skill-ppt-deck",
+      "slug": "skill-writing-general",
       "kind": "workflow",
-      "scope": ["chat", "ppt"],
-      "summary": "默认演示文稿结构与生成流程；用户要做 deck 且未指定模板时可参考"
+      "scope": ["chat", "writing"],
+      "summary": "默认写作流程：产出 Markdown 文稿并写入工作区，支持研报、政策解读、行业分析等"
+    },
+    {
+      "slug": "skill-writing-official-doc",
+      "kind": "workflow",
+      "scope": ["writing"],
+      "summary": "公文写作：通知、请示、报告、函等机关公文体裁与规范用语"
+    },
+    {
+      "slug": "skill-writing-meeting-minutes",
+      "kind": "workflow",
+      "scope": ["writing"],
+      "summary": "会议纪要撰写：议题归纳、决议与待办表格，可基于要点或附件成稿"
     },
     {
       "slug": "skill-ppt-pitch-deck",
       "kind": "workflow",
       "scope": ["chat", "ppt"],
-      "summary": "路演 Pitch 十页结构与叙事；融资/客户路演类问题可参考"
+      "summary": "路演 Pitch 十页结构与叙事；PPT 模块默认模板"
+    },
+    {
+      "slug": "skill-ppt-deck",
+      "kind": "workflow",
+      "scope": ["chat", "ppt"],
+      "summary": "默认演示文稿结构与生成流程；HTML 幻灯片 deck"
+    },
+    {
+      "slug": "skill-ppt-weekly-report",
+      "kind": "workflow",
+      "scope": ["ppt"],
+      "summary": "周报幻灯片：品种跟踪与数据摘要"
+    },
+    {
+      "slug": "skill-ppt-quarterly-review",
+      "kind": "workflow",
+      "scope": ["ppt"],
+      "summary": "季度回顾：复盘、路线图与关键指标"
+    },
+    {
+      "slug": "skill-ppt-tech-sharing",
+      "kind": "workflow",
+      "scope": ["ppt"],
+      "summary": "技术分享：方法论与案例结构"
+    },
+    {
+      "slug": "skill-ppt-fintech-swiss",
+      "kind": "workflow",
+      "scope": ["ppt"],
+      "summary": "金融科技瑞系风格：数据驱动、瑞士网格"
+    },
+    {
+      "slug": "skill-ppt-knowledge-arch",
+      "kind": "workflow",
+      "scope": ["ppt"],
+      "summary": "知识架构梳理与体系化呈现"
+    },
+    {
+      "slug": "skill-ppt-blue-professional",
+      "kind": "workflow",
+      "scope": ["ppt"],
+      "summary": "专业蓝调机构研报风格幻灯片"
+    },
+    {
+      "slug": "skill-ppt-guizang-editorial",
+      "kind": "workflow",
+      "scope": ["ppt"],
+      "summary": "归藏编辑墨水：杂志风叙事与多调色板"
+    },
+    {
+      "slug": "skill-ppt-swiss-international",
+      "kind": "workflow",
+      "scope": ["ppt"],
+      "summary": "瑞士国际主义：极简网格与强排版"
+    },
+    {
+      "slug": "skill-ppt-editorial-burgundy",
+      "kind": "workflow",
+      "scope": ["ppt"],
+      "summary": "编辑工作室：文化叙事与原则清单"
+    },
+    {
+      "slug": "skill-ppt-open-canvas",
+      "kind": "workflow",
+      "scope": ["ppt"],
+      "summary": "自由画布 1920×1080 自定义排版"
     },
     {
       "slug": "skill-ppt-html-studio",
       "kind": "tool",
       "scope": ["chat", "ppt"],
-      "summary": "HTML 幻灯片/HTML 工作室工具说明；由 deck 类流程按需引用"
+      "summary": "HTML PPT Studio：多风格静态 HTML 幻灯片主技能"
+    },
+    {
+      "slug": "skill-ppt-pptx",
+      "kind": "tool",
+      "scope": ["ppt"],
+      "summary": "PPTX 读写与编辑（Anthropic 官方技能）"
+    },
+    {
+      "slug": "skill-ppt-pptx-generator",
+      "kind": "tool",
+      "scope": ["ppt"],
+      "summary": "PptxGenJS 生成原生 PPTX"
+    },
+    {
+      "slug": "skill-ppt-slides",
+      "kind": "tool",
+      "scope": ["ppt"],
+      "summary": "Markdown 转幻灯片（OpenAI Slides）"
+    },
+    {
+      "slug": "skill-ppt-fidelity-audit",
+      "kind": "tool",
+      "scope": ["ppt"],
+      "summary": "HTML 与 PPTX 导出保真度对照与修复"
     }
   ]
 }

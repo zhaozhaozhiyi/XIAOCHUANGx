@@ -34,6 +34,14 @@ import type { AgentId } from "@/lib/settings";
 import { useProjectFileIndex } from "@/hooks/useProjectFileIndex";
 import type { WorkspaceFileNode } from "@/lib/workspace";
 import type { ChatPendingAttachment } from "@/lib/chat";
+import {
+  getModuleSkillOptions,
+  readStoredModuleSkillTemplateId,
+  writeStoredModuleSkillTemplateId,
+  type ModuleSkillPickerKind,
+  type PptSkillTemplateId,
+  type WritingSkillTemplateId,
+} from "@/lib/module-chat-config";
 
 export type ChatComposerSendPayload = {
   text: string;
@@ -43,6 +51,8 @@ export type ChatComposerSendPayload = {
   agentId: AgentId;
   agentModel: string;
   projectId: string;
+  writingTemplateId?: WritingSkillTemplateId;
+  pptTemplateId?: PptSkillTemplateId;
 };
 
 type ChatComposerProps = {
@@ -58,6 +68,11 @@ type ChatComposerProps = {
   onProjectIdChange?: (id: string) => void;
   /** 仅新建/未发送会话时展示「进入项目工作」 */
   showProjectPicker?: boolean;
+  /** 写作等深度产出模块隐藏快速/深度切换 */
+  showModePicker?: boolean;
+  /** 写作 / PPT：底栏 Skill 模板选择 */
+  skillPickerModule?: ModuleSkillPickerKind;
+  defaultMode?: ChatModeId;
   executionSource: ChatExecutionSource;
   agentId: AgentId;
   agentModel: string;
@@ -347,6 +362,9 @@ export function ChatComposer({
   projectId: controlledProjectId,
   onProjectIdChange,
   showProjectPicker = false,
+  showModePicker = true,
+  skillPickerModule,
+  defaultMode,
   executionSource,
   agentId,
   agentModel,
@@ -361,8 +379,16 @@ export function ChatComposer({
   const isComposingRef = useRef(false);
 
   const [text, setText] = useState("");
-  const [mode, setMode] = useState<ChatModeId>(settings.defaultChatMode);
+  const [mode, setMode] = useState<ChatModeId>(
+    defaultMode ?? settings.defaultChatMode,
+  );
   const [modeOpen, setModeOpen] = useState(false);
+  const [moduleSkillId, setModuleSkillId] = useState(() =>
+    skillPickerModule
+      ? readStoredModuleSkillTemplateId(skillPickerModule, sessionId)
+      : "",
+  );
+  const [moduleSkillOpen, setModuleSkillOpen] = useState(false);
   const [attachOpen, setAttachOpen] = useState(false);
   const [internalProjectId, setInternalProjectId] = useState(() =>
     sessionId ? getSessionProjectId(sessionId) : NO_PROJECT_ID,
@@ -378,17 +404,41 @@ export function ChatComposer({
   const projectId = controlledProjectId ?? internalProjectId;
   const setProjectId = onProjectIdChange ?? setInternalProjectId;
   const currentMode = CHAT_MODES.find((m) => m.id === mode)!;
+  const moduleSkillOptions = skillPickerModule
+    ? getModuleSkillOptions(skillPickerModule)
+    : [];
+  const currentModuleSkill =
+    moduleSkillOptions.find((o) => o.templateId === moduleSkillId) ??
+    moduleSkillOptions[0];
 
   useEffect(() => {
-    if (!attachOpen) return;
+    if (!skillPickerModule) return;
+    setModuleSkillId(
+      readStoredModuleSkillTemplateId(skillPickerModule, sessionId),
+    );
+  }, [sessionId, skillPickerModule]);
+
+  useEffect(() => {
+    if (!attachOpen && !moduleSkillOpen) return;
     const onDoc = (e: MouseEvent) => {
-      if (attachRef.current && !attachRef.current.contains(e.target as Node)) {
+      if (
+        attachOpen &&
+        attachRef.current &&
+        !attachRef.current.contains(e.target as Node)
+      ) {
         setAttachOpen(false);
+      }
+      if (moduleSkillOpen) {
+        const target = e.target as Node;
+        const inSkill =
+          target instanceof Element &&
+          target.closest("[data-module-skill-picker]");
+        if (!inSkill) setModuleSkillOpen(false);
       }
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
-  }, [attachOpen]);
+  }, [attachOpen, moduleSkillOpen]);
 
   useEffect(() => {
     const p = getResearchProject(projectId);
@@ -464,6 +514,12 @@ export function ChatComposer({
         agentId,
         agentModel,
         projectId,
+        ...(skillPickerModule === "writing"
+          ? { writingTemplateId: moduleSkillId as WritingSkillTemplateId }
+          : {}),
+        ...(skillPickerModule === "ppt"
+          ? { pptTemplateId: moduleSkillId as PptSkillTemplateId }
+          : {}),
       });
       if (settings.rememberLastChatMode) {
         updateSettings({ defaultChatMode: mode });
@@ -710,45 +766,95 @@ export function ChatComposer({
                 </ul>
               )}
             </div>
+            {skillPickerModule && currentModuleSkill ? (
+              <div className="relative min-w-0" data-module-skill-picker>
+                <button
+                  type="button"
+                  onClick={() => setModuleSkillOpen((o) => !o)}
+                  className="control-picker control-picker--compact max-w-[9.5rem]"
+                  aria-expanded={moduleSkillOpen}
+                  disabled={locked}
+                  title={currentModuleSkill.description}
+                >
+                  <span className="truncate">{currentModuleSkill.label}</span>
+                  <ChevronDown
+                    className={`control-picker__chevron shrink-0 ${moduleSkillOpen ? "control-picker__chevron--open" : ""}`}
+                    strokeWidth={1.75}
+                  />
+                </button>
+                {moduleSkillOpen && (
+                  <ul className="control-picker-menu control-picker-menu--above absolute left-0 z-50 max-h-[min(16rem,50vh)] min-w-[11rem] overflow-y-auto">
+                    {moduleSkillOptions.map((option) => (
+                      <li key={option.templateId}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setModuleSkillId(option.templateId);
+                            writeStoredModuleSkillTemplateId(
+                              skillPickerModule,
+                              option.templateId,
+                              sessionId,
+                            );
+                            setModuleSkillOpen(false);
+                          }}
+                          className={`control-picker-menu__item flex-col items-start gap-0.5 ${
+                            moduleSkillId === option.templateId
+                              ? "control-picker-menu__item--selected"
+                              : ""
+                          }`}
+                        >
+                          <span>{option.label}</span>
+                          <span className="mt-0.5 block text-xs text-[var(--fg-tertiary)]">
+                            {option.description}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : null}
           </div>
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setModeOpen((o) => !o)}
-                className="control-picker control-picker--compact"
-                aria-expanded={modeOpen}
-              >
-                <span>{currentMode.label}</span>
-                <ChevronDown
-                  className={`control-picker__chevron ${modeOpen ? "control-picker__chevron--open" : ""}`}
-                  strokeWidth={1.75}
-                />
-              </button>
-              {modeOpen && (
-                <ul className="control-picker-menu control-picker-menu--above absolute right-0 min-w-[140px]">
-                  {CHAT_MODES.map((m) => (
-                    <li key={m.id}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMode(m.id);
-                          setModeOpen(false);
-                        }}
-                        className={`control-picker-menu__item flex-col items-start gap-0.5 ${
-                          mode === m.id ? "control-picker-menu__item--selected" : ""
-                        }`}
-                      >
-                        <span>{m.label}</span>
-                        <span className="mt-0.5 block text-xs text-[var(--fg-tertiary)]">
-                          {m.description}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            {showModePicker ? (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setModeOpen((o) => !o)}
+                  className="control-picker control-picker--compact"
+                  aria-expanded={modeOpen}
+                >
+                  <span>{currentMode.label}</span>
+                  <ChevronDown
+                    className={`control-picker__chevron ${modeOpen ? "control-picker__chevron--open" : ""}`}
+                    strokeWidth={1.75}
+                  />
+                </button>
+                {modeOpen && (
+                  <ul className="control-picker-menu control-picker-menu--above absolute right-0 min-w-[140px]">
+                    {CHAT_MODES.map((m) => (
+                      <li key={m.id}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMode(m.id);
+                            setModeOpen(false);
+                          }}
+                          className={`control-picker-menu__item flex-col items-start gap-0.5 ${
+                            mode === m.id ? "control-picker-menu__item--selected" : ""
+                          }`}
+                        >
+                          <span>{m.label}</span>
+                          <span className="mt-0.5 block text-xs text-[var(--fg-tertiary)]">
+                            {m.description}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : null}
             {showStop ? (
               <button
                 type="button"

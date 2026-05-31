@@ -20,7 +20,10 @@ import {
   type ModelEntry,
   type ModelProviderInstance,
 } from "@/lib/byok/model-providers";
-import { hasUsableApiProviderConfig } from "@/lib/byok/shared";
+import {
+  hasConnectableApiProviderConfig,
+  hasUsableApiProviderConfig,
+} from "@/lib/byok/shared";
 import { ModelTypeBadge } from "./ModelTypeBadge";
 
 type Notice = { kind: "success" | "error"; text: string };
@@ -99,9 +102,17 @@ export function ModelProviderCard({
     () => providerToApiConfig(provider),
     [provider],
   );
+
+  // 用于测试连接和拉取模型（只需要 URL 和 Key）
+  const connectable = hasConnectableApiProviderConfig({
+    ...apiConfig,
+    enabled: provider.enabled,
+  });
+
+  // 用于对话（需要 URL、Key 和至少一个模型）
   const ready = hasUsableApiProviderConfig({
     ...apiConfig,
-    enabled: true,
+    enabled: provider.enabled,
   });
 
   const capabilityTypes = providerCapabilityTypes(provider);
@@ -264,10 +275,14 @@ export function ModelProviderCard({
             <span className="model-provider-card__title">{displayName}</span>
             <span
               className={`model-provider-status ${
-                ready ? "model-provider-status--ok" : "model-provider-status--idle"
+                ready
+                  ? "model-provider-status--ok"
+                  : connectable
+                    ? "model-provider-status--idle"
+                    : "model-provider-status--error"
               }`}
             >
-              {ready ? "凭证就绪" : "待配置"}
+              {ready ? "可用" : connectable ? "凭证就绪" : "待配置"}
             </span>
           </span>
           {vendor && provider.displayName !== vendor.name && (
@@ -371,7 +386,7 @@ export function ModelProviderCard({
                 type="button"
                 className="btn btn-secondary px-3 py-2 text-sm"
                 onClick={() => void testConnection()}
-                disabled={!ready || testing}
+                disabled={!connectable || testing}
               >
                 <Wand2 className="h-4 w-4" strokeWidth={1.75} />
                 {testing ? "测试中…" : "测试连接"}
@@ -380,7 +395,7 @@ export function ModelProviderCard({
                 type="button"
                 className="btn btn-secondary px-3 py-2 text-sm"
                 onClick={() => void loadModels()}
-                disabled={!ready || loadingModels}
+                disabled={!connectable || loadingModels}
               >
                 <RefreshCw
                   className={`h-4 w-4 ${loadingModels ? "animate-spin" : ""}`}

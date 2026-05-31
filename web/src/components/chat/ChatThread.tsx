@@ -39,6 +39,11 @@ import {
   NO_PROJECT_ID,
   projectWorkLabel,
 } from "@/lib/research-projects";
+import {
+  MODULE_CHAT_SURFACES,
+  readStoredModuleSkillTemplateId,
+  type ChatSurfaceModuleId,
+} from "@/lib/module-chat-config";
 import type { ChatModeId } from "@/lib/navigation";
 import { normalizeChatMode } from "@/lib/navigation";
 import { fetchRunEvents, fetchRunRecord } from "@/lib/companion/runtime";
@@ -46,19 +51,29 @@ import { applyRunEventsToMessage } from "@/lib/chat-run-events";
 import { useChatSessionOptional } from "@/contexts/ChatSessionContext";
 import { ChevronDown } from "lucide-react";
 import type { ChatComposerSendPayload } from "@/components/chat/ChatComposer";
+import { selectionToApiConfig } from "@/lib/byok/model-providers";
 
-export function ChatThread({ id }: { id: string }) {
+export function ChatThread({
+  id,
+  surfaceModuleId = "chat",
+}: {
+  id: string;
+  surfaceModuleId?: ChatSurfaceModuleId;
+}) {
+  const surface = MODULE_CHAT_SURFACES[surfaceModuleId];
   const sidebarCollapsed = useSidebarCollapsed();
   const { settings } = useSettings();
   const { executionSource, agentId, agentModel, selectAgentModel } =
     useChatAgentSelection();
   const { messages, sendMessage, isReplying, stopReply, bottomRef, setMessages } =
-    useChatSend(id, []);
+    useChatSend(id, [], surfaceModuleId);
   const [hydrated, setHydrated] = useState(false);
   const pendingHandled = useRef(false);
   const scrollRootRef = useRef<HTMLDivElement>(null);
   const [dismissedTodoKey, setDismissedTodoKey] = useState<string | null>(null);
-  const [lastMode, setLastMode] = useState<ChatModeId>("fast");
+  const [lastMode, setLastMode] = useState<ChatModeId>(
+    surface.showModePicker ? "fast" : "deep",
+  );
 
   const pinnedTodo = useMemo(
     () => latestTodoPartFromMessages(messages),
@@ -183,17 +198,38 @@ export function ChatThread({ id }: { id: string }) {
       markPinned();
       setDismissedTodoKey(null);
       setLastMode(normalizeChatMode(payload.mode) ?? "fast");
+
+      // 从新的配置系统构建 API 配置
+      const apiProvider =
+        payload.executionSource === "api"
+          ? selectionToApiConfig(
+              settings.modelProviders,
+              settings.activeApiSelection,
+            )
+          : settings.apiProvider;
+
       await sendMessage(payload.text, {
         executionSource: payload.executionSource,
-        mode: payload.mode,
+        mode: surface.showModePicker ? payload.mode : "deep",
+        surfaceModuleId,
+        writingTemplateId: payload.writingTemplateId,
+        pptTemplateId: payload.pptTemplateId,
         agentId: payload.agentId,
         agentModel: payload.agentModel,
-        apiProvider: settings.apiProvider,
+        apiProvider,
         projectId: payload.projectId,
         attachments: payload.attachments,
       });
     },
-    [markPinned, sendMessage, settings.apiProvider],
+    [
+      markPinned,
+      sendMessage,
+      surface.showModePicker,
+      surfaceModuleId,
+      settings.modelProviders,
+      settings.activeApiSelection,
+      settings.apiProvider,
+    ],
   );
 
   const handleClarificationSubmitted = useCallback(
@@ -261,24 +297,46 @@ export function ChatThread({ id }: { id: string }) {
   const handleClarificationContinue = useCallback(
     (answer: string) => {
       markPinned();
+
+      // 从新的配置系统构建 API 配置
+      const apiProvider =
+        executionSource === "api"
+          ? selectionToApiConfig(
+              settings.modelProviders,
+              settings.activeApiSelection,
+            )
+          : settings.apiProvider;
+
       sendMessage(`我补充的信息如下，请继续完成刚才的任务：\n\n${answer}`, {
         executionSource,
-        mode: lastMode,
+        mode: surface.showModePicker ? lastMode : "deep",
+        surfaceModuleId,
+        writingTemplateId:
+          surface.skillPicker === "writing"
+            ? readStoredModuleSkillTemplateId("writing", id)
+            : undefined,
+        pptTemplateId:
+          surface.skillPicker === "ppt"
+            ? readStoredModuleSkillTemplateId("ppt", id)
+            : undefined,
         agentId,
         agentModel,
-        apiProvider: settings.apiProvider,
+        apiProvider,
         projectId: sessionProjectId ?? NO_PROJECT_ID,
       });
     },
     [
-      agentId,
-      agentModel,
-      executionSource,
-      lastMode,
       markPinned,
       sendMessage,
-      sessionProjectId,
+      executionSource,
+      id,
+      lastMode,
+      agentId,
+      agentModel,
+      settings.modelProviders,
+      settings.activeApiSelection,
       settings.apiProvider,
+      sessionProjectId,
     ],
   );
 
@@ -286,7 +344,7 @@ export function ChatThread({ id }: { id: string }) {
   const title =
     messages.find((m) => m.role === "user")?.content.slice(0, 40) ??
     stored?.title ??
-    "新对话";
+    surface.threadTitleFallback;
 
   const project = isUsingLocalProject(sessionProjectId)
     ? getResearchProject(sessionProjectId)
@@ -304,12 +362,33 @@ export function ChatThread({ id }: { id: string }) {
     if (pending) {
       pendingHandled.current = true;
       markPinned();
+
+      // 从新的配置系统构建 API 配置
+      const apiProvider =
+        pending.executionSource === "api"
+          ? selectionToApiConfig(
+              settings.modelProviders,
+              settings.activeApiSelection,
+            )
+          : settings.apiProvider;
+
       sendMessage(pending.text, {
         executionSource: pending.executionSource,
-        mode: pending.mode,
+        mode: surface.showModePicker ? pending.mode : "deep",
+        surfaceModuleId,
+        writingTemplateId:
+          pending.writingTemplateId ??
+          (surface.skillPicker === "writing"
+            ? readStoredModuleSkillTemplateId("writing", id)
+            : undefined),
+        pptTemplateId:
+          pending.pptTemplateId ??
+          (surface.skillPicker === "ppt"
+            ? readStoredModuleSkillTemplateId("ppt", id)
+            : undefined),
         agentId: pending.agentId,
         agentModel: pending.agentModel,
-        apiProvider: settings.apiProvider,
+        apiProvider,
         projectId: pending.projectId ?? sessionProjectId ?? NO_PROJECT_ID,
         attachments: pending.attachments,
       });
@@ -320,6 +399,8 @@ export function ChatThread({ id }: { id: string }) {
     markPinned,
     sendMessage,
     sessionProjectId,
+    settings.modelProviders,
+    settings.activeApiSelection,
     settings.apiProvider,
   ]);
 
@@ -526,6 +607,9 @@ export function ChatThread({ id }: { id: string }) {
               agentId={agentId}
               agentModel={agentModel}
               showProjectPicker={showProjectPicker}
+              showModePicker={surface.showModePicker}
+              skillPickerModule={surface.skillPicker}
+              defaultMode="deep"
               placeholder={
                 showProjectPicker
                   ? "输入问题… 输入 @ 提及当前项目内文件"

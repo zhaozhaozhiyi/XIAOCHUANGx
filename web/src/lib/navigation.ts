@@ -1,6 +1,5 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Languages,
   Library,
   MessageSquare,
   Mic,
@@ -39,13 +38,11 @@ export const NAV_MODULES: NavModule[] = [
     href: "/writing",
     icon: PenLine,
     subNav: [
-      { label: "新建写作", href: "/writing/new", description: "从空白发起文稿" },
-      { label: "政策解读", href: "/writing/policy" },
-      { label: "专题研究", href: "/writing/topic" },
-      { label: "行业研究", href: "/writing/industry" },
-      { label: "宏观数据解读", href: "/writing/macro" },
-      { label: "行业数据解读", href: "/writing/sector-data" },
-      { label: "我的文稿", href: "/writing/mine" },
+      {
+        label: "写作",
+        href: "/writing/new",
+        description: "对话式写作，产出 Markdown 文稿",
+      },
     ],
   },
   {
@@ -54,21 +51,11 @@ export const NAV_MODULES: NavModule[] = [
     href: "/ppt",
     icon: Presentation,
     subNav: [
-      { label: "新建 PPT", href: "/ppt/new", description: "从主题或大纲生成演示文稿" },
-      { label: "从文稿生成", href: "/ppt/from-writing", description: "基于写作模块成稿生成幻灯片" },
-      { label: "路演模板", href: "/ppt/templates", description: "行业研究、数据解读等模板" },
-      { label: "我的 PPT", href: "/ppt/mine" },
-    ],
-  },
-  {
-    id: "translate",
-    label: "翻译",
-    href: "/translate",
-    icon: Languages,
-    subNav: [
-      { label: "文档翻译", href: "/translate/document" },
-      { label: "文本翻译", href: "/translate/text" },
-      { label: "翻译历史", href: "/translate/history" },
+      {
+        label: "PPT",
+        href: "/ppt/new",
+        description: "对话式生成演示文稿",
+      },
     ],
   },
   {

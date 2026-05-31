@@ -101,6 +101,20 @@ function parseBody(body: unknown): ChatCompletionRequestBody | null {
 
   const projectId =
     typeof b.projectId === "string" ? b.projectId.trim() : undefined;
+  const surfaceModuleId =
+    b.surfaceModuleId === "writing"
+      ? ("writing" as const)
+      : b.surfaceModuleId === "ppt"
+        ? ("ppt" as const)
+        : ("chat" as const);
+  const writingTemplateId =
+    typeof b.writingTemplateId === "string" && b.writingTemplateId.trim()
+      ? b.writingTemplateId.trim()
+      : undefined;
+  const pptTemplateId =
+    typeof b.pptTemplateId === "string" && b.pptTemplateId.trim()
+      ? b.pptTemplateId.trim()
+      : undefined;
   const apiProvider =
     b.apiProvider && typeof b.apiProvider === "object"
       ? (b.apiProvider as ChatCompletionRequestBody["apiProvider"])
@@ -115,9 +129,11 @@ function parseBody(body: unknown): ChatCompletionRequestBody | null {
     apiProvider,
     messages,
     projectId,
+    surfaceModuleId,
+    writingTemplateId,
+    pptTemplateId,
     useClientHistory: b.useClientHistory === true,
   };
-}
 
 function findLastUserMessageIndex(
   messages: ChatCompletionRequestBody["messages"],
@@ -154,20 +170,32 @@ export async function POST(request: Request) {
   const lastUser = lastUserIndex >= 0 ? messages[lastUserIndex] : undefined;
 
   if (executionSource === "api") {
+    // 优先使用前端传来的配置，环境变量作为回退
+    const fromClient = parsed.apiProvider;
     const providerConfig = trimApiProviderConfig({
       ...DEFAULT_API_PROVIDER_CONFIG,
-      ...(parsed.apiProvider ?? {}),
-      enabled: process.env.JLC_BYOK_ENABLED === "true",
+      enabled: true,
       protocol:
-        process.env.JLC_BYOK_PROTOCOL === "anthropic" ? "anthropic" : "openai",
+        fromClient?.protocol ??
+        (process.env.JLC_BYOK_PROTOCOL === "anthropic" ? "anthropic" : "openai"),
       baseUrl:
-        process.env.JLC_BYOK_BASE_URL ?? DEFAULT_API_PROVIDER_CONFIG.baseUrl,
-      apiKey: process.env.JLC_BYOK_API_KEY ?? "",
-      model: process.env.JLC_BYOK_MODEL ?? "",
+        fromClient?.baseUrl ??
+        process.env.JLC_BYOK_BASE_URL ??
+        DEFAULT_API_PROVIDER_CONFIG.baseUrl,
+      apiKey:
+        fromClient?.apiKey ??
+        process.env.JLC_BYOK_API_KEY ??
+        "",
+      model:
+        fromClient?.model ??
+        process.env.JLC_BYOK_MODEL ??
+        "",
       providerLabel:
+        fromClient?.providerLabel ??
         process.env.JLC_BYOK_PROVIDER_LABEL ??
         DEFAULT_API_PROVIDER_CONFIG.providerLabel,
       anthropicVersion:
+        fromClient?.anthropicVersion ??
         process.env.JLC_BYOK_ANTHROPIC_VERSION ??
         DEFAULT_API_PROVIDER_CONFIG.anthropicVersion,
     });
@@ -177,6 +205,12 @@ export async function POST(request: Request) {
         {
           error: "provider_unavailable",
           message: "当前未配置可用的模型 API Provider",
+          debug: {
+            enabled: providerConfig.enabled,
+            hasBaseUrl: !!providerConfig.baseUrl,
+            hasApiKey: !!providerConfig.apiKey,
+            hasModel: !!providerConfig.model,
+          },
         },
         { status: 422 },
       );
@@ -194,10 +228,24 @@ export async function POST(request: Request) {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to reach provider";
+
+      // 添加详细的错误诊断信息
+      const debugInfo = {
+        providerUrl: providerConfig.baseUrl,
+        providerModel: providerConfig.model,
+        providerProtocol: providerConfig.protocol,
+        hasApiKey: !!providerConfig.apiKey,
+        errorType: error instanceof Error ? error.constructor.name : typeof error,
+        errorMessage: message,
+      };
+
+      console.error("[API Chat] Provider request failed:", debugInfo);
+
       return Response.json(
         {
           error: "provider_unreachable",
           message,
+          debug: debugInfo,
         },
         { status: 502 },
       );
