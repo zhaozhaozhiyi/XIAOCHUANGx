@@ -34,6 +34,13 @@ const MODULE_IDS = new Set<string>([
   "writing",
   "ppt",
 ]);
+const TIMEOUT_PROFILES = new Set([
+  "default",
+  "fast",
+  "deep",
+  "writing",
+  "ppt",
+]);
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -111,6 +118,21 @@ function parseCreateRun(body: unknown): CreateRunRequest | null {
       typeof b.platformNormSkill === "string"
         ? b.platformNormSkill
         : "skill-platform-research-norms",
+    timeoutProfile:
+      typeof b.timeoutProfile === "string" &&
+      TIMEOUT_PROFILES.has(b.timeoutProfile)
+        ? (b.timeoutProfile as CreateRunRequest["timeoutProfile"])
+        : undefined,
+    timeoutMs:
+      typeof b.timeoutMs === "number" && Number.isFinite(b.timeoutMs) && b.timeoutMs > 0
+        ? Math.floor(b.timeoutMs)
+        : undefined,
+    idleTimeoutMs:
+      typeof b.idleTimeoutMs === "number" &&
+      Number.isFinite(b.idleTimeoutMs) &&
+      b.idleTimeoutMs > 0
+        ? Math.floor(b.idleTimeoutMs)
+        : undefined,
   };
 }
 

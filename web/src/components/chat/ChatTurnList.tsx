@@ -36,7 +36,7 @@ export function ChatTurnList({
   const turns = useMemo(() => groupMessagesIntoTurns(messages), [messages]);
 
   return (
-    <div className="chat-scroll-content mx-auto max-w-[var(--chat-message-max)]">
+    <div className="chat-scroll-content mx-auto w-full max-w-[var(--chat-message-max)]">
       {turns.map((turn) => {
         return (
           <section

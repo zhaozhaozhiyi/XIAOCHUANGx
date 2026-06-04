@@ -74,7 +74,7 @@ async function resolveAgentPath(
 async function readVersion(
   binPath: string,
   signal?: AbortSignal,
-): Promise<{ version: string | null; needsLogin: boolean }> {
+): Promise<{ version: string | null }> {
   const flags: string[][] = [
     ["--version"],
     ["-v"],
@@ -95,22 +95,14 @@ async function readVersion(
         },
       );
       const out = `${stdout}${stderr}`.trim();
-      if (/login|auth|sign in/i.test(out)) {
-        return { version: null, needsLogin: true };
-      }
       const firstLine = out.split("\n")[0]?.trim() ?? "";
       if (firstLine) {
-        return { version: firstLine.slice(0, 80), needsLogin: false };
+        return { version: firstLine.slice(0, 80) };
       }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (/login|auth|not logged/i.test(msg)) {
-        return { version: null, needsLogin: true };
-      }
-    }
+    } catch {}
   }
 
-  return { version: null, needsLogin: false };
+  return { version: null };
 }
 
 function timeoutAgentState(agentId: AgentId): CompanionAgentState {
@@ -260,9 +252,8 @@ export async function detectAgent(
   }
 
   let version: string | null;
-  let needsLogin: boolean;
   try {
-    ({ version, needsLogin } = await readVersion(path, signal));
+    ({ version } = await readVersion(path, signal));
   } catch (err) {
     if (isAbortError(err)) {
       return {
@@ -272,20 +263,6 @@ export async function detectAgent(
     }
     throw err;
   }
-  if (needsLogin) {
-    return {
-      agentId,
-      bin,
-      status: "needs_login",
-      version: null,
-      hint: spec.execution.loginHint,
-      path,
-      models,
-      modelsSource,
-      capability,
-    };
-  }
-
   return {
     agentId,
     bin,

@@ -12,7 +12,33 @@
 
 ## 本地开发
 
-**MVP 联调需同时运行四个进程**（各开终端）：API、Companion、Web；桌面壳为推荐交付形态。
+## 运行前置条件（必须）
+
+- **必须先启动 Companion**：未启动时，项目树读取、文件导入、Agent 执行链路将不可用。
+- 启动命令（建议单独终端常驻）：
+
+```bash
+pnpm companion:dev
+# → http://127.0.0.1:9477
+```
+
+- 建议启动后先做健康检查：
+
+```bash
+curl -s http://127.0.0.1:9477/v1/health
+```
+
+返回 `{"ok":true,...}` 后，再继续启动 API / Web / Desktop。
+
+**推荐主启动方式**：直接在仓库根目录运行：
+
+```bash
+pnpm dev
+```
+
+它会自动启动 API、Companion、Web，并在 Web / Companion 就绪后拉起桌面壳。
+
+如需分开调试，MVP 联调仍可按四个进程分别启动：API、Companion、Web；桌面壳为推荐交付形态。
 
 ```bash
 # 1. 依赖服务

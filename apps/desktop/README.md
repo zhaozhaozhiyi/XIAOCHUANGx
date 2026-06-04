@@ -14,6 +14,16 @@ pnpm icons   # 或仓库根目录 pnpm desktop:icons
 
 ## 开发联调
 
+推荐直接在仓库根目录运行：
+
+```bash
+pnpm dev
+```
+
+它会自动启动 Companion、Web，并在两者就绪后拉起桌面壳；同时也会带上业务 API。
+
+需要拆开排查时，再按下面的分终端方式启动：
+
 ```bash
 # 终端 A：Companion
 pnpm companion:dev

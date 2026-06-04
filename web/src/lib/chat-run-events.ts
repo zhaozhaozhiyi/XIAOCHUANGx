@@ -31,7 +31,13 @@ function applyRunEvent(
     case "run.started":
       return reduceRunStarted(state, {
         runId: event.runId,
-        injectedSkills: event.capabilities ?? null,
+        baseProcessSkill: event.baseProcessSkill ?? null,
+        processSkill: event.processSkill ?? null,
+        platformNormSkill: event.platformNormSkill ?? null,
+        orchestrationMode: event.orchestrationMode ?? null,
+        catalogVersion: event.catalogVersion ?? null,
+        catalogSlugs: event.catalogSlugs ?? null,
+        injectedSkills: event.injectedSkills ?? event.capabilities ?? null,
       });
     case "run.status":
       return reduceStatusLabel(state, event.label, event.phase);

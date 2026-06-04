@@ -1,6 +1,6 @@
 import type { AgentStreamEvent } from "../types.js";
 
-/** Hermes `-Q` 等：整段 stdout 作为正文 */
+/** Plain stdout CLI：整段 stdout 作为正文 */
 export function createPlainParser(onEvent: (ev: AgentStreamEvent) => void) {
   let buffer = "";
 

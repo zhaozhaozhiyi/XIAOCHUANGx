@@ -297,4 +297,42 @@ test.describe("MVP chat", () => {
     });
     await expect(page.getByText("第 1 轮问题")).toBeVisible();
   });
+
+  test("opens workspace file links from markdown in the right workspace pane", async ({
+    page,
+  }) => {
+    const sessionId = "workspace-link-open";
+
+    await page.addInitScript(([seedSessionId]) => {
+      const messages = [
+        {
+          id: "workspace-link-user",
+          role: "user",
+          content: "打开结果文件",
+          status: "complete",
+        },
+        {
+          id: "workspace-link-assistant",
+          role: "assistant",
+          content: "结果文件： [PRD-小窗.md](PRD-小窗.md)",
+          status: "complete",
+        },
+      ];
+      window.localStorage.setItem(
+        `jlc-chat-messages-${seedSessionId}`,
+        JSON.stringify(messages),
+      );
+    }, [sessionId]);
+
+    await page.goto(`/chat/${sessionId}`);
+    await expect(page.getByText("结果文件：")).toBeVisible();
+
+    await page.getByRole("link", { name: "PRD-小窗.md" }).click();
+
+    await expect(page.getByLabel("工作区")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "PRD-小窗.md" }).first(),
+    ).toBeVisible();
+    await expect(page.getByText("Preview")).toBeVisible();
+  });
 });

@@ -17,6 +17,15 @@ export type StreamChatResult =
   | { ok: true }
   | { ok: false; error: string; status?: number };
 
+function decodeHeaderValue(value: string | null): string | null {
+  if (!value) return null;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 function historyFromMessages(
   messages: ChatMessage[],
   currentAgentId: string,
@@ -105,8 +114,10 @@ export async function streamChatCompletion(
   if (ensuredProjectId) {
     params.onProjectEnsured?.({
       id: ensuredProjectId,
-      name: res.headers.get("X-JLC-Project-Name") ?? ensuredProjectId,
-      pathSummary: res.headers.get("X-JLC-Project-Path") ?? "",
+      name:
+        decodeHeaderValue(res.headers.get("X-JLC-Project-Name")) ??
+        ensuredProjectId,
+      pathSummary: decodeHeaderValue(res.headers.get("X-JLC-Project-Path")) ?? "",
     });
   }
 

@@ -112,6 +112,102 @@ export function resolveFileMessage(
   }
 }
 
-/** Summary 内联路径：常见源码/文档扩展名 */
-export const INLINE_FILE_REF_RE =
-  /(`?)([\w./@-]+\.(?:md|mdx|tsx?|jsx?|json|ya?ml|yml|sql|csv|html|css|txt|py|sh|vue|go|rs|java|kt|swift|rb|php|xml|toml|lock))(?:\s*\((?:line|lines)\s+(\d+)(?:\s*[-–]\s*(\d+))?\))?\1/g;
+/**
+ * 对话正文中可点击打开的工作区文件扩展名（F-QA-010）。
+ * 覆盖源码、文档、图像、Office、压缩包与常见媒体等 Agent 本地输出。
+ */
+const INLINE_FILE_EXTENSIONS = [
+  "md",
+  "mdx",
+  "txt",
+  "log",
+  "ts",
+  "tsx",
+  "js",
+  "jsx",
+  "mjs",
+  "cjs",
+  "json",
+  "jsonc",
+  "json5",
+  "yaml",
+  "yml",
+  "toml",
+  "xml",
+  "html",
+  "htm",
+  "css",
+  "scss",
+  "sass",
+  "less",
+  "sql",
+  "csv",
+  "py",
+  "sh",
+  "bash",
+  "zsh",
+  "vue",
+  "go",
+  "rs",
+  "java",
+  "kt",
+  "swift",
+  "rb",
+  "php",
+  "lock",
+  "env",
+  "ini",
+  "conf",
+  "cfg",
+  "wasm",
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "webp",
+  "svg",
+  "ico",
+  "bmp",
+  "avif",
+  "heic",
+  "tif",
+  "tiff",
+  "pdf",
+  "docx",
+  "doc",
+  "rtf",
+  "odt",
+  "epub",
+  "pptx",
+  "ppt",
+  "xlsx",
+  "xls",
+  "ods",
+  "zip",
+  "tar",
+  "gz",
+  "tgz",
+  "bz2",
+  "7z",
+  "rar",
+  "mp4",
+  "webm",
+  "mov",
+  "avi",
+  "mkv",
+  "mp3",
+  "wav",
+  "m4a",
+  "flac",
+  "aac",
+] as const;
+
+const INLINE_FILE_EXT_PATTERN = INLINE_FILE_EXTENSIONS.join("|");
+
+/** Summary 内联路径：匹配带扩展名的项目相对/绝对路径 */
+export const INLINE_FILE_REF_RE = new RegExp(
+  "(\\`?)([\\w./@-]+\\.(?:" +
+    INLINE_FILE_EXT_PATTERN +
+    "))(?:\\s*\\((?:line|lines)\\s+(\\d+)(?:\\s*[-–]\\s*(\\d+))?\\))?\\1",
+  "gi",
+);

@@ -36,6 +36,7 @@ import type { WorkspaceFileNode } from "@/lib/workspace";
 import type { ChatPendingAttachment } from "@/lib/chat";
 import {
   getModuleSkillOptions,
+  MODULE_SKILL_CHANGED_EVENT,
   readStoredModuleSkillTemplateId,
   writeStoredModuleSkillTemplateId,
   type ModuleSkillPickerKind,
@@ -413,9 +414,13 @@ export function ChatComposer({
 
   useEffect(() => {
     if (!skillPickerModule) return;
-    setModuleSkillId(
-      readStoredModuleSkillTemplateId(skillPickerModule, sessionId),
-    );
+    const sync = () =>
+      setModuleSkillId(
+        readStoredModuleSkillTemplateId(skillPickerModule, sessionId),
+      );
+    sync();
+    window.addEventListener(MODULE_SKILL_CHANGED_EVENT, sync);
+    return () => window.removeEventListener(MODULE_SKILL_CHANGED_EVENT, sync);
   }, [sessionId, skillPickerModule]);
 
   useEffect(() => {

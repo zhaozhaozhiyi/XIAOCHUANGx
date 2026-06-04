@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ChatAgentModelPicker } from "./ChatAgentModelPicker";
 import { ChatComposer } from "./ChatComposer";
 import { ChatHomeTaskSuggestions } from "./ChatHomeTaskSuggestions";
+import { TemplateSkillGallery } from "./TemplateSkillGallery";
 import { ChatTopBar } from "./ChatTopBar";
 import type { ChatComposerSendPayload } from "./ChatComposer";
 import { useChatAgentSelection } from "./useChatAgentSelection";
@@ -111,7 +112,11 @@ export function ChatHome({
           </span>
         }
       />
-      <div className="chat-home-bg px-6 pb-24">
+      <div
+        className={`chat-home-bg px-4 sm:px-6 ${
+          surface.skillPicker ? "chat-home-bg--with-gallery" : "pb-24"
+        }`}
+      >
         <div className="chat-home-bg__content">
           <h1 className="text-display mb-3 text-[var(--fg)]">{surface.homeTitle}</h1>
           <p className="prose-width mb-10 text-center text-[15px] text-[var(--fg-secondary)]">
@@ -157,6 +162,12 @@ export function ChatHome({
             />
           ) : null}
         </div>
+
+        {surface.skillPicker ? (
+          <div className="chat-home-gallery-band">
+            <TemplateSkillGallery module={surface.skillPicker} />
+          </div>
+        ) : null}
       </div>
     </div>
   );

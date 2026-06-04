@@ -8,6 +8,20 @@ function envBool(name: string, defaultValue: boolean): boolean {
   return v === "1" || v.toLowerCase() === "true";
 }
 
+function envInt(name: string, defaultValue: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw === "") return defaultValue;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : defaultValue;
+}
+
+export type RunTimeoutProfile =
+  | "default"
+  | "fast"
+  | "deep"
+  | "writing"
+  | "ppt";
+
 export const PACKAGE_VERSION = "0.1.0";
 
 export const config = {
@@ -46,7 +60,41 @@ export const config = {
   hermesApiKey: process.env.HERMES_API_KEY ?? "",
   hermesModel: process.env.HERMES_MODEL ?? "hermes-agent",
   hermesGatewayPreferred: envBool("COMPANION_HERMES_GATEWAY", true),
+  runTimeoutMs: envInt("COMPANION_RUN_TIMEOUT_MS", 300_000),
+  runTimeoutFastMs: envInt("COMPANION_RUN_TIMEOUT_FAST_MS", 300_000),
+  runTimeoutDeepMs: envInt("COMPANION_RUN_TIMEOUT_DEEP_MS", 1_800_000),
+  runTimeoutWritingMs: envInt("COMPANION_RUN_TIMEOUT_WRITING_MS", 2_700_000),
+  runTimeoutPptMs: envInt("COMPANION_RUN_TIMEOUT_PPT_MS", 3_600_000),
+  runIdleTimeoutMs: envInt("COMPANION_RUN_IDLE_TIMEOUT_MS", 900_000),
 } as const;
+
+export function resolveRunTimeoutMs(
+  profile: RunTimeoutProfile,
+  explicitTimeoutMs?: number,
+): number {
+  if (typeof explicitTimeoutMs === "number" && explicitTimeoutMs > 0) {
+    return explicitTimeoutMs;
+  }
+  switch (profile) {
+    case "fast":
+      return config.runTimeoutFastMs;
+    case "deep":
+      return config.runTimeoutDeepMs;
+    case "writing":
+      return config.runTimeoutWritingMs;
+    case "ppt":
+      return config.runTimeoutPptMs;
+    default:
+      return config.runTimeoutMs;
+  }
+}
+
+export function resolveRunIdleTimeoutMs(explicitIdleTimeoutMs?: number): number {
+  if (typeof explicitIdleTimeoutMs === "number" && explicitIdleTimeoutMs > 0) {
+    return explicitIdleTimeoutMs;
+  }
+  return config.runIdleTimeoutMs;
+}
 
 export function projectsDir(): string {
   return join(config.dataDir, "projects");

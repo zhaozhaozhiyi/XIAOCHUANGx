@@ -153,28 +153,16 @@ function normalizeClaudeModel(model: string): string | null {
 
 function buildHermesArgs(ctx: BuildArgsContext): AgentLaunchSpec {
   const registry = getAgentRegistryEntry("hermes");
-  const bytes = estimatePromptBytes(ctx.composedPrompt);
   const args = ["chat", "--max-turns", "30", "--yolo", "--accept-hooks"];
   if (ctx.agentModel && ctx.agentModel !== "default") {
     args.push("-m", ctx.agentModel);
-  }
-  if (bytes <= DEFAULT_ARGV_PROMPT_BUDGET_BYTES) {
-    args.push("-q", ctx.composedPrompt);
-    return {
-      bin: registry.execution.bin,
-      args,
-      streamFormat: registry.execution.streamFormat,
-      closeStdinAfterPrompt: false,
-      promptViaArgs: true,
-      stdinPayload: "ignore",
-    };
   }
   return {
     bin: registry.execution.bin,
     args,
     streamFormat: registry.execution.streamFormat,
     closeStdinAfterPrompt: true,
-      stdinPayload: "composed",
+    stdinPayload: "composed",
   };
 }
 

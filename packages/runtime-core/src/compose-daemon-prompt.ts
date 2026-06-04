@@ -10,7 +10,7 @@ import {
 } from "./prompt.js";
 
 export type ComposedAgentRunPayload = {
-  /** 写入 CLI stdin（或 Hermes -q）的完整 prompt */
+  /** 写入 CLI stdin 的完整 prompt */
   composedPrompt: string;
   /** 本轮用户原文 */
   currentUserTurn: string;
@@ -89,7 +89,7 @@ export function composeAgentRunPayload(
   };
 }
 
-/** 估算 argv 占用（Windows ~32KB）；Hermes `-q` 等 argv 投递前检查 */
+/** 估算 argv 占用（Windows ~32KB）；供仍使用 argv 的 CLI 适配器做预算检查 */
 export function estimatePromptBytes(text: string): number {
   return Buffer.byteLength(text, "utf8");
 }

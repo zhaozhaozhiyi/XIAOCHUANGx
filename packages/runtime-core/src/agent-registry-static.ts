@@ -86,7 +86,7 @@ export const STATIC_AGENT_REGISTRY: Record<AgentId, StaticAgentRegistryEntry> = 
       bin: "hermes",
       displayName: "Hermes CLI",
       streamFormat: "plain",
-      inputMode: "argv",
+      inputMode: "stdin",
       transport: "gateway",
       skillInjection: "prompt",
       supportsThreadResume: false,

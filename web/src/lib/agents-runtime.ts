@@ -207,5 +207,5 @@ export function applyAgentsResponse(
 export function agentsWarning(runtime: AgentsRuntimeState): boolean {
   if (runtime.inferenceChannel === "api_fallback") return true;
   if (!runtime.loaded) return false;
-  return runtime.agents.some((a) => a.status !== "available");
+  return !runtime.agents.some((a) => a.status === "available");
 }

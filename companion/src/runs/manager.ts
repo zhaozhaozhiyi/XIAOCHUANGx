@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { ServerResponse } from "node:http";
 import {
   applyTranscriptScope,
@@ -28,20 +28,27 @@ import {
   type RunAgentResult,
 } from "@jlc/runtime-core";
 import { detectAllAgents, findAgentState } from "../agents/detect.js";
-import { config } from "../config.js";
+import {
+  config,
+  resolveRunIdleTimeoutMs,
+  resolveRunTimeoutMs,
+  type RunTimeoutProfile,
+} from "../config.js";
 import { resolveWorkspaceRoot } from "../projects/store.js";
 import { clearAgentThread, saveAgentThread } from "../sessions/cli-threads.js";
-import {
-  loadSessionRunContext,
-  saveSessionRunContext,
-} from "../sessions/run-context.js";
 import type { CreateRunRequest } from "../types.js";
 import {
   type CanonicalArtifact,
   type CanonicalCitation,
   type CanonicalEvent,
   type CanonicalWorkspaceChange,
+  type RunStatus,
 } from "@jlc/contracts";
+import {
+  loadSessionRuntime,
+  patchSessionRuntime,
+  type SessionRuntimeRecord,
+} from "../sessions/runtime.js";
 import {
   emitCanonicalAssistantDelta,
   emitCanonicalOutput,
@@ -202,6 +209,27 @@ function taskStartLabel(userText: string, agentId: string): string {
   return `正在运行 ${agentId}，解析任务并准备执行…`;
 }
 
+function buildStablePromptHash(instructionPrompt: string): string {
+  return createHash("sha256")
+    .update(instructionPrompt)
+    .digest("hex")
+    .slice(0, 16);
+}
+
+function resolveTimeoutProfile(req: CreateRunRequest): RunTimeoutProfile {
+  if (req.timeoutProfile) return req.timeoutProfile;
+  if (req.moduleId === "writing") return "writing";
+  if (req.moduleId === "ppt") return "ppt";
+  if (
+    req.binding.moduleId === "chat" &&
+    normalizeChatMode(req.binding.mode) === "deep"
+  ) {
+    return "deep";
+  }
+  if (req.binding.moduleId === "chat") return "fast";
+  return "default";
+}
+
 function canonicalTurnId(runId: string): string {
   return `turn-${runId}`;
 }
@@ -291,41 +319,77 @@ async function executeRunLifecycle(
   });
   activeSessionRuns.set(req.sessionId, runId);
 
+  const persistEarlyFailure = async (
+    message: string,
+    patch?: Partial<SessionRuntimeRecord>,
+  ) =>
+    patchSessionRuntime(req.sessionId, {
+      projectId: req.projectId,
+      workspaceProjectId: req.workspaceProjectId,
+      agentId: req.agentId,
+      agentModel: req.agentModel,
+      moduleId: req.moduleId,
+      binding: req.binding,
+      lastRunId: runId,
+      lastRunStatus: "failed",
+      lastStatusLabel: message,
+      ...patch,
+    });
+
   const agents = await detectAllAgents();
   const agent = findAgentState(agents.agents, req.agentId);
   const agentSpec = getAgentRegistryEntry(req.agentId);
   if (!agent || agent.status !== "available") {
+    const message =
+      agent?.hint ??
+      `Agent ${req.agentId} 不可用（${agent?.status ?? "unknown"}）`;
+    await persistEarlyFailure(message);
     writer.send("run.error", {
       code: "agent_unavailable",
-      message:
-        agent?.hint ??
-        `Agent ${req.agentId} 不可用（${agent?.status ?? "unknown"}）`,
+      message,
     });
     emitCanonicalRunFailed(writer, {
       runId,
       code: "agent_unavailable",
-      message:
-        agent?.hint ??
-        `Agent ${req.agentId} 不可用（${agent?.status ?? "unknown"}）`,
+      message,
     });
     return;
   }
 
+  const priorRuntime = await loadSessionRuntime(req.sessionId);
+
   let cwd: string;
+  const reusedRuntimeCwd =
+    priorRuntime?.workspaceProjectId === req.workspaceProjectId &&
+    typeof priorRuntime.resolvedCwd === "string" &&
+    priorRuntime.resolvedCwd.trim().length > 0;
   try {
-    cwd = await resolveWorkspaceRoot(req.workspaceProjectId);
+    cwd = reusedRuntimeCwd
+      ? priorRuntime.resolvedCwd!.trim()
+      : await resolveWorkspaceRoot(req.workspaceProjectId);
   } catch {
+    const message = `工作区 ${req.workspaceProjectId} 不存在`;
+    await persistEarlyFailure(message);
     writer.send("run.error", {
       code: "project_not_found",
-      message: `工作区 ${req.workspaceProjectId} 不存在`,
+      message,
     });
     emitCanonicalRunFailed(writer, {
       runId,
       code: "project_not_found",
-      message: `工作区 ${req.workspaceProjectId} 不存在`,
+      message,
     });
     return;
   }
+  const resolvedCwdSource = reusedRuntimeCwd
+    ? ("session_runtime" as const)
+    : ("workspace_project" as const);
+  const timeoutProfile = resolveTimeoutProfile(req);
+  const timeoutMs = resolveRunTimeoutMs(timeoutProfile, req.timeoutMs);
+  const idleTimeoutMs = Math.min(
+    resolveRunIdleTimeoutMs(req.idleTimeoutMs),
+    timeoutMs,
+  );
 
   const startedAtMs = Date.now();
   let assistantText = "";
@@ -380,6 +444,27 @@ async function executeRunLifecycle(
     return canonicalOutput;
   };
 
+  const persistRuntimeStatus = async (
+    status: RunStatus,
+    patch?: Partial<SessionRuntimeRecord>,
+  ) =>
+    patchSessionRuntime(req.sessionId, {
+      projectId: req.projectId,
+      workspaceProjectId: req.workspaceProjectId,
+      resolvedCwd: cwd,
+      resolvedCwdSource,
+      agentId: req.agentId,
+      agentModel: req.agentModel,
+      moduleId: req.moduleId,
+      binding: req.binding,
+      timeoutProfile,
+      timeoutMs,
+      idleTimeoutMs,
+      lastRunId: runId,
+      lastRunStatus: status,
+      ...patch,
+    });
+
   writer.send("run.accepted", {
     runId,
     sessionId: req.sessionId,
@@ -400,6 +485,9 @@ async function executeRunLifecycle(
     runId,
     timestamp: Date.now(),
     message: "正在加载 Skill 与运行环境…",
+  });
+  await persistRuntimeStatus("accepted", {
+    lastStatusLabel: "正在加载 Skill 与运行环境…",
   });
 
   const skillsRoot = resolveSkillsRoot();
@@ -439,38 +527,47 @@ async function executeRunLifecycle(
         })
       : null;
 
-  writer.send("run.started", {
-    runId,
-    agentId: req.agentId,
-    cwd,
-    processSkill: req.processSkill ?? null,
-    baseProcessSkill:
-      chatOrchestration?.baseProcessSkill ?? req.processSkill ?? null,
-    platformNormSkill: req.platformNormSkill ?? null,
-    orchestrationMode: chatOrchestration?.orchestrationMode ?? null,
-    catalogVersion: chatOrchestration?.catalogVersion ?? null,
-    catalogSlugs: chatOrchestration?.catalogSlugs ?? null,
-    skillsRoot,
-    promptsRoot,
-    injectedSkills,
-    missingSkills: skillBundle.missing,
-    catalogMissingSlugs: chatOrchestration?.catalog.missingSlugs ?? null,
-    agentKitPath: agentKit?.agentKitPath ?? null,
-  });
-  emitCanonicalRunStarted(writer, {
-    runId,
-    agentId: req.agentId,
-    provider: req.agentId,
-    model: req.agentModel,
-  });
-  pushCanonicalEvent({
-    type: "run_started",
-    runId,
-    timestamp: Date.now(),
-    provider: req.agentId,
-    agentId: req.agentId,
-    model: req.agentModel,
-  });
+  const emitRunStartedEvent = (input?: {
+    stablePromptHash?: string;
+  }) => {
+    writer.send("run.started", {
+      runId,
+      agentId: req.agentId,
+      cwd,
+      cwdSource: resolvedCwdSource,
+      processSkill: req.processSkill ?? null,
+      baseProcessSkill:
+        chatOrchestration?.baseProcessSkill ?? req.processSkill ?? null,
+      platformNormSkill: req.platformNormSkill ?? null,
+      orchestrationMode: chatOrchestration?.orchestrationMode ?? null,
+      catalogVersion: chatOrchestration?.catalogVersion ?? null,
+      catalogSlugs: chatOrchestration?.catalogSlugs ?? null,
+      injectedSkills,
+      missingSkills: skillBundle.missing,
+      catalogMissingSlugs: chatOrchestration?.catalog.missingSlugs ?? null,
+      skillsRoot,
+      promptsRoot,
+      agentKitPath: agentKit?.agentKitPath ?? null,
+      timeoutProfile,
+      timeoutMs,
+      idleTimeoutMs,
+      stablePromptHash: input?.stablePromptHash,
+    });
+    emitCanonicalRunStarted(writer, {
+      runId,
+      agentId: req.agentId,
+      provider: req.agentId,
+      model: req.agentModel,
+    });
+    pushCanonicalEvent({
+      type: "run_started",
+      runId,
+      timestamp: Date.now(),
+      provider: req.agentId,
+      agentId: req.agentId,
+      model: req.agentModel,
+    });
+  };
 
   const lastUserIndex = findLastUserMessageIndex(req.messages);
   const lastUser = lastUserIndex >= 0 ? req.messages[lastUserIndex] : undefined;
@@ -482,6 +579,18 @@ async function executeRunLifecycle(
 
   try {
     if (config.runMode === "spawn") {
+      await persistRuntimeStatus("running", {
+        processSkill: req.processSkill ?? null,
+        platformNormSkill: req.platformNormSkill ?? null,
+        injectedSkills,
+        orchestrationMode: chatOrchestration?.orchestrationMode ?? null,
+        catalogVersion: chatOrchestration?.catalogVersion ?? null,
+        catalogSlugs: chatOrchestration?.catalogSlugs ?? null,
+        skillsRoot,
+        promptsRoot,
+        agentKitPath: agentKit?.agentKitPath ?? null,
+      });
+      emitRunStartedEvent();
       writer.send("tool.progress", {
         tool: "phase",
         status: "running",
@@ -516,18 +625,25 @@ async function executeRunLifecycle(
           agentModel: req.agentModel,
         },
       );
+      await persistRuntimeStatus(
+        abort.signal.aborted ? "cancelled" : "completed",
+        {
+          lastStatusLabel: abort.signal.aborted
+            ? "Run cancelled"
+            : "Mock run completed",
+        },
+      );
       return;
     }
 
     if (config.runMode === "cli") {
-      const runCtx = await loadSessionRunContext(req.sessionId);
       const scoped = applyTranscriptScope(
         req.messages as RunConversationMessage[],
         {
           workspaceProjectId: req.workspaceProjectId,
-          previousWorkspaceProjectId: runCtx?.lastWorkspaceProjectId,
+          previousWorkspaceProjectId: priorRuntime?.workspaceProjectId,
           agentId: req.agentId,
-          previousAgentId: runCtx?.lastAgentId,
+          previousAgentId: priorRuntime?.agentId,
         },
       );
 
@@ -635,6 +751,10 @@ async function executeRunLifecycle(
           message:
             "对话过长，自动压缩后仍超过安全上限。请新开对话后继续（完整记录仍在旧会话中）；后续版本将支持 Handoff 摘要迁移。",
         });
+        await persistRuntimeStatus("failed", {
+          lastStatusLabel:
+            "对话过长，自动压缩后仍超过安全上限。请新开对话后继续。",
+        });
         emitCanonicalRunFailed(writer, {
           runId,
           code: "prompt_too_large",
@@ -645,6 +765,20 @@ async function executeRunLifecycle(
       }
 
       const { composedPrompt, instructionPrompt, meta } = composed;
+      const stablePromptHash = buildStablePromptHash(instructionPrompt);
+      await persistRuntimeStatus("running", {
+        processSkill: req.processSkill ?? null,
+        platformNormSkill: req.platformNormSkill ?? null,
+        injectedSkills,
+        orchestrationMode: chatOrchestration?.orchestrationMode ?? null,
+        catalogVersion: chatOrchestration?.catalogVersion ?? null,
+        catalogSlugs: chatOrchestration?.catalogSlugs ?? null,
+        stablePromptHash,
+        skillsRoot,
+        promptsRoot,
+        agentKitPath: meta.agentKitPath,
+      });
+      emitRunStartedEvent({ stablePromptHash });
 
       const startLabel = taskStartLabel(userText, req.agentId);
       writer.send("tool.progress", {
@@ -669,10 +803,10 @@ async function executeRunLifecycle(
           ? `${compressPrep.note ?? "已压缩会话"} · ${startLabel}`
           : startLabel,
       });
-
-      void saveSessionRunContext(req.sessionId, {
-        lastWorkspaceProjectId: req.workspaceProjectId,
-        lastAgentId: req.agentId,
+      void persistRuntimeStatus("running", {
+        lastStatusLabel: compressPrep.compressed
+          ? `${compressPrep.note ?? "已压缩会话"} · ${startLabel}`
+          : startLabel,
       });
 
       const beforeSnap = await snapshotWorkspace(cwd).catch(
@@ -808,6 +942,9 @@ async function executeRunLifecycle(
             timestamp: Date.now(),
             question: waitingUserQuestion,
           });
+          void persistRuntimeStatus("waiting_user", {
+            lastStatusLabel: waitingUserQuestion,
+          });
         },
         onToolProgress: (p: {
           tool: string;
@@ -838,6 +975,12 @@ async function executeRunLifecycle(
                 question: p.message,
               });
             }
+            void persistRuntimeStatus(
+              waitingUserLabel(p.message) ? "waiting_user" : "running",
+              {
+                lastStatusLabel: p.message,
+              },
+            );
             emitRunStatus(writer, {
               runId,
               phase: p.status ?? "running",
@@ -928,6 +1071,15 @@ async function executeRunLifecycle(
           );
 
           if (abort.signal.aborted) {
+            emitCanonicalTerminalOutput(
+              { status: "cancelled", message: "Run cancelled" },
+              assistantText.trim()
+                ? `${assistantText.trim()}\n\n（已中断）`
+                : "（已中断）",
+            );
+            await persistRuntimeStatus("cancelled", {
+              lastStatusLabel: "Run cancelled",
+            });
             writer.send("run.cancelled", { runId });
             emitCanonicalRunCancelled(writer, { runId });
             return;
@@ -956,6 +1108,10 @@ async function executeRunLifecycle(
               waitingUserQuestion
                 ? { status: "waiting_user", message: waitingUserQuestion }
                 : { status: "success" },
+            );
+            await persistRuntimeStatus(
+              waitingUserQuestion ? "waiting_user" : "completed",
+              { lastStatusLabel: waitingUserQuestion ?? latestStatusLabel },
             );
             writer.send("run.finished", { runId });
             emitCanonicalRunFinished(writer, { runId });
@@ -1029,6 +1185,8 @@ async function executeRunLifecycle(
         runCallbacks,
         {
           signal: abort.signal,
+          timeoutMs,
+          idleTimeoutMs,
           onUserInputHandlerReady: (handler) => {
             activeRunUserInputHandlers.set(runId, handler);
           },
@@ -1040,6 +1198,9 @@ async function executeRunLifecycle(
           { status: "cancelled", message: "Run cancelled" },
           assistantText.trim() ? `${assistantText.trim()}\n\n（已中断）` : "（已中断）",
         );
+        await persistRuntimeStatus("cancelled", {
+          lastStatusLabel: "Run cancelled",
+        });
         writer.send("run.cancelled", { runId });
         emitCanonicalRunCancelled(writer, { runId });
         return;
@@ -1093,11 +1254,22 @@ async function executeRunLifecycle(
               agentModel: req.agentModel,
             },
           );
+          await persistRuntimeStatus(
+            abort.signal.aborted ? "cancelled" : "completed",
+            {
+              lastStatusLabel: abort.signal.aborted
+                ? "Run cancelled"
+                : "已回退模拟输出",
+            },
+          );
         } else {
           emitCanonicalTerminalOutput({
             status: "failed",
             code: hardFail.code,
             message: hardFail.message,
+          });
+          await persistRuntimeStatus("failed", {
+            lastStatusLabel: hardFail.message,
           });
           writer.send("run.error", {
             code: hardFail.code,
@@ -1127,20 +1299,47 @@ async function executeRunLifecycle(
           ? { status: "waiting_user", message: waitingUserQuestion }
           : { status: "success" },
       );
+      await persistRuntimeStatus(
+        waitingUserQuestion ? "waiting_user" : "completed",
+        { lastStatusLabel: waitingUserQuestion ?? latestStatusLabel },
+      );
       writer.send("run.finished", { runId });
       emitCanonicalRunFinished(writer, { runId });
       return;
     }
 
+    await persistRuntimeStatus("running", {
+      processSkill: req.processSkill ?? null,
+      platformNormSkill: req.platformNormSkill ?? null,
+      injectedSkills,
+      orchestrationMode: chatOrchestration?.orchestrationMode ?? null,
+      catalogVersion: chatOrchestration?.catalogVersion ?? null,
+      catalogSlugs: chatOrchestration?.catalogSlugs ?? null,
+      skillsRoot,
+      promptsRoot,
+      agentKitPath: agentKit?.agentKitPath ?? null,
+    });
+    emitRunStartedEvent();
     await streamSimulatedReply(userText, mode, req.agentId, writer, abort, runId, {
       sessionId: req.sessionId,
       agentModel: req.agentModel,
     });
+    await persistRuntimeStatus(
+      abort.signal.aborted ? "cancelled" : "completed",
+      {
+        lastStatusLabel: abort.signal.aborted
+          ? "Run cancelled"
+          : "Simulated run completed",
+      },
+    );
   } catch (err) {
     emitCanonicalTerminalOutput({
       status: "failed",
       code: "run_failed",
       message: err instanceof Error ? err.message : String(err),
+    });
+    await persistRuntimeStatus("failed", {
+      lastStatusLabel: err instanceof Error ? err.message : String(err),
     });
     writer.send("run.error", {
       code: "run_failed",

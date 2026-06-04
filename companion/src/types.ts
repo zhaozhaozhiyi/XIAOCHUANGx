@@ -3,7 +3,9 @@
 export const COMPANION_API_VERSION = "v1" as const;
 
 import type { AgentId, ChatModeId } from "@jlc/runtime-core";
+import type { RunTimeoutProfile } from "./config.js";
 export type { AgentId, ChatModeId, LegacyChatModeId } from "@jlc/runtime-core";
+export type { RunTimeoutProfile } from "./config.js";
 
 export type ModuleId =
   | "chat"
@@ -128,6 +130,9 @@ export type CreateRunRequest = {
   useClientHistory?: boolean;
   processSkill?: string | null;
   platformNormSkill?: string;
+  timeoutProfile?: RunTimeoutProfile;
+  timeoutMs?: number;
+  idleTimeoutMs?: number;
 };
 
 export type FileTreeNode = {

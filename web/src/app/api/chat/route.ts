@@ -84,12 +84,19 @@ function parseBody(body: unknown): ChatCompletionRequestBody | null {
   if (typeof b.agentModel !== "string" || !b.agentModel.trim()) return null;
   if (!Array.isArray(b.messages)) return null;
 
+  type RawChatMessage = {
+    role: string;
+    content: string;
+    id?: string;
+    attachments?: unknown[];
+  };
+  const allowedRoles = new Set(["user", "assistant"]);
   const messages = b.messages
     .filter(
-      (m): m is { role: string; content: string; id?: string; attachments?: unknown[] } =>
+      (m): m is RawChatMessage =>
         !!m &&
         typeof m === "object" &&
-        (m as { role: string }).role in { user: 1, assistant: 1 } &&
+        allowedRoles.has((m as { role: string }).role) &&
         typeof (m as { content: string }).content === "string",
     )
     .map((m) => ({
@@ -134,6 +141,7 @@ function parseBody(body: unknown): ChatCompletionRequestBody | null {
     pptTemplateId,
     useClientHistory: b.useClientHistory === true,
   };
+}
 
 function findLastUserMessageIndex(
   messages: ChatCompletionRequestBody["messages"],
@@ -282,8 +290,12 @@ export async function POST(request: Request) {
     const extraHeaders: Record<string, string> = {};
     if (ensuredProject) {
       extraHeaders["X-JLC-Project-Id"] = ensuredProject.id;
-      extraHeaders["X-JLC-Project-Name"] = ensuredProject.name;
-      extraHeaders["X-JLC-Project-Path"] = ensuredProject.pathSummary;
+      extraHeaders["X-JLC-Project-Name"] = encodeURIComponent(
+        ensuredProject.name,
+      );
+      extraHeaders["X-JLC-Project-Path"] = encodeURIComponent(
+        ensuredProject.pathSummary,
+      );
     }
     return companionRunResponse(runReq, request.signal, extraHeaders);
   }

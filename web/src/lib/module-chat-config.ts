@@ -112,6 +112,13 @@ export function writeStoredModuleSkillTemplateId(
   localStorage.setItem(moduleSkillStorageKey(kind, sessionId), templateId);
 }
 
+export const MODULE_SKILL_CHANGED_EVENT = "jlc-module-skill-changed";
+
+export function notifyModuleSkillTemplateChanged(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(MODULE_SKILL_CHANGED_EVENT));
+}
+
 /** @deprecated 使用 readStoredModuleSkillTemplateId("writing", …) */
 export function readStoredWritingSkillTemplateId(
   sessionId?: string,

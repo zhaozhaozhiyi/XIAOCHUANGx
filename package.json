@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "dev": "node scripts/dev-all.mjs",
     "postinstall": "pnpm db:generate",
     "dev:api": "pnpm --filter @jlc/api dev",
     "build:api": "pnpm --filter @jlc/api build",

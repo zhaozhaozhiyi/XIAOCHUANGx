@@ -15,12 +15,27 @@ import type {
 
 const DEFAULT_TIMEOUT_MS = 300_000;
 
+function humanizeCliFailure(bin: string, text: string): string {
+  const detail = text.trim();
+  if (!detail) return detail;
+  if (
+    bin === "claude" &&
+    /unauthenticated|please.*log\s*in|not logged|authentication.*failed/i.test(
+      detail,
+    )
+  ) {
+    return "Claude Code CLI 未完成登录。请在终端执行 claude 完成 OAuth 登录后重试。";
+  }
+  return detail;
+}
+
 export async function runAgent(
   input: RunAgentInput,
   callbacks: RunAgentCallbacks,
   options?: {
     signal?: AbortSignal;
     timeoutMs?: number;
+    idleTimeoutMs?: number;
     onUserInputHandlerReady?: (handler: (response: RunAgentUserInputResponse) => boolean) => void;
   },
 ): Promise<RunAgentResult> {
@@ -136,6 +151,31 @@ export async function runAgent(
       | ReturnType<typeof attachPiRpcBridge>
       | null = null;
 
+    const stopChild = () => {
+      if (rpcSession) {
+        rpcSession.abort();
+      } else {
+        child.kill("SIGTERM");
+      }
+    };
+
+    let idleTimer: NodeJS.Timeout | null = null;
+    const clearIdleTimer = () => {
+      if (idleTimer) {
+        clearTimeout(idleTimer);
+        idleTimer = null;
+      }
+    };
+    const touchIdleTimer = () => {
+      const idleTimeoutMs = options?.idleTimeoutMs;
+      if (!idleTimeoutMs || idleTimeoutMs <= 0) return;
+      clearIdleTimer();
+      idleTimer = setTimeout(() => {
+        callbacks.onError?.("Agent 长时间无输出，执行已空闲超时", "idle_timeout");
+        stopChild();
+      }, idleTimeoutMs);
+    };
+
     if (spec.streamFormat === "acp-json-rpc") {
       rpcSession = attachAcpBridge({
         child,
@@ -160,6 +200,7 @@ export async function runAgent(
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      clearIdleTimer();
       options?.signal?.removeEventListener("abort", onAbort);
       parser.flush();
       const baseResult = {
@@ -194,22 +235,20 @@ export async function runAgent(
 
     const onAbort = () => {
       cancelled = true;
-      if (rpcSession) {
-        rpcSession.abort();
-      } else {
-        child.kill("SIGTERM");
-      }
+      stopChild();
     };
     options?.signal?.addEventListener("abort", onAbort, { once: true });
 
     const timer = setTimeout(() => {
       callbacks.onError?.("Agent 执行超时", "timeout");
-      child.kill("SIGTERM");
+      stopChild();
     }, options?.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+    touchIdleTimer();
 
     child.stdout?.on("data", (d) => {
       const chunk = String(d);
       stdoutTail = (stdoutTail + chunk).slice(-2000);
+      touchIdleTimer();
       if (rpcSession) {
         rpcSession.onStdout(chunk);
       } else {
@@ -219,6 +258,7 @@ export async function runAgent(
 
     child.stderr?.on("data", (d) => {
       stderrTail = (stderrTail + String(d)).slice(-2000);
+      touchIdleTimer();
     });
 
     child.on("error", (err) => {
@@ -230,7 +270,8 @@ export async function runAgent(
       if (code !== 0 && !cancelled && !state.textEmitted) {
         const hint = stderrTail || stdoutTail;
         callbacks.onError?.(
-          hint.slice(0, 500) || `${spec.bin} 退出码 ${code ?? "?"}`,
+          humanizeCliFailure(spec.bin, hint).slice(0, 500) ||
+            `${spec.bin} 退出码 ${code ?? "?"}`,
           "cli_exit",
         );
       }

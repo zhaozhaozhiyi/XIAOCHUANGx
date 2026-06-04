@@ -59,11 +59,79 @@ function mapEvent(
       cwd: typeof payload.cwd === "string" ? payload.cwd : "",
       agentId:
         typeof payload.agentId === "string" ? payload.agentId : "unknown",
+      cwdSource:
+        typeof payload.cwdSource === "string" ? payload.cwdSource : undefined,
       capabilities: Array.isArray(payload.injectedSkills)
         ? payload.injectedSkills.filter(
             (item): item is string => typeof item === "string",
           )
         : undefined,
+      processSkill:
+        typeof payload.processSkill === "string" ? payload.processSkill : null,
+      baseProcessSkill:
+        typeof payload.baseProcessSkill === "string"
+          ? payload.baseProcessSkill
+          : null,
+      platformNormSkill:
+        typeof payload.platformNormSkill === "string"
+          ? payload.platformNormSkill
+          : null,
+      orchestrationMode:
+        typeof payload.orchestrationMode === "string"
+          ? payload.orchestrationMode
+          : null,
+      catalogVersion:
+        typeof payload.catalogVersion === "string"
+          ? payload.catalogVersion
+          : null,
+      catalogSlugs: Array.isArray(payload.catalogSlugs)
+        ? payload.catalogSlugs.filter(
+            (item): item is string => typeof item === "string",
+          )
+        : null,
+      injectedSkills: Array.isArray(payload.injectedSkills)
+        ? payload.injectedSkills.filter(
+            (item): item is string => typeof item === "string",
+          )
+        : null,
+      missingSkills: Array.isArray(payload.missingSkills)
+        ? payload.missingSkills.filter(
+            (item): item is string => typeof item === "string",
+          )
+        : null,
+      catalogMissingSlugs: Array.isArray(payload.catalogMissingSlugs)
+        ? payload.catalogMissingSlugs.filter(
+            (item): item is string => typeof item === "string",
+          )
+        : null,
+      skillsRoot:
+        typeof payload.skillsRoot === "string" ? payload.skillsRoot : undefined,
+      promptsRoot:
+        typeof payload.promptsRoot === "string"
+          ? payload.promptsRoot
+          : undefined,
+      agentKitPath:
+        typeof payload.agentKitPath === "string" ? payload.agentKitPath : null,
+      timeoutProfile:
+        typeof payload.timeoutProfile === "string"
+          ? payload.timeoutProfile
+          : undefined,
+      timeoutMs:
+        typeof payload.timeoutMs === "number" &&
+        Number.isFinite(payload.timeoutMs) &&
+        payload.timeoutMs > 0
+          ? Math.floor(payload.timeoutMs)
+          : undefined,
+      idleTimeoutMs:
+        typeof payload.idleTimeoutMs === "number" &&
+        Number.isFinite(payload.idleTimeoutMs) &&
+        payload.idleTimeoutMs > 0
+          ? Math.floor(payload.idleTimeoutMs)
+          : undefined,
+      stablePromptHash:
+        typeof payload.stablePromptHash === "string"
+          ? payload.stablePromptHash
+          : undefined,
     };
   }
   if (eventName === "run.status") {

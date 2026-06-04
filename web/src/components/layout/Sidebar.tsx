@@ -81,17 +81,19 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
         </ul>
       </nav>
 
-      {!collapsed && showHistorySidebar && (
-        <div className="relative z-0 mt-1 flex min-h-0 flex-1 flex-col overflow-hidden border-t border-[var(--border)] pt-3">
-          <div className="sidebar-history-scroll min-h-0 flex-1 overflow-y-auto">
-            <div className="sidebar-history-scroll__inner">
-              <ChatHistorySidebarBoundary>
-                <ChatHistorySidebar />
-              </ChatHistorySidebarBoundary>
+      <div className="mt-1 flex min-h-0 flex-1 flex-col overflow-hidden">
+        {!collapsed && showHistorySidebar && (
+          <div className="relative z-0 flex min-h-0 flex-1 flex-col overflow-hidden border-t border-[var(--border)] pt-3">
+            <div className="sidebar-history-scroll min-h-0 flex-1 overflow-y-auto">
+              <div className="sidebar-history-scroll__inner">
+                <ChatHistorySidebarBoundary>
+                  <ChatHistorySidebar />
+                </ChatHistorySidebarBoundary>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="shrink-0 border-t border-[var(--border)] p-2">
         <UserSettingsTrigger collapsed={collapsed} />
@@ -137,4 +139,3 @@ function SidebarHeader({
     </div>
   );
 }
-

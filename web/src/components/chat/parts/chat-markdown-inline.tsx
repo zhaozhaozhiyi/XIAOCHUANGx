@@ -1,5 +1,7 @@
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { InlinePathText } from "@/components/chat/parts/InlinePathText";
+import { useOpenFileAt } from "@/hooks/useOpenFileAt";
+import { parseFileRef } from "@/lib/file-path-resolve";
 
 type InlineToken =
   | { kind: "text"; value: string }
@@ -72,6 +74,59 @@ function tokenizeInline(text: string): InlineToken[] {
   return tokens;
 }
 
+function isExternalHref(href: string): boolean {
+  return /^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(href) || /^(mailto|tel):/i.test(href);
+}
+
+function isWorkspaceFileHref(href: string): boolean {
+  const trimmed = href.trim();
+  if (!trimmed || isExternalHref(trimmed)) return false;
+  const parsed = parseFileRef(trimmed);
+  return parsed.path.length > 0 && parsed.path.includes(".");
+}
+
+function WorkspaceAwareLink({
+  href,
+  children,
+}: {
+  href: string;
+  children: ReactNode;
+}) {
+  const { openFileAt, workspaceReady } = useOpenFileAt();
+  const workspaceFile = isWorkspaceFileHref(href);
+
+  const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (!workspaceFile) return;
+    event.preventDefault();
+    if (!workspaceReady) return;
+    void openFileAt(href);
+  };
+
+  if (workspaceFile) {
+    return (
+      <a
+        href={href}
+        onClick={handleClick}
+        className="text-[var(--accent)] underline decoration-[var(--accent)]/40 underline-offset-2 hover:decoration-[var(--accent)] break-all"
+        title={href}
+      >
+        {children}
+      </a>
+    );
+  }
+
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-[var(--accent)] underline decoration-[var(--accent)]/40 underline-offset-2 hover:decoration-[var(--accent)] break-all"
+    >
+      {children}
+    </a>
+  );
+}
+
 export function renderInlineMarkdown(
   text: string,
   keyPrefix: string,
@@ -108,27 +163,15 @@ export function renderInlineMarkdown(
         );
       case "link":
         return (
-          <a
-            key={key}
-            href={tok.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[var(--accent)] underline decoration-[var(--accent)]/40 underline-offset-2 hover:decoration-[var(--accent)] break-all"
-          >
+          <WorkspaceAwareLink key={key} href={tok.href}>
             {tok.text}
-          </a>
+          </WorkspaceAwareLink>
         );
       case "url":
         return (
-          <a
-            key={key}
-            href={tok.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[var(--accent)] underline decoration-[var(--accent)]/40 underline-offset-2 hover:decoration-[var(--accent)] break-all"
-          >
+          <WorkspaceAwareLink key={key} href={tok.href}>
             {tok.href}
-          </a>
+          </WorkspaceAwareLink>
         );
       case "image":
         return (

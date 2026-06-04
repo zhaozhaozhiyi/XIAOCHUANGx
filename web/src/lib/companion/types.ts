@@ -120,6 +120,9 @@ export type CreateRunRequest = {
   useClientHistory?: boolean;
   processSkill?: string | null;
   platformNormSkill?: string;
+  timeoutProfile?: "default" | "fast" | "deep" | "writing" | "ppt";
+  timeoutMs?: number;
+  idleTimeoutMs?: number;
 };
 
 export type CreateRunResponse = {

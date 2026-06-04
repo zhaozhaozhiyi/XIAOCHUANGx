@@ -161,6 +161,14 @@ export async function buildCreateRunRequest(
       ? (moduleSkills?.platformNormSkill ?? orchestration.platformNormSkill)
       : orchestration.platformNormSkill;
   const executionMode = chatExecutionMode();
+  const timeoutProfile =
+    surfaceModuleId === "writing"
+      ? "writing"
+      : surfaceModuleId === "ppt"
+        ? "ppt"
+        : mode === "deep"
+          ? "deep"
+          : "fast";
 
   if (
     executionMode === "companion" &&
@@ -203,6 +211,7 @@ export async function buildCreateRunRequest(
       useClientHistory: parsed.useClientHistory,
       processSkill,
       platformNormSkill,
+      timeoutProfile,
     },
   };
 }
