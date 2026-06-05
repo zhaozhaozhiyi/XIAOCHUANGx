@@ -2,6 +2,7 @@ import { app, Menu, nativeImage, type MenuItemConstructorOptions } from "electro
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { registerHiddenAccelerators } from "./shortcuts.js";
 
 export const APP_DISPLAY_NAME = "小窗";
 
@@ -47,6 +48,10 @@ export function installDesktopBranding(): void {
   if (process.platform === "darwin") {
     applyBrandIcon();
     Menu.setApplicationMenu(Menu.buildFromTemplate(buildMacMenu()));
+  } else {
+    // Windows / Linux：用 visible:false 菜单保留快捷键，菜单栏不可见
+    // 见 web/docs/desktop-titlebar-design.md §6.1 改动 2
+    registerHiddenAccelerators();
   }
 }
 

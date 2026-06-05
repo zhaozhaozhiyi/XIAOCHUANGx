@@ -17,6 +17,7 @@ import {
 import { getCompanionHealth } from "./companion-health.js";
 import { stopEmbeddedWebServer } from "./embedded-web.js";
 import { pickAndImportFolder } from "./import-folder.js";
+import { popupTopMenu, TOP_MENU_IDS, type TopMenuId } from "./shortcuts.js";
 import { resolveWebAppUrl } from "./web-url.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -76,6 +77,22 @@ async function createWindow(): Promise<void> {
     height: 860,
     title: APP_DISPLAY_NAME,
     ...(icon ? { icon } : {}),
+    // 自定义标题栏（设计文档：web/docs/desktop-titlebar-design.md）
+    // - 全平台：titleBarStyle:'hidden' 隐藏窗口标题文字
+    //   · macOS：自动保留左上角交通灯，体验不变
+    //   · Win/Linux：完全无系统标题栏；下方 titleBarOverlay 加回三件套；
+    //     渲染层 DesktopTitleBar 在 36px 条内自绘 File/Edit/View/Window/Help
+    //     5 个菜单按钮，点击通过 IPC 弹出原生 Menu.popup（VSCode 同款做法）
+    titleBarStyle: "hidden",
+    ...(process.platform !== "darwin"
+      ? {
+          titleBarOverlay: {
+            color: "#faf9f5", // surface · 羊皮纸
+            symbolColor: "#5e5d59", // fg-secondary
+            height: 36,
+          },
+        }
+      : {}),
     webPreferences: {
       preload: preloadPath,
       contextIsolation: true,
@@ -113,6 +130,22 @@ app.whenReady().then(() => {
 
   ipcMain.handle("desktop:pick-and-import", async () => pickAndImportFolder());
   ipcMain.handle("desktop:companion-health", async () => getCompanionHealth());
+
+  // 自定义标题栏内嵌菜单 — 渲染端按钮点击时 popup 原生菜单（VSCode 同款）
+  ipcMain.handle("desktop:popup-menu", (event, input: unknown) => {
+    if (!isRecord(input)) return { ok: false };
+    const id = typeof input.id === "string" ? (input.id as TopMenuId) : null;
+    const x = typeof input.x === "number" ? input.x : NaN;
+    const y = typeof input.y === "number" ? input.y : NaN;
+    if (!id || !TOP_MENU_IDS.includes(id) || !Number.isFinite(x) || !Number.isFinite(y)) {
+      return { ok: false };
+    }
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return { ok: false };
+    popupTopMenu(win, id, x, y);
+    return { ok: true };
+  });
+
   ipcMain.handle("desktop:show-item-in-folder", async (_event, input: unknown) => {
     const projectId =
       isRecord(input) && typeof input.projectId === "string"

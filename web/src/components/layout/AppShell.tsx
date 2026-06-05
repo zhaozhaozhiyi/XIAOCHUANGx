@@ -29,8 +29,9 @@ function AppShellFrame({
 }: AppShellFrameProps) {
   const { open } = useWorkspace();
 
+  // 桌面壳标题栏由 root layout 统一渲染（src/app/layout.tsx），AppShell 不重复挂载
   return (
-    <div className="flex h-screen overflow-hidden bg-[var(--background)]">
+    <div className="flex h-full overflow-hidden bg-[var(--background)]">
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => onSidebarCollapsedChange(!sidebarCollapsed)}

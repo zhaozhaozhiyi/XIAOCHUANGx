@@ -81,6 +81,17 @@
   --chat-user-bubble-border: var(--accent-hover);
   --chat-user-bubble-hover: var(--accent-hover);
   --chat-user-bubble-text: var(--surface-elevated);
+
+  /* 桌面壳 — 自定义标题栏（仅 Win/Linux 消费）
+     设计文档：web/docs/desktop-titlebar-design.md §5
+     注意：titleBarOverlay.color/symbolColor 在 Electron 里是字符串字面量，
+           深色模式切换需主进程介入，本文档令牌仅供 React 渲染层使用。 */
+  --titlebar-h: 36px;
+  --titlebar-bg: var(--surface);
+  --titlebar-fg: var(--fg);
+  --titlebar-fg-muted: var(--fg-tertiary);
+  --titlebar-border: var(--border);
+  --titlebar-win-trailing: 138px; /* 让位 Win11 的 ─ ▢ ✕ 三件套 */
 }
 
 @theme inline {
@@ -2381,6 +2392,99 @@ body {
   color: var(--fg);
 }
 
+/* ──────────────────────────────────────────────────────────────────
+ * 桌面壳 Win/Linux 全局滚动条 — 模仿 macOS 自动隐藏
+ *
+ * 行为：
+ *   - 默认：6px 圆头细条、半透明，与暖色 token 对齐
+ *   - 容器 hover：滑块加深，更显眼
+ *   - mac / 浏览器：不命中本规则，OS 原生体验
+ *
+ * 平台标记由 DesktopTitleBar 的 useEffect 写到 <html data-platform="...">；
+ * 仅命中 win32 / linux。
+ *
+ * 注：浏览器 ::-webkit-scrollbar 不支持真正的"鼠标静止后淡出"——只能依靠
+ *   :hover 状态切换。所以"自动隐藏"在 Win/Linux 上的等价实现是：
+ *   滑块默认非常淡（几乎看不见），鼠标进入容器时才加深显形。
+ *   这与 macOS 系统级 auto-hide 行为最接近，且不需要 JS 计时器。
+ * ──────────────────────────────────────────────────────────────── */
+html[data-platform="win32"],
+html[data-platform="linux"] {
+  /* Firefox / 标准属性兜底 */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+html[data-platform="win32"] *,
+html[data-platform="linux"] * {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--fg-tertiary) 14%, transparent)
+    transparent;
+}
+
+html[data-platform="win32"] *:hover,
+html[data-platform="linux"] *:hover {
+  scrollbar-color: color-mix(in srgb, var(--fg-tertiary) 32%, transparent)
+    transparent;
+}
+
+/* WebKit（Electron / Chrome） */
+html[data-platform="win32"] ::-webkit-scrollbar,
+html[data-platform="linux"] ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+  background: transparent;
+}
+
+html[data-platform="win32"] ::-webkit-scrollbar-track,
+html[data-platform="linux"] ::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 2px;
+}
+
+html[data-platform="win32"] ::-webkit-scrollbar-thumb,
+html[data-platform="linux"] ::-webkit-scrollbar-thumb {
+  background: transparent;
+  border: 3px solid transparent;
+  border-radius: 9999px;
+  background-clip: padding-box;
+  transition: background-color 0.15s ease;
+}
+
+/* 容器 hover 时滑块才显形（核心：模拟 mac 的 auto-hide） */
+html[data-platform="win32"] *:hover > ::-webkit-scrollbar-thumb,
+html[data-platform="linux"] *:hover > ::-webkit-scrollbar-thumb,
+html[data-platform="win32"] :hover::-webkit-scrollbar-thumb,
+html[data-platform="linux"] :hover::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--fg-tertiary) 28%, transparent);
+  background-clip: padding-box;
+}
+
+/* 直接悬停在滑块上时再加深一档 */
+html[data-platform="win32"] ::-webkit-scrollbar-thumb:hover,
+html[data-platform="linux"] ::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--fg-tertiary) 48%, transparent);
+  background-clip: padding-box;
+}
+
+html[data-platform="win32"] ::-webkit-scrollbar-thumb:active,
+html[data-platform="linux"] ::-webkit-scrollbar-thumb:active {
+  background: color-mix(in srgb, var(--fg-tertiary) 60%, transparent);
+  background-clip: padding-box;
+}
+
+/* 双向滚动时右下角的小方块 */
+html[data-platform="win32"] ::-webkit-scrollbar-corner,
+html[data-platform="linux"] ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* 例外：已存在的局部精修规则保持原样
+ * - .sidebar-history-scroll          侧栏对话记录（6px、贴边）
+ * - .control-picker-menu--compact    控件菜单
+ * - .workspace-tab-scroll            页签横向条（完全隐藏）
+ * 这三处的选择器优先级 ≥ 全局规则，会自动覆盖。 */
+
 .model-capability-badge {
   border-radius: 999px;
   padding: 0.125rem 0.5rem;
@@ -2745,4 +2849,15 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* —— 桌面壳：拖拽契约 ——
+   用法：
+     <DesktopTitleBar> 容器自带 -webkit-app-region: drag（内联 style）
+     里面所有按钮 / 输入 / 链接显式加 className="no-drag" 才能收到点击
+   见 web/docs/desktop-titlebar-design.md §7.3
+*/
+.no-drag {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
 }
