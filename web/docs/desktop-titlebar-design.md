@@ -4,9 +4,9 @@
 
 | 属性 | 内容 |
 |------|------|
-| 文档版本 | v1.1 |
+| 文档版本 | v1.2 |
 | 创建日期 | 2026-06-04 |
-| 修订日期 | 2026-06-04 |
+| 修订日期 | 2026-06-05 |
 | 状态 | **设计稿（待实现）** |
 | **范围** | **仅 Windows / Linux**；macOS 维持现状不动 |
 | 实现位置 | `apps/desktop/`（Electron 主进程）+ `web/src/components/layout/`（顶栏 React 组件） |
@@ -544,10 +544,41 @@ Electron 文档警示："you should never use a custom context menu on draggable
 
 ---
 
-## 13. 修订记录
+## 13. 窗口图标的 squircle padding 处理
+
+`apps/desktop/build/icon.svg` 第 2 行用了 `translate(80 80) scale(0.84375)` 给图形外围预留 80px 透明边——这是 Apple HIG 的硬性要求，Big Sur+ 的 dock/dmg/Launchpad 会用 squircle 蒙版裁切应用图标，padding 让图形不会被切到。Mac 上视觉因此正常。
+
+Windows 任务栏 / 标题栏 / Alt+Tab 不消费这个 padding，整张 PNG 即可见区，结果图形相对画布只有 84%，比 Chrome / VSCode 这类满画布图标小一圈。
+
+### 13.1 当前方案（已实现）
+
+`apps/desktop/src/main/brand.ts` 的 `resolveBrandIcon()` 在 **非 darwin** 平台上对原图做内存内裁剪：
+
+```ts
+image.crop({ x: 80, y: 80, width: 864, height: 864 })
+     .resize({ width: 256, height: 256, quality: 'best' })
+```
+
+得到满画布的 256×256 NativeImage 交给 `BrowserWindow` 构造参数。Mac 不裁，原图直出。**只影响运行时的窗口图标**（任务栏 / 标题栏 / Alt+Tab），不动磁盘上的 PNG。
+
+### 13.2 待办：打包安装器图标（Phase 2）
+
+`pnpm desktop:pack` 出 NSIS 安装器时，`win.icon: build/icon.png` 是 padded 1024×1024——**安装包图标 / 桌面快捷方式 / 控制面板"卸载程序"列表**仍然会偏小。修法：
+
+1. 新增 `apps/desktop/build/icon-win.svg`：`icon.svg` 去掉外层 `<g transform="translate(80 80) scale(0.84375)">`，让 rect 直接占满 0–1024
+2. `scripts/generate-brand-icons.mjs`：从 `icon-win.svg` 多渲染一组 `icon-win.png` / `@512` / `@256` / `@64` / `@48` / `@32` / `@16`（**需要 `rsvg-convert`**——开发机当前没装；先在 Mac 上跑一次或装 librsvg 再触发）
+3. `apps/desktop/electron-builder.yml`：`win.icon` 从 `build/icon.png` 改到 `build/icon-win.png`（电视 builder 接受 PNG，会自动生成 ICO 多分辨率包）
+4. `extraResources` 同步保留 padded `icon.png`（mac dock 用），新增 `icon-win.png` 给 Win 用
+
+未做的原因：当前阶段还未走打包流程，且 1024 PNG 重生成依赖 `rsvg-convert`。
+
+---
+
+## 14. 修订记录
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
+| v1.2 | 2026-06-05 | §13 新增窗口图标 squircle padding 处理：Win/Linux 主进程裁掉 80px 透明边；Phase 2 打包图标待办 |
 | v1.1 | 2026-06-04 | **明确范围仅 Windows / Linux**；Mac 全部行为承诺不变；新增 §0 范围声明、§2.3 macOS 现状对比、§12 Mac 不动承诺；T6 升级为关键回归项 |
 | v1.0 | 2026-06-04 | 初版：零菜单栏方案；`titleBarOverlay` + 隐藏 accelerator + 用户菜单收纳 |
 
