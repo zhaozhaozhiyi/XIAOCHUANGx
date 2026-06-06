@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [macos-latest, ubuntu-22.04, windows-latest]
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install protoc (macOS)
+        if: matrix.platform == 'macos-latest'
+        run: brew install protobuf
+
+      - name: Install dependencies (Ubuntu)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf protobuf-compiler
+
+      - name: Install protoc (Windows)
+        if: matrix.platform == 'windows-latest'
+        run: choco install protoc -y
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Check frontend build
+        run: npx vite build
+
+      - name: Check Rust build
+        working-directory: src-tauri
+        run: cargo build

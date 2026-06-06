@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>人工智能 Introduction</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: #0a0a0f;
+    color: #fff;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  .deck {
+    width: 100%;
+    height: 100%;
+    position: relative;
+  }
+
+  .slide {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 60px 80px;
+    opacity: 0;
+    transform: translateX(60px);
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+  }
+
+  .slide.active {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: all;
+  }
+
+  .slide.prev {
+    transform: translateX(-60px);
+  }
+
+  /* Slide backgrounds */
+  .slide-1 { background: linear-gradient(135deg, #0a0a1a 0%, #1a0a2e 50%, #0d1b2a 100%); }
+  .slide-2 { background: linear-gradient(135deg, #0d1b2a 0%, #1b2838 50%, #0a1628 100%); }
+  .slide-3 { background: linear-gradient(135deg, #1a0a2e 0%, #2d1b4e 50%, #1a0a2e 100%); }
+  .slide-4 { background: linear-gradient(135deg, #0a1628 0%, #1e3a5f 50%, #0a1628 100%); }
+  .slide-5 { background: linear-gradient(135deg, #1a2a1a 0%, #2d4a2d 50%, #0a1a0a 100%); }
+  .slide-6 { background: linear-gradient(135deg, #2d1b4e 0%, #1a0a2e 50%, #3d2b5e 100%); }
+  .slide-7 { background: linear-gradient(135deg, #0d1b2a 0%, #1a0a2e 50%, #0a0a1a 100%); }
+
+  /* Grid pattern overlay */
+  .slide::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image: 
+      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+  }
+
+  /* Glow effects */
+  .glow {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.3;
+    pointer-events: none;
+  }
+
+  .glow-1 {
+    width: 400px; height: 400px;
+    background: #6366f1;
+    top: -100px; right: -100px;
+  }
+
+  .glow-2 {
+    width: 300px; height: 300px;
+    background: #8b5cf6;
+    bottom: -50px; left: -50px;
+  }
+
+  .glow-3 {
+    width: 350px; height: 350px;
+    background: #06b6d4;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  /* Typography */
+  .slide-number {
+    position: absolute;
+    top: 30px;
+    right: 40px;
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.3);
+    letter-spacing: 2px;
+  }
+
+  .logo {
+    position: absolute;
+    top: 30px;
+    left: 40px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.6);
+  }
+
+  .logo svg {
+    width: 28px; height: 28px;
+  }
+
+  h1 {
+    font-size: clamp(48px, 6vw, 80px);
+    font-weight: 900;
+    line-height: 1.1;
+    text-align: center;
+    margin-bottom: 20px;
+    background: linear-gradient(135deg, #fff 0%, #a5b4fc 50%, #818cf8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  h2 {
+    font-size: clamp(36px, 4vw, 56px);
+    font-weight: 800;
+    margin-bottom: 40px;
+    text-align: center;
+  }
+
+  h3 {
+    font-size: 24px;
+    font-weight: 600;
+    color: #a5b4fc;
+    margin-bottom: 12px;
+  }
+
+  .subtitle {
+    font-size: clamp(18px, 2vw, 24px);
+    color: rgba(255,255,255,0.6);
+    font-weight: 300;
+    text-align: center;
+    max-width: 600px;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 6px 16px;
+    background: rgba(99, 102, 241, 0.2);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #a5b4fc;
+    margin: 4px;
+    letter-spacing: 1px;
+  }
+
+  /* Cards */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+    width: 100%;
+    max-width: 1000px;
+  }
+
+  .card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 28px;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+  }
+
+  .card:hover {
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(99, 102, 241, 0.3);
+    transform: translateY(-4px);
+  }
+
+  .card-icon {
+    width: 48px; height: 48px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+    font-size: 24px;
+  }
+
+  .card h4 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .card p {
+    font-size: 14px;
+    color: rgba(255,255,255,0.5);
+    line-height: 1.6;
+  }
+
+  /* Stats */
+  .stats-row {
+    display: flex;
+    gap: 60px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 20px;
+  }
+
+  .stat {
+    text-align: center;
+  }
+
+  .stat-number {
+    font-size: clamp(48px, 6vw, 72px);
+    font-weight: 900;
+    background: linear-gradient(135deg, #6366f1, #06b6d4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .stat-label {
+    font-size: 14px;
+    color: rgba(255,255,255,0.5);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-top: 8px;
+  }
+
+  /* Timeline */
+  .timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+    max-width: 800px;
+  }
+
+  .timeline-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+  }
+
+  .timeline-year {
+    font-size: 14px;
+    font-weight: 700;
+    color: #6366f1;
+    min-width: 80px;
+  }
+
+  .timeline-content {
+    flex: 1;
+    padding: 16px 20px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 12px;
+    border-left: 3px solid #6366f1;
+  }
+
+  .timeline-content h4 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .timeline-content p {
+    font-size: 13px;
+    color: rgba(255,255,255,0.5);
+  }
+
+  /* Two column layout */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
+    width: 100%;
+    max-width: 1100px;
+    align-items: center;
+  }
+
+  .col-text {
+    font-size: 18px;
+    line-height: 1.8;
+    color: rgba(255,255,255,0.7);
+  }
+
+  .col-text ul {
+    list-style: none;
+    margin-top: 20px;
+  }
+
+  .col-text li {
+    padding: 12px 0;
+    padding-left: 28px;
+    position: relative;
+  }
+
+  .col-text li::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: #6366f1;
+    font-weight: bold;
+  }
+
+  /* Neural network visual */
+  .neural-net {
+    position: relative;
+    width: 300px;
+    height: 300px;
+  }
+
+  .node {
+    position: absolute;
+    width: 16px; height: 16px;
+    background: #6366f1;
+    border-radius: 50%;
+    box-shadow: 0 0 20px #6366f1;
+  }
+
+  /* Progress bar */
+  .progress-container {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: rgba(255,255,255,0.1);
+    z-index: 100;
+  }
+
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #6366f1, #8b5cf6);
+    transition: width 0.3s ease;
+  }
+
+  /* Controls */
+  .controls {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 16px;
+    z-index: 100;
+  }
+
+  .btn {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.05);
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(10px);
+  }
+
+  .btn:hover {
+    background: rgba(255,255,255,0.15);
+    border-color: rgba(99, 102, 241, 0.5);
+  }
+
+  .btn:active {
+    transform: scale(0.95);
+  }
+
+  .btn svg {
+    width: 20px; height: 20px;
+  }
+
+  /* Keyboard hint */
+  .hint {
+    position: fixed;
+    bottom: 30px;
+    right: 40px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.3);
+    z-index: 100;
+  }
+
+  .hint kbd {
+    display: inline-block;
+    padding: 2px 8px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px;
+    margin: 0 2px;
+  }
+
+  /* AI visual elements */
+  .floating-shapes {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .shape {
+    position: absolute;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 50%;
+    animation: float 8s ease-in-out infinite;
+  }
+
+  .shape-1 {
+    width: 200px; height: 200px;
+    top: 10%; left: 10%;
+    animation-delay: 0s;
+  }
+
+  .shape-2 {
+    width: 150px; height: 150px;
+    bottom: 20%; right: 15%;
+    animation-delay: 2s;
+  }
+
+  .shape-3 {
+    width: 100px; height: 100px;
+    top: 60%; left: 5%;
+    animation-delay: 4s;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-20px) rotate(180deg); }
+  }
+
+  /* Feature list */
+  .feature-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    width: 100%;
+    max-width: 900px;
+  }
+
+  .feature-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .feature-icon {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .feature-text h5 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .feature-text span {
+    font-size: 12px;
+    color: rgba(255,255,255,0.4);
+  }
+
+  /* Quote */
+  .quote {
+    font-size: clamp(24px, 3vw, 36px);
+    font-weight: 300;
+    text-align: center;
+    max-width: 800px;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.9);
+    font-style: italic;
+  }
+
+  .quote-author {
+    margin-top: 30px;
+    font-size: 14px;
+    color: rgba(255,255,255,0.4);
+    font-style: normal;
+  }
+
+  /* Thank you */
+  .end-title {
+    font-size: clamp(56px, 8vw, 100px);
+    font-weight: 900;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6, #06b6d4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Animations on enter */
+  .slide.active .card,
+  .slide.active .timeline-item,
+  .slide.active .feature-item,
+  .slide.active .stat {
+    animation: fadeUp 0.6s ease forwards;
+  }
+
+  .slide.active .card:nth-child(1),
+  .slide.active .timeline-item:nth-child(1),
+  .slide.active .feature-item:nth-child(1) { animation-delay: 0.1s; }
+  .slide.active .card:nth-child(2),
+  .slide.active .timeline-item:nth-child(2),
+  .slide.active .feature-item:nth-child(2) { animation-delay: 0.2s; }
+  .slide.active .card:nth-child(3),
+  .slide.active .timeline-item:nth-child(3),
+  .slide.active .feature-item:nth-child(3) { animation-delay: 0.3s; }
+  .slide.active .card:nth-child(4),
+  .slide.active .timeline-item:nth-child(4),
+  .slide.active .feature-item:nth-child(4) { animation-delay: 0.4s; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .card, .timeline-item, .feature-item { opacity: 0; }
+  .stat { opacity: 0; }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .slide { padding: 40px 24px; }
+    .two-col { grid-template-columns: 1fr; gap: 30px; }
+    .card-grid { grid-template-columns: 1fr; }
+    .feature-list { grid-template-columns: 1fr; }
+    .stats-row { gap: 30px; }
+    .controls { bottom: 20px; }
+    .hint { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="deck" id="deck">
+
+  <!-- Slide 1: Title -->
+  <div class="slide slide-1 active" data-slide="1">
+    <div class="glow glow-1"></div>
+    <div class="glow glow-2"></div>
+    <div class="floating-shapes">
+      <div class="shape shape-1"></div>
+      <div class="shape shape-2"></div>
+      <div class="shape shape-3"></div>
+    </div>
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+      </svg>
+      AI Introduction
+    </div>
+    <h1>Artificial<br>Intelligence</h1>
+    <p class="subtitle">人工智能：重塑未来的技术革命</p>
+    <div style="margin-top: 40px;">
+      <span class="tag">机器学习</span>
+      <span class="tag">深度学习</span>
+      <span class="tag">神经网络</span>
+      <span class="tag">大语言模型</span>
+    </div>
+    <div class="slide-number">01 / 07</div>
+  </div>
+
+  <!-- Slide 2: What is AI -->
+  <div class="slide slide-2" data-slide="2">
+    <div class="glow glow-3"></div>
+    <h2>什么是人工智能？</h2>
+    <div class="two-col">
+      <div class="col-text">
+        <p>人工智能（AI）是计算机科学的一个分支，致力于开发能够执行通常需要人类智能的任务的系统。</p>
+        <ul>
+          <li>理解自然语言</li>
+          <li>识别图像和语音</li>
+          <li>做出决策和预测</li>
+          <li>学习和自我改进</li>
+          <li>解决复杂问题</li>
+        </ul>
+      </div>
+      <div class="card-grid" style="grid-template-columns: 1fr 1fr;">
+        <div class="card" style="text-align:center;">
+          <div class="card-icon">🧠</div>
+          <h4>弱人工智能</h4>
+          <p>专注于单一任务，如语音助手、图像识别</p>
+        </div>
+        <div class="card" style="text-align:center;">
+          <div class="card-icon">🚀</div>
+          <h4>强人工智能</h4>
+          <p>通用智能，能像人类一样思考和推理（研究目标）</p>
+        </div>
+      </div>
+    </div>
+    <div class="slide-number">02 / 07</div>
+  </div>
+
+  <!-- Slide 3: Key Technologies -->
+  <div class="slide slide-3" data-slide="3">
+    <div class="glow glow-1"></div>
+    <h2>核心技术领域</h2>
+    <div class="feature-list">
+      <div class="feature-item">
+        <div class="feature-icon">🔬</div>
+        <div class="feature-text">
+          <h5>机器学习</h5>
+          <span>让计算机从数据中学习并改进</span>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">🧬</div>
+        <div class="feature-text">
+          <h5>深度学习</h5>
+          <span>多层神经网络处理复杂模式</span>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">💬</div>
+        <div class="feature-text">
+          <h5>自然语言处理</h5>
+          <span>理解和生成人类语言</span>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">👁️</div>
+        <div class="feature-text">
+          <h5>计算机视觉</h5>
+          <span>分析和理解图像与视频</span>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">🗣️</div>
+        <div class="feature-text">
+          <h5>语音识别</h5>
+          <span>将语音转换为文本</span>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">🎯</div>
+        <div class="feature-text">
+          <h5>强化学习</h5>
+          <span>通过试错学习最优策略</span>
+        </div>
+      </div>
+    </div>
+    <div class="slide-number">03 / 07</div>
+  </div>
+
+  <!-- Slide 4: Timeline -->
+  <div class="slide slide-4" data-slide="4">
+    <div class="glow glow-2"></div>
+    <h2>发展历程</h2>
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-year">1950s</div>
+        <div class="timeline-content">
+          <h4>人工智能诞生</h4>
+          <p>图灵提出"图灵测试"，艾伦·纽维尔和司马贺开发了第一个AI程序"逻辑理论家"</p>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-year">1980s</div>
+        <div class="timeline-content">
+          <h4>专家系统兴起</h4>
+          <p>基于规则的知识系统商业化应用，AI进入第二次繁荣期</p>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-year">2010s</div>
+        <div class="timeline-content">
+          <h4>深度学习突破</h4>
+          <p>ImageNet竞赛中深度卷积神经网络突破，GPU加速训练成为主流</p>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-year">2020s</div>
+        <div class="timeline-content">
+          <h4>大模型时代</h4>
+          <p>GPT、Claude等大语言模型涌现，生成式AI彻底改变人机交互方式</p>
+        </div>
+      </div>
+    </div>
+    <div class="slide-number">04 / 07</div>
+  </div>
+
+  <!-- Slide 5: Applications -->
+  <div class="slide slide-5" data-slide="5">
+    <div class="glow glow-3"></div>
+    <h2>应用场景</h2>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🏥</div>
+        <h4>医疗健康</h4>
+        <p>疾病诊断、药物研发、医学影像分析、个性化治疗方案</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🚗</div>
+        <h4>自动驾驶</h4>
+        <p>环境感知、路径规划、决策控制，推动交通革命</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🏭</div>
+        <h4>智能制造</h4>
+        <p>质量检测、预测性维护、供应链优化、机器人协作</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🏦</div>
+        <h4>金融服务</h4>
+        <p>风险评估、欺诈检测、智能投顾、量化交易</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🎓</div>
+        <h4>教育</h4>
+        <p>个性化学习、智能辅导、自动批改、教育数据分析</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🎨</div>
+        <h4>创意产业</h4>
+        <p>AI绘画、音乐创作、内容生成、设计辅助</p>
+      </div>
+    </div>
+    <div class="slide-number">05 / 07</div>
+  </div>
+
+  <!-- Slide 6: Stats -->
+  <div class="slide slide-6" data-slide="6">
+    <div class="glow glow-1"></div>
+    <div class="glow glow-2"></div>
+    <h2>AI 影响力</h2>
+    <div class="stats-row">
+      <div class="stat">
+        <div class="stat-number">1840亿</div>
+        <div class="stat-label">2024年全球AI市场规模（美元）</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number">40%</div>
+        <div class="stat-label">预计年复合增长率 (CAGR)</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number">97%</div>
+        <div class="stat-label">知晓ChatGPT的用户比例</div>
+      </div>
+    </div>
+    <p class="subtitle" style="margin-top: 50px;">
+      AI正在渗透到各行各业，从根本上改变我们的工作和生活方式
+    </p>
+    <div class="slide-number">06 / 07</div>
+  </div>
+
+  <!-- Slide 7: Quote & End -->
+  <div class="slide slide-7" data-slide="7">
+    <div class="glow glow-1"></div>
+    <div class="glow glow-2"></div>
+    <div class="glow glow-3"></div>
+    <div class="floating-shapes">
+      <div class="shape shape-1"></div>
+      <div class="shape shape-2"></div>
+      <div class="shape shape-3"></div>
+    </div>
+    <p class="quote">
+      "人工智能就像是一把钥匙，<br>打开了一扇通往未知世界的大门。"
+    </p>
+    <p class="quote-author">— 面向未来，拥抱AI</p>
+    <h2 class="end-title" style="margin-top: 40px;">谢谢观看</h2>
+    <div style="margin-top: 30px;">
+      <span class="tag">Questions?</span>
+      <span class="tag">Let's Discuss</span>
+    </div>
+    <div class="slide-number">07 / 07</div>
+  </div>
+
+</div>
+
+<!-- Progress bar -->
+<div class="progress-container">
+  <div class="progress-bar" id="progress"></div>
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <button class="btn" id="prevBtn" title="上一页">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="15 18 9 12 15 6"/>
+    </svg>
+  </button>
+  <button class="btn" id="nextBtn" title="下一页">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="9 18 15 12 9 6"/>
+    </svg>
+  </button>
+</div>
+
+<div class="hint">
+  <kbd>←</kbd> <kbd>→</kbd> 导航 &nbsp; <kbd>Space</kbd> 下一页
+</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const progress = document.getElementById('progress');
+  let current = 0;
+  const total = slides.length;
+
+  function updateSlide(index) {
+    slides.forEach((slide, i) => {
+      slide.classList.remove('active', 'prev');
+      if (i < index) slide.classList.add('prev');
+      if (i === index) slide.classList.add('active');
+    });
+    progress.style.width = ((index + 1) / total * 100) + '%';
+  }
+
+  function next() {
+    if (current < total - 1) {
+      current++;
+      updateSlide(current);
+    }
+  }
+
+  function prev() {
+    if (current > 0) {
+      current--;
+      updateSlide(current);
+    }
+  }
+
+  document.getElementById('nextBtn').addEventListener('click', next);
+  document.getElementById('prevBtn').addEventListener('click', prev);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ') {
+      e.preventDefault();
+      next();
+    } else if (e.key === 'ArrowLeft') {
+      prev();
+    }
+  });
+
+  // Touch/swipe support
+  let touchStartX = 0;
+  document.addEventListener('touchstart', (e) => {
+    touchStartX = e.touches[0].clientX;
+  });
+  document.addEventListener('touchend', (e) => {
+    const diff = touchStartX - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 50) {
+      diff > 0 ? next() : prev();
+    }
+  });
+</script>
+
+</body>
+</html>
