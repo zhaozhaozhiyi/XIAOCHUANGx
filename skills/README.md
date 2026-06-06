@@ -73,16 +73,16 @@ pnpm skills:verify-ppt    # 同步 + 校验关键 Skill 可读
 | `skill-platform-research-norms` | 横切 | ✅ | MVP | 每次 Agent Run 注入 |
 | `skill-qa-fast` | 对话 | ✅ | MVP | 快速模式 |
 | `skill-qa-deep` | 对话 | ✅ | MVP | 深度模式 |
-| `skill-mm-summary` | 会议 | ❌ | V1.1 | 默认通用纪要；见 A-01 |
-| `skill-mm-daily-standup` | 会议 | ❌ | V1.1+ | 可选模板 |
-| `skill-mm-client-review` | 会议 | ❌ | V1.1+ | 可选模板 |
-| `skill-mm-internal-decision` | 会议 | ❌ | V1.1+ | 可选模板 |
-| `skill-kb-qa` | 知识库 | ❌ | V1.1 | 库内问答；见 A-03 |
-| `skill-wr-policy` | 写作 | ❌ | V1.1 | templateId `policy` |
-| `skill-wr-topic` | 写作 | ❌ | V1.1 | `topic` |
-| `skill-wr-industry` | 写作 | ❌ | V1.1 | `industry` |
-| `skill-wr-macro` | 写作 | ❌ | V1.1 | `macro` |
-| `skill-wr-sector-data` | 写作 | ❌ | V1.1 | `sector-data` |
+| `skill-mm-summary` | 会议 | ✅ | V1.1 | 默认通用纪要（5 区块结构）；2026-06-06 占位；见 A-01 |
+| `skill-mm-daily-standup` | 会议 | ✅ | V1.1+ | 站会/周会速记；2026-06-06 占位 |
+| `skill-mm-client-review` | 会议 | ✅ | V1.1+ | 客户沟通纪要；2026-06-06 占位 |
+| `skill-mm-internal-decision` | 会议 | ✅ | V1.1+ | 内部研讨/投决；2026-06-06 占位 |
+| `skill-kb-qa` | 知识库 | ✅ | V1.1 | 库内 RAG 问答；2026-06-06 占位；见 A-03 |
+| `skill-wr-policy` | 写作 | ✅ | V1.1 | templateId `policy` 政策解读；2026-06-06 占位 |
+| `skill-wr-topic` | 写作 | ✅ | V1.1 | `topic` 专题研究；2026-06-06 占位 |
+| `skill-wr-industry` | 写作 | ✅ | V1.1 | `industry` 行业研究；2026-06-06 占位 |
+| `skill-wr-macro` | 写作 | ✅ | V1.1 | `macro` 宏观数据解读；2026-06-06 占位 |
+| `skill-wr-sector-data` | 写作 | ✅ | V1.1 | `sector-data` 行业数据点评；2026-06-06 占位 |
 | `skill-ppt-deck` | PPT | ✅ | V1.1 | 默认 deck |
 | `skill-ppt-pitch-deck` 等 | PPT | ✅ | V1.1 | 见 `PPT_TEMPLATE_SKILL` |
 | `skill-tr-polish` | 翻译 | ❌ | V1.1 可选 | API 主路径，非必须 |

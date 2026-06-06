@@ -21,6 +21,42 @@
       "summary": "会议纪要撰写：议题归纳、决议与待办表格，可基于要点或附件成稿"
     },
     {
+      "slug": "skill-wr-policy",
+      "kind": "workflow",
+      "scope": ["chat", "writing"],
+      "summary": "政策解读：政策原文 → 一句话核心 + 逐条解读 + 风险与不确定性"
+    },
+    {
+      "slug": "skill-wr-topic",
+      "kind": "workflow",
+      "scope": ["chat", "writing"],
+      "summary": "专题研究：围绕特定问题整合多源资料，含图表与情景推演"
+    },
+    {
+      "slug": "skill-wr-industry",
+      "kind": "workflow",
+      "scope": ["chat", "writing"],
+      "summary": "行业研究：产业链、市场规模、竞争格局、驱动与制约、可选投资视角"
+    },
+    {
+      "slug": "skill-wr-macro",
+      "kind": "workflow",
+      "scope": ["chat", "writing"],
+      "summary": "宏观数据解读：当期/滚动数据点评（CPI、社融、PMI 等），含市场与政策含义"
+    },
+    {
+      "slug": "skill-wr-sector-data",
+      "kind": "workflow",
+      "scope": ["chat", "writing"],
+      "summary": "行业数据解读：高频量价/库存/产业链传导周月度点评"
+    },
+    {
+      "slug": "skill-kb-qa",
+      "kind": "workflow",
+      "scope": ["chat", "knowledge"],
+      "summary": "知识库 RAG 问答：限定在已上传文档内检索后作答，引用片段锚点"
+    },
+    {
       "slug": "skill-ppt-pitch-deck",
       "kind": "workflow",
       "scope": ["chat", "ppt"],
