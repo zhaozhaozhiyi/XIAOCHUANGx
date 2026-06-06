@@ -20,7 +20,9 @@
 | 文档 | 说明 |
 |------|------|
 | [meeting-module-prd.md](./meeting-module-prd.md) | 会议纪要：ASR、说话人、纪要 Skill、线框 |
-| [writing-module-prd.md](./writing-module-prd.md) | 写作：五类模板、多步骤/快速、我的文稿 |
-| [ppt-module-prd.md](./ppt-module-prd.md) | PPT：新建/从文稿/路演模板、PPTX 导出 |
+| [writing-module-prd.v2.md](./writing-module-prd.v2.md) | **写作（v1.0，2026-05-31，现行）**：对话 + 写作 Skill + MD 交付 + DOCX 导出 |
+| ~~[writing-module-prd.md](./writing-module-prd.md)~~ | 写作 v0.1（已被 v2 替代，保留作历史） |
+| [ppt-module-prd.v2.md](./ppt-module-prd.v2.md) | **PPT（v1.0，2026-05-31，现行）**：对话 + PPT Skill + 交付物 + 导出 |
+| ~~[ppt-module-prd.md](./ppt-module-prd.md)~~ | PPT v0.1（已被 v2 替代，保留作历史） |
 
 产品总览：[PRD v3.6.7](../../PRD-小窗.md) · [技术方案 v1.5](../../技术方案.md) · [功能清单](../../功能清单.md) · [设计文档审计](../../docs/design-doc-audit-recommendations.md)

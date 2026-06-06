@@ -1,10 +1,16 @@
 # PPT 模块 — 产品需求（子文档）
 
+> ⚠️ **本文已被替代（2026-06-06 决策）**  
+> PPT 模块的现行设计以 **[ppt-module-prd.v2.md](./ppt-module-prd.v2.md)（v1.0，2026-05-31）** 为准。  
+> v2 明确废止：「我的 PPT」独立列表、新建/从文稿/路演模板的分页 IA、步骤向导。  
+> v2 的核心决策：**PPT = 对话 + PPT Skill + 交付物 + 导出**；工作区文件即 PPT。  
+> 本文（v0.1）保留作为历史，**不再用于实现**。新的「F-PPT」能力映射、路由与 IA 全部以 v2 为准。
+
 | 属性 | 内容 |
 |------|------|
-| 文档版本 | v0.1 |
-| 修订日期 | 2026-05-27 |
-| 状态 | 草案（V1.1 验收） |
+| 文档版本 | v0.1（**已被 v2 替代**） |
+| 修订日期 | 2026-05-27（v2 接替日 2026-06-06） |
+| 状态 | **已废止**（superseded by [v2](./ppt-module-prd.v2.md)） |
 | 上级文档 | [PRD-小窗.md](../../PRD-小窗.md) **§6.9**、**§6.0.3**、**§6.0.4** |
 | 关联 | [workspace-architecture.md](./workspace-architecture.md)、[module-registry.ts](../src/lib/module-registry.ts)、[skills/README.md](../../skills/README.md) |
 

@@ -1,10 +1,16 @@
 # 写作模块 — 产品需求（子文档）
 
+> ⚠️ **本文已被替代（2026-06-06 决策）**  
+> 写作模块的现行设计以 **[writing-module-prd.v2.md](./writing-module-prd.v2.md)（v1.0，2026-05-31）** 为准。  
+> v2 明确废止：「我的文稿」独立列表、5 类模板独立子页面、步骤向导、独立 WritingModuleContent。  
+> v2 的核心决策：**写作 = 对话 + 写作 Skill + MD 交付 + DOCX 导出**；模板只是 Skill 差异，统一对话入口。  
+> 本文（v0.1）保留作为历史，**不再用于实现**。F-WR-001 验收以 v2 §7 为准，F-WR-002 已废止。
+
 | 属性 | 内容 |
 |------|------|
-| 文档版本 | v0.1 |
-| 修订日期 | 2026-05-27 |
-| 状态 | 草案（V1.1 验收） |
+| 文档版本 | v0.1（**已被 v2 替代**） |
+| 修订日期 | 2026-05-27（v2 接替日 2026-06-06） |
+| 状态 | **已废止**（superseded by [v2](./writing-module-prd.v2.md)） |
 | 上级文档 | [PRD-小窗.md](../../PRD-小窗.md) **§6.6**、**§6.0.3**、**§6.0.4** |
 | 关联 | [workspace-architecture.md](./workspace-architecture.md)、[module-registry.ts](../src/lib/module-registry.ts)、[功能清单.md](../../功能清单.md) |
 

@@ -250,8 +250,8 @@
 | **对话** | 新对话、历史会话；（页内）快速、深度 |
 | **会议纪要** | 新建纪要、纪要历史 |
 | **知识库** | 我的文档、知识库问答、多信源分析 |
-| **写作** | 新建写作、政策解读、专题研究、行业研究、宏观数据解读、行业数据解读、我的文稿 |
-| **PPT** | 新建 PPT、从文稿生成、路演模板、我的 PPT |
+| **写作** | 写作（对话式生成 + 对话内切换 Skill；v2 决策 2026-05-31，详 [writing-module-prd.v2](./web/docs/writing-module-prd.v2.md)） |
+| **PPT** | PPT（对话式生成 + 对话内切换 Skill；v2 决策 2026-05-31，详 [ppt-module-prd.v2](./web/docs/ppt-module-prd.v2.md)） |
 | **翻译** | 文档翻译、文本翻译、翻译历史 |
 
 > **说明：** 研究业务仅上表六个一级模块。**全局设置**不占左侧业务导航，统一由侧栏底部**用户区**进入（§4.4）。
@@ -1604,15 +1604,20 @@ flowchart LR
 
 ### 6.6 写作（works）
 
+> ⚠️ **本节叙述（7 二级菜单 / 多步骤+快速分步流程 / F-WR-002 我的文稿）已于 2026-06-06 被替代**。  
+> 现行设计：[`web/docs/writing-module-prd.v2.md`](./web/docs/writing-module-prd.v2.md)（v1.0，2026-05-31）。  
+> v2 决策：**写作 = 对话 + 写作 Skill + MD 交付 + DOCX 导出**；二级菜单只保留「写作」一项；五类模板由对话内切换 `skill-wr-*` 触发；不建独立「我的文稿」列表（工作区文件即文稿）；不走分步向导。  
+> 本节 §6.6.2~§6.6.8 保留作为历史，**不再用于实现**；F-WR-001 验收以 v2 §7 为准，F-WR-002 已废止。
+
 > 菜单名 **写作**；本章功能编号保留 F-WR / AIR 追溯。
 
 #### 6.6.1 功能概述
 
 根据模板与参数自动生成含数据图表的研究文稿；支持多步骤与快速两种生成流程。
 
-#### 6.6.2 二级菜单
+#### 6.6.2 二级菜单（已废止 v1 描述；v2 仅一项「写作」）
 
-政策解读 · 专题研究 · 行业研究 · 宏观数据解读 · 行业数据解读 · 我的文稿
+~~政策解读 · 专题研究 · 行业研究 · 宏观数据解读 · 行业数据解读 · 我的文稿~~ → 仅「写作」一项（v2）；模板切换在对话内由 Skill 驱动
 
 #### 6.6.3 报告类型
 
@@ -1805,13 +1810,18 @@ flowchart LR
 
 ### 6.9 PPT（works）
 
+> ⚠️ **本节叙述（4 二级菜单 / F-PPT-002 我的 PPT）已于 2026-06-06 被替代**。  
+> 现行设计：[`web/docs/ppt-module-prd.v2.md`](./web/docs/ppt-module-prd.v2.md)（v1.0，2026-05-31）。  
+> v2 决策：**PPT = 对话 + PPT Skill + 交付物 + 导出**；二级菜单只保留「PPT」一项；从文稿/路演模板由对话内切换 Skill 触发；不建独立「我的 PPT」列表（工作区文件即 PPT）。  
+> 本节 §6.9.2~§6.9.5 保留作为历史，**不再用于实现**；F-PPT-001 验收以 v2 §7 为准，F-PPT-002 已废止。
+
 #### 6.9.1 功能概述
 
 将研究主题、写作文稿或模板结构转化为可汇报的**演示文稿**，支持大纲编辑、分页预览与 PPTX 导出；与写作、对话共享数据图表能力（幻灯片内为静态图）。
 
-#### 6.9.2 二级菜单
+#### 6.9.2 二级菜单（已废止 v1 描述；v2 仅一项「PPT」）
 
-新建 PPT · 从文稿生成 · 路演模板 · 我的 PPT
+~~新建 PPT · 从文稿生成 · 路演模板 · 我的 PPT~~ → 仅「PPT」一项（v2）
 
 #### 6.9.3 生成方式（F-PPT-001）
 
@@ -3177,10 +3187,11 @@ Session {               // 对话会话；字段名实现可对齐 conversationI
 | `/chat/history` | 历史会话 | 🔶 | 全屏列表 + 状态点；主历史在侧栏分组（§4.3、F-QA-008） |
 | `/meeting/*` | 会议纪要 | ⬜ | `/meeting/new` 为 `UploadPanel` 占位 |
 | `/knowledge/*` | 知识库 | ⬜ | `ModuleWorkspace` 占位 |
-| `/writing/new` | 新建写作 | 🔶 | 空白流骨架 |
-| `/writing/{template}` | 五类模板 | 🔶 | `WritingPanel` 多步骤/快速切换骨架 |
-| `/writing/mine` | 我的文稿 | ⬜ | 占位 |
-| `/ppt/*` | PPT 四入口 | 🔶 | `PptPanel` 按 variant 占位 |
+| `/writing/new` | 写作 | ✅ | v2：加载 ChatHome + `skill-writing-general`，对话内切换 `skill-wr-*`（2026-06-06） |
+| ~~`/writing/{template}`~~ | ~~五类模板~~ | ❌ 已废止 | v2：模板由对话内 Skill 切换，不另开页（[writing-module-prd.v2](./web/docs/writing-module-prd.v2.md)） |
+| ~~`/writing/mine`~~ | ~~我的文稿~~ | ❌ 已废止 | v2：工作区文件即文稿（同上） |
+| `/ppt/new` | PPT | ✅ | v2：加载 ChatHome + `skill-ppt-pitch-deck`，对话内切换 PPT Skill（2026-06-06） |
+| ~~`/ppt/from-writing` / `/ppt/templates` / `/ppt/mine`~~ | ~~从文稿/路演模板/我的 PPT~~ | ❌ 已废止 | v2：均改为对话内 Skill 切换（[ppt-module-prd.v2](./web/docs/ppt-module-prd.v2.md)） |
 | `/translate/*` | 翻译三入口 | ⬜ | 占位 |
 
 实现来源：`web/src/lib/navigation.ts`（`NAV_MODULES`）、`web/src/app/(main)/**`。
