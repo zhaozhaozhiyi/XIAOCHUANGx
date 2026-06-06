@@ -52,7 +52,7 @@ flowchart TB
 | ID | 状态 | 说明 |
 |----|------|------|
 | S1.0 | ✅ | 默认 `CHAT_EXECUTION=companion`、`COMPANION_RUN_MODE=cli` |
-| S1.1 | ✅ | `COMPANION_CLI_FALLBACK=error`；`pnpm smoke:companion` PASS（含 system/user 双通道） |
+| S1.1 | ✅ | `COMPANION_CLI_FALLBACK=error`；`pnpm smoke:companion` (codex) + `pnpm smoke:companion:claude` 双 CLI 真流 PASS；`mvp:verify` 至少一条通过即可（详见 [mvp-closure-checklist §1](./mvp-closure-checklist.md#1-自动化冒烟必须先过)） |
 | S1.2 | 🔶 | 自动化 SSE 已验；Web UI 见 checklist D1–D4 |
 | S1.3 | 🔶 | `ChatTurnList` 已落地；吸顶见 checklist D5 |
 | S1.4 | ✅ | `runtimeStatusTitle` →「Companion 已连接 · {agentId} CLI 可用」 |
@@ -129,6 +129,7 @@ COMPANION_DEFAULT_AGENT=codex
 | S1.1b | stderr 尾部 | `run-agent.ts`, `manager.ts` | ✅ |
 | S1.1c | Codex stdin / system 写入 | `run-agent.ts`, `build-args.ts` | ✅ `smoke:companion` 通过 |
 | S1.1d | 超时与取消 | `manager.ts`, cancel API | ⬜ |
+| S1.1e | tsx watch 重启期间 `/v1/agents` 半失败 | `companion/src/agents/detect.ts` `detectAllAgents`；考虑过渡期返回 503 / `agentsStatus:"reloading"` | ⬜ 已知小坑（2026-06-06 复现：dev 重载窗口内 `which` 全失败，Web 顶栏会瞬间变橙黄） |
 
 **验收：**
 

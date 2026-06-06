@@ -25,7 +25,9 @@ pnpm mvp:verify
 | 命令 | 通过含义 |
 |------|----------|
 | `pnpm skills:verify` | `composeRunPrompts` 能加载 platform + `skill-qa-fast` + 横切规范 + Agent Kit 路径 |
-| `pnpm smoke:companion` | `/v1/health` runMode=cli；短 Run 有 `run.started`（含 `orchestrationMode`）→ `tool.progress` → `message.delta` → `run.finished` |
+| `pnpm smoke:companion`（codex 严格档） | `/v1/health` runMode=cli；codex 短 Run 有 `run.started`（含 `orchestrationMode`）→ `tool.progress` → `message.delta` → `run.finished`。**本机未装 codex 时会 FAIL；想跳过用 `pnpm smoke:companion:codex`**。 |
+| `pnpm smoke:companion:claude` | claude 短 Run 同上事件链；`--soft`：未装时 SKIP（exit 0） |
+| `pnpm mvp:verify` | `skills:verify` + codex/claude 各跑一次（任一缺失自动 SKIP）+ `smoke-companion-any.mjs` 兜底（要求至少一个 CLI 真流通过） |
 
 **Web 环境（`web/.env.local`）：**
 
@@ -48,13 +50,14 @@ COMPANION_CLI_FALLBACK=error
 
 | # | 项 | 操作 | 通过 |
 |---|-----|------|------|
-| D1 | 真流式 | 新建对话 → 选 codex → 发「只回复：好」 | 有过程行 + 流式正文，非 Mock 固定话术 |
+| D1 | 真流式（codex） | 新建对话 → 选 codex → 发「只回复：好」 | 有过程行 + 流式正文，非 Mock 固定话术 |
+| D1c | 真流式（claude） | 新建对话 → 切到 claude → 发「只回复：好」 | ✅ 同 D1；事件序列含 `tool.progress`/`message.delta`/`canonical.output`/`run.finished`（2026-06-06 `pnpm smoke:companion:claude` PASS + 用户 GUI 验证通过） |
 | D2 | 停止 | 长问题中途点停止 | 保留已输出；状态变 idle |
 | D3 | 两档模式 | 切换快速/深度各发一问 | 深度回答更长或带步骤（不要求完全一致） |
 | D4 | parts 交错 | 深度或带工具的问题 | 过程与正文按时间序出现；`tool_batch` 完成后默认折叠 |
 | D5 | Turn 吸顶 | 多轮后上下滚 | 当前视口对应用户问 sticky，非永远顶栏标题 |
 | D6 | 状态点 | 看顶栏圆点 tooltip | 含「Companion 已连接 · {agentId} CLI 可用」 |
-| D7 | Companion 挂掉 | 停 Companion 再发消息 | 明确错误，非静默模拟成功 |
+| D7 | Companion 挂掉 | 停 Companion 再发消息 | 明确错误，非静默模拟成功（2026-06-06 后端 + GUI 验证：`/api/runtime/health` 返回 `{ok:false, error:"fetch failed"}`，`smoke:companion` codex 未装时返回 `not_installed` + 中文 hint，不会假装成功；用户 GUI 验证通过） |
 | D8 | 历史种子 | 打开带示例 parts 的会话 | 旧 `content` 仍可渲染 |
 | D9 | 会话持久化 | 发多轮 → 刷新页 → 历史仍在 | Companion `sessions` 或 localStorage 回退均可见历史 |
 
@@ -68,8 +71,8 @@ COMPANION_CLI_FALLBACK=error
 |---|-----|------|
 | W1 | 未选课题文件夹 → 首条消息前可草稿；发送后 `ensure-default-task-project` 创建 XIAOCHUANG 任务目录（§5.3.2.1a） | ✅ |
 | W2 | 侧栏/下拉能列项目；平台默认任务归入「默认工作区（XIAOCHUANG）」 | ✅ |
-| W3 | Web 手填路径导入文件夹 → 新建会话绑定 | ⬜ |
-| W4 | 对话内点击文件路径打开工作区（F-QA-010） | ⬜ |
+| W3 | Web 手填路径导入文件夹 → 新建会话绑定 | ✅ 后端契约 + GUI（2026-06-06：`POST /v1/projects/import-folder` `~/Projects/jlc-smoke-test` → `proj-c8e31e49`，`baseDir` 不外泄；用户 GUI 验证通过） |
+| W4 | 对话内点击文件路径打开工作区（F-QA-010） | ✅ 后端契约 + GUI（2026-06-06：claude run 写 `hello.md` → `canonicalOutput.workspaceChanges[0].path="hello.md"` + `artifacts[0].kind="primary"`，磁盘文件实际生成；用户 GUI 验证通过） |
 
 ---
 
@@ -77,8 +80,8 @@ COMPANION_CLI_FALLBACK=error
 
 | # | 项 | 通过 |
 |---|-----|------|
-| E1 | `pnpm desktop:dev` 加载 `http://localhost:3000` | ⬜ |
-| E2 | 「添加项目」系统选目录 → 列表出现新项目 | ⬜ |
+| E1 | `pnpm desktop:dev` 加载 `http://localhost:3000` | ✅ 后端联通 + GUI（2026-06-06：`pnpm desktop:dev` Electron 主进程加载 `JLC_WEB_URL=http://localhost:3000`；用户 GUI 验证通过） |
+| E2 | 「添加项目」系统选目录 → 列表出现新项目 | ✅ 后端契约 + GUI（同 W3：`pickAndImportFolder` IPC → Companion `import-folder`；用户 GUI 验证通过） |
 | E3 | `pnpm desktop:pack:dir` 解包后启动（可选） | ⬜ 不挡 MVP 演示 |
 
 ---
@@ -99,8 +102,8 @@ COMPANION_CLI_FALLBACK=error
 ```text
 MVP 收口：通过 / 有条件通过 / 未通过
 日期：
-自动化：mvp:verify [ PASS | FAIL ]
-人工：D1–D9 [ n/9 ]，W1–W4 [ n/4 ]，E1–E2 [ n/2 | N/A ]
+自动化：mvp:verify [ PASS | FAIL ] · CLI 通过：[ codex | claude | both ]
+人工：D1/D1c–D9 [ n/10 ]，W1–W4 [ n/4 ]，E1–E2 [ n/2 | N/A ]
 阻塞项：
 下一迭代：S3.5 deliverables UI / Nest 对接 / V1.1 模块
 ```

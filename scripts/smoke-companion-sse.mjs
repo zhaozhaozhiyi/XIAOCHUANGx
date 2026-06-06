@@ -1,15 +1,37 @@
 #!/usr/bin/env node
 /**
  * S1.0 / S1.2 冒烟：Companion 健康 + 短 Run SSE 事件集。
- * 用法：node scripts/smoke-companion-sse.mjs [--base http://127.0.0.1:9477] [--timeout 120]
+ *
+ * 用法：node scripts/smoke-companion-sse.mjs [选项]
+ *   --base <url>       Companion 基址，默认 http://127.0.0.1:9477
+ *   --timeout <sec>    单 Run 超时秒数，默认 120
+ *   --agent <id>       目标 CLI（codex / claude / ...），默认 codex
+ *   --skill <slug>     processSkill，默认 skill-qa-fast
+ *   --mode <fast|deep> 对话模式，默认 fast
+ *   --soft             指定 agent 在 /v1/agents 中不可用时退出码 0（仅打印 SKIP，不 fail）
+ *
+ * 设计要点：
+ * - 单脚本支持多 CLI 真流冒烟；每个 CLI 单独跑一次，避免相互打架
+ * - --soft 给 mvp:verify 串多个 CLI 时使用：本机没装 claude 不阻塞 codex 通过路径
  */
-const base =
-  process.argv.find((a, i) => process.argv[i - 1] === "--base") ??
-  process.env.COMPANION_BASE_URL ??
-  "http://127.0.0.1:9477";
-const timeoutSec = Number(
-  process.argv.find((a, i) => process.argv[i - 1] === "--timeout") ?? "120",
-);
+function readFlag(name, fallback) {
+  const idx = process.argv.findIndex((a) => a === `--${name}`);
+  if (idx >= 0 && process.argv[idx + 1] !== undefined) {
+    return process.argv[idx + 1];
+  }
+  return fallback;
+}
+
+function hasFlag(name) {
+  return process.argv.includes(`--${name}`);
+}
+
+const base = readFlag("base", process.env.COMPANION_BASE_URL ?? "http://127.0.0.1:9477");
+const timeoutSec = Number(readFlag("timeout", "120"));
+const agentId = readFlag("agent", "codex");
+const processSkill = readFlag("skill", "skill-qa-fast");
+const mode = readFlag("mode", "fast");
+const soft = hasFlag("soft");
 
 async function getJson(path) {
   const res = await fetch(`${base}${path}`);
@@ -40,16 +62,16 @@ function parseSseEvents(text) {
 
 async function runSse() {
   const body = {
-    sessionId: `smoke-${Date.now()}`,
+    sessionId: `smoke-${agentId}-${Date.now()}`,
     projectId: "none",
     workspaceProjectId: "sandbox-default",
     moduleId: "chat",
-    binding: { moduleId: "chat", mode: "fast" },
-    agentId: "codex",
+    binding: { moduleId: "chat", mode },
+    agentId,
     agentModel: "default",
     messages: [{ role: "user", content: "只回复一个字：好。不要解释。" }],
     useClientHistory: false,
-    processSkill: "skill-qa-fast",
+    processSkill,
     platformNormSkill: "skill-platform-research-norms",
   };
 
@@ -119,40 +141,46 @@ function check(events) {
 }
 
 async function main() {
-  console.log(`[smoke] base=${base} timeout=${timeoutSec}s`);
+  const tag = `[smoke:${agentId}]`;
+  console.log(`${tag} base=${base} timeout=${timeoutSec}s mode=${mode} skill=${processSkill}${soft ? " soft=true" : ""}`);
 
   const health = await getJson("/v1/health");
   if (!health.ok || health.body?.runMode !== "cli") {
-    console.error("[smoke] FAIL health", health);
+    console.error(`${tag} FAIL health`, health);
     process.exit(1);
   }
-  console.log("[smoke] OK health runMode=cli");
+  console.log(`${tag} OK health runMode=cli`);
 
   const agents = await getJson("/v1/agents");
-  const codex = agents.body?.agents?.find((a) => a.agentId === "codex");
-  if (!agents.ok || codex?.status !== "available") {
-    console.error("[smoke] FAIL codex not available", agents.body);
+  const target = agents.body?.agents?.find((a) => a.agentId === agentId);
+  if (!agents.ok || target?.status !== "available") {
+    const msg = `agent ${agentId} not available: status=${target?.status ?? "missing"}`;
+    if (soft) {
+      console.warn(`${tag} SKIP ${msg} (--soft)`);
+      process.exit(0);
+    }
+    console.error(`${tag} FAIL ${msg}`, target ?? agents.body);
     process.exit(1);
   }
-  console.log("[smoke] OK codex", codex.version);
+  console.log(`${tag} OK ${agentId}`, target.version ?? "(no version)");
 
-  console.log("[smoke] POST /v1/runs (short prompt, may take up to", timeoutSec, "s)…");
+  console.log(`${tag} POST /v1/runs (short prompt, may take up to ${timeoutSec}s)…`);
   let events;
   try {
     events = await runSse();
   } catch (e) {
-    console.error("[smoke] FAIL run", e instanceof Error ? e.message : e);
+    console.error(`${tag} FAIL run`, e instanceof Error ? e.message : e);
     process.exit(1);
   }
 
   const result = check(events);
-  console.log("[smoke] events:", result.summary);
+  console.log(`${tag} events:`, result.summary);
 
   if (!result.ok) {
-    console.error("[smoke] FAIL", result.failures);
+    console.error(`${tag} FAIL`, result.failures);
     process.exit(1);
   }
-  console.log("[smoke] PASS companion SSE loop");
+  console.log(`${tag} PASS companion SSE loop`);
 }
 
 main();
