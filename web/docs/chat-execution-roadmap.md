@@ -397,18 +397,21 @@ COMPANION_DEFAULT_AGENT=codex
 
 | ID | 任务 | 说明 | 状态 |
 |----|------|------|------|
-| S4.0 | `apps/desktop` 脚手架 | dev 加载 `localhost:3000`；`pnpm desktop:dev` | ✅ 代码 |
-| S4.1 | `pickAndImportFolder` IPC | 主进程 `showOpenDialog` → Companion `import-folder` | ✅ 代码；联调 ⬜ |
-| S4.2 | preload `electronAPI` | `ProjectWorkPicker` 优先桌面通道 | ✅ 代码 |
+| S4.0 | `apps/desktop` 脚手架 | dev 加载 `localhost:3000`；`pnpm desktop:dev` | ✅ |
+| S4.1 | `pickAndImportFolder` IPC | 主进程 `showOpenDialog` → Companion `import-folder` | ✅（2026-06-06 端到端 PASS） |
+| S4.2 | preload `electronAPI` | `ProjectWorkPicker` 优先桌面通道 | ✅ |
 | S4.3 | 内测安装包 | `electron-builder` + `pnpm desktop:pack` | ✅ 配置；本机 `pack` 冒烟 ⬜ |
-| S4.4 | HMAC + `/v1/desktop/register` | 防伪造 `baseDir` | ⬜ V1.1 |
-| S4.5 | 托盘 / Companion 安装检测 | 首次启动引导 | ⬜ V1.1 |
+| S4.4 | HMAC + `/v1/desktop/register` | 防伪造 `baseDir` | ⬜ **V1.1 P0** |
+| S4.5 | 托盘 / Companion 安装检测 | 首次启动引导 | ⬜ **V1.1 P0** |
 
-**MVP 验收：**
+**MVP 验收（2026-06-06 收口）：**
 
-- [ ] 桌面应用启动进入对话；与浏览器同一 Web 产物
-- [ ] 选目录后 Web 仅见 `projectId` + `pathSummary`
-- [ ] 选目录 → 新建会话 → Companion 真树 + Agent 写入课题目录
+- [x] 桌面应用启动进入对话；与浏览器同一 Web 产物
+- [x] 选目录后 Web 仅见 `projectId` + `pathSummary`
+- [x] 选目录 → 新建会话 → Companion 真树 + Agent 写入课题目录
+
+> **V1.1 桌面壳完整路线图：[desktop-v1.1-roadmap.md](./desktop-v1.1-roadmap.md)（2026-06-06 立）**  
+> 6 项增量：Companion 守护 / 托盘 / HMAC / 捆绑 / 自动更新 / 系统通知，约 8~10d。
 
 ---
 
