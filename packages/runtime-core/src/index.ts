@@ -85,6 +85,19 @@ export {
   type PrepareMessagesForRunResult,
 } from "./transcript-compress.js";
 export {
+  buildLlmHandoffSummary,
+  buildHandoffUserPrompt,
+  assertHandoffSummaryShape,
+  HANDOFF_SYSTEM_PROMPT,
+  HANDOFF_REQUIRED_HEADERS,
+  LLM_HANDOFF_BYTES_SOFT_THRESHOLD,
+  DEFAULT_HANDOFF_KEEP_RECENT,
+  type HandoffProvenance,
+  type HandoffSummarizer,
+  type LlmHandoffSummaryInput,
+  type LlmHandoffSummaryResult,
+} from "./transcript-handoff.js";
+export {
   composeAgentRunPayload,
   estimatePromptBytes,
   DEFAULT_ARGV_PROMPT_BUDGET_BYTES,

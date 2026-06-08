@@ -403,3 +403,122 @@ export async function streamApiProviderChat(input: {
     { status: 200, headers: responseHeaders },
   );
 }
+
+// -----------------------------------------------------------------------------
+// 一次性（非流式）BYOK 调用 — F-RT-009-B Handoff 摘要用
+// -----------------------------------------------------------------------------
+
+/**
+ * 一次性取整段 Provider 输出（不开 SSE stream），用于 Handoff 摘要、
+ * connection-test 之外的内部短任务。复用 streamApiProviderChat 的
+ * SSRF / Anthropic-headers / OpenAI-headers，但 body 关掉 stream，并
+ * 把响应解析成 { text, modelId }。
+ *
+ * 失败语义：
+ *  - 配置非法 / SSRF 拒绝 → 抛 Error（同 stream 版）
+ *  - Provider 4xx/5xx → 抛 Error("provider_error_<status>")，调用方降级
+ *  - 网络错误 → 抛 Error，调用方降级
+ *
+ * Anthropic /messages 与 OpenAI /chat/completions 的请求体差异较大，分两路：
+ *  - openai：messages = [system, user]，max_tokens 自适应（default 4096）
+ *  - anthropic：system 字段单独传；messages 仅含 user
+ */
+export async function oneShotApiProviderCompletion(input: {
+  config: ApiProviderConfig;
+  systemPrompt: string;
+  userPrompt: string;
+  /** 留余地，默认 4096；Handoff 摘要 ~1k token 足够 */
+  maxTokens?: number;
+  signal?: AbortSignal;
+}): Promise<{ text: string; modelId: string }> {
+  const config = trimApiProviderConfig(input.config);
+  if (!config.baseUrl.trim()) throw new Error("Provider Base URL 为空");
+  if (!config.model.trim()) throw new Error("Provider Model ID 为空");
+
+  await assertSafeProviderUrl(config.baseUrl);
+
+  const maxTokens = input.maxTokens ?? 4096;
+  const body =
+    config.protocol === "anthropic"
+      ? {
+          model: config.model,
+          max_tokens: maxTokens,
+          stream: false,
+          system: input.systemPrompt,
+          messages: [{ role: "user" as const, content: input.userPrompt }],
+        }
+      : {
+          model: config.model,
+          stream: false,
+          max_tokens: maxTokens,
+          messages: [
+            { role: "system" as const, content: input.systemPrompt },
+            { role: "user" as const, content: input.userPrompt },
+          ],
+        };
+
+  const endpoint = resolveProviderEndpoint(config, "chat");
+
+  let upstream: Response;
+  try {
+    upstream = await fetch(endpoint, {
+      method: "POST",
+      headers: buildProviderHeaders(config),
+      body: JSON.stringify(body),
+      signal: input.signal,
+    });
+  } catch (fetchError) {
+    const errorMsg =
+      fetchError instanceof Error ? fetchError.message : "Unknown fetch error";
+    throw new Error(`Provider 网络错误: ${errorMsg}`);
+  }
+
+  if (!upstream.ok) {
+    const detail = await upstream.text().catch(() => "");
+    throw new Error(
+      `provider_error_${upstream.status}: ${detail.slice(0, 240) || upstream.statusText}`,
+    );
+  }
+
+  const json = (await upstream.json().catch(() => ({}))) as Record<
+    string,
+    unknown
+  >;
+
+  // Anthropic /messages: { content: [{ type: 'text', text: '...' }, ...], model }
+  if (config.protocol === "anthropic") {
+    const content = Array.isArray(json["content"]) ? json["content"] : [];
+    const text = content
+      .filter(
+        (b): b is { type: string; text: string } =>
+          !!b &&
+          typeof b === "object" &&
+          (b as Record<string, unknown>)["type"] === "text" &&
+          typeof (b as Record<string, unknown>)["text"] === "string",
+      )
+      .map((b) => b.text)
+      .join("");
+    if (!text.trim()) throw new Error("Provider 返回空内容");
+    const modelId =
+      typeof json["model"] === "string" ? (json["model"] as string) : config.model;
+    return { text, modelId };
+  }
+
+  // OpenAI /chat/completions: { choices: [{ message: { content } }], model }
+  const choices = Array.isArray(json["choices"]) ? json["choices"] : [];
+  const first = choices[0];
+  const message =
+    first && typeof first === "object"
+      ? (first as Record<string, unknown>)["message"]
+      : null;
+  const content =
+    message && typeof message === "object"
+      ? (message as Record<string, unknown>)["content"]
+      : null;
+  if (typeof content !== "string" || !content.trim()) {
+    throw new Error("Provider 返回空内容");
+  }
+  const modelId =
+    typeof json["model"] === "string" ? (json["model"] as string) : config.model;
+  return { text: content, modelId };
+}

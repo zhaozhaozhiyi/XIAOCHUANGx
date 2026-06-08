@@ -19,6 +19,12 @@ import {
   upsertChatSession,
 } from "@/lib/chat-history";
 import {
+  applyCompressionToMessages,
+  callCompressContext,
+  persistCompressionRecord,
+  shouldAutoCompressBeforeSend,
+} from "@/lib/chat-handoff";
+import {
   rememberEnsuredResearchProject,
   setSessionProjectId,
 } from "@/lib/research-projects";
@@ -393,7 +399,30 @@ export function useChatSend(
         ? finalizeInFlightMessages(currentMessages)
         : currentMessages;
       const historyForUi = [...baseMessages, userMsg];
-      const historyForApi = [...baseMessages, userMsgForApi];
+      // F-RT-009-B B2 自动触发：超阈值时把发往后端的历史压成 summary，
+      // UI 历史保留原文不动（PRD：不得静默删除用户未读 assistant 全文）。
+      // 失败 / BYOK 不可用时 server 会自动回退确定性压缩；client 不再二次降级。
+      let historyForApi: ChatMessage[] = [...baseMessages, userMsgForApi];
+      if (shouldAutoCompressBeforeSend(baseMessages)) {
+        try {
+          const payload = await callCompressContext({
+            sessionId,
+            messages: baseMessages,
+            mode: "auto",
+            apiProvider: context.apiProvider,
+            signal: controller.signal,
+          });
+          persistCompressionRecord(sessionId, payload);
+          historyForApi = [
+            ...applyCompressionToMessages(baseMessages, payload),
+            userMsgForApi,
+          ];
+        } catch (err) {
+          // 压缩失败不阻塞发送；走原 historyForApi（runtime-core 的确定性
+          // 截断仍会在 Companion 侧兜底）
+          console.warn("[chat-handoff] auto compress failed", err);
+        }
+      }
       messagesRef.current = [...historyForUi, assistantPlaceholder];
       setMessages(messagesRef.current);
       void saveSessionMessagesHybrid(sessionId, historyForUi, context.projectId).catch(console.error);

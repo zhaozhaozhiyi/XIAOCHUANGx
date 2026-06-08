@@ -28,6 +28,25 @@ export type ChatSessionRecord = {
   runStatus: ChatSessionRunStatus;
   /** 用户上次打开该会话并看到最新结果的时间戳；0 表示从未读过 */
   lastReadAt: number;
+  /**
+   * F-RT-009-B B3：上下文压缩元数据。
+   * 仅记录"最近一次压缩"的元信息，用于在会话顶栏显示「已压缩上下文」、
+   * 摘要预览、避免在配置时间窗内重复 BYOK。完整 summary 不放这里
+   * （会被 localStorage 体积撑爆），summary 只在 chat-session-messages
+   * 里以普通 user 消息形态承载（首条带 metadata.handoff = true）。
+   */
+  contextCompression?: {
+    source: "deterministic" | "llm-handoff";
+    /** ISO UTC 时间戳 */
+    compressedAt: string;
+    droppedCount: number;
+    /** 80 字摘要预览（脱敏） */
+    summaryPreview: string;
+    /** llm-handoff 时填，确定性压缩为空 */
+    modelId?: string;
+    /** B7 触发时的回退原因，便于排错 / UI 提示「本地摘要」 */
+    fallbackReason?: string;
+  };
 };
 
 export type ChatHistoryProjectGroup = {
@@ -256,7 +275,13 @@ export function patchChatSession(
   partial: Partial<
     Pick<
       ChatSessionRecord,
-      "title" | "projectId" | "updatedAt" | "createdAt" | "runStatus" | "lastReadAt"
+      | "title"
+      | "projectId"
+      | "updatedAt"
+      | "createdAt"
+      | "runStatus"
+      | "lastReadAt"
+      | "contextCompression"
     >
   >,
 ): ChatSessionRecord | undefined {
@@ -397,6 +422,25 @@ function groupChatSessions(sessions: ChatSessionRecord[]): GroupedChatHistory {
   unassigned.sort((a, b) => b.updatedAt - a.updatedAt);
 
   return { projectGroups, unassigned };
+}
+
+/**
+ * F-RT-009-B B3：写入「最近一次上下文压缩」元数据
+ *
+ * 注意：完整 summary 不放这里（localStorage 容易撑爆），summary 应作为
+ * 普通 user 消息写入 chat-session-messages。本函数只在 ChatSessionRecord
+ * 上挂个 80 字预览 + 一些路由元信息，供顶栏 Badge / 侧栏 tooltip 使用。
+ */
+export function setSessionContextCompression(
+  sessionId: string,
+  meta: NonNullable<ChatSessionRecord["contextCompression"]>,
+): void {
+  patchChatSession(sessionId, { contextCompression: meta });
+}
+
+/** 清掉压缩状态 —— 比如用户主动「重置上下文摘要」（V1.1 暂未做 UI） */
+export function clearSessionContextCompression(sessionId: string): void {
+  patchChatSession(sessionId, { contextCompression: undefined });
 }
 
 /** 分支新会话：继承父会话 projectId（PRD §5.3.2.1a） */
