@@ -9,12 +9,15 @@ export const PLATFORM_NORM_SKILL = "skill-platform-research-norms";
 
 export const WRITING_DEFAULT_SKILL = "skill-writing-general";
 
+export const TRANSLATE_DEFAULT_SKILL = "skill-tr-text";
+
 export type ModuleId =
   | "chat"
   | "meeting"
   | "knowledge"
   | "writing"
-  | "ppt";
+  | "ppt"
+  | "translate";
 
 export type DomainService =
   | "choice-terminal"
@@ -22,7 +25,8 @@ export type DomainService =
   | "asr"
   | "rag"
   | "doc-storage"
-  | "slide-engine";
+  | "slide-engine"
+  | "translate-engine";
 
 export type ModuleRegistryEntry = {
   moduleId: ModuleId;
@@ -75,6 +79,14 @@ export const MODULE_REGISTRY: Record<ModuleId, ModuleRegistryEntry> = {
     agentPrimaryPath: true,
     producesWorkspaceArtifacts: true,
     workspaceSegment: "PPT",
+  },
+  translate: {
+    moduleId: "translate",
+    label: "翻译",
+    domainServices: ["translate-engine"],
+    agentPrimaryPath: true,
+    producesWorkspaceArtifacts: true,
+    workspaceSegment: "翻译",
   },
 };
 
@@ -311,12 +323,23 @@ export const PPT_TEMPLATE_CATALOG = PPT_SKILL_CATALOG.map(
   }),
 );
 
+/** 翻译 templateId（Composer 下拉值）→ 流程 Skill */
+export const TRANSLATE_TEMPLATE_SKILL: Record<string, string> = {
+  text: "skill-tr-text",
+  doc: "skill-tr-doc",
+  polish: "skill-tr-polish",
+};
+
 export type SkillResolveInput =
   | { moduleId: "chat"; binding: { mode: string } }
   | { moduleId: "meeting"; binding: { task: "summary"; templateId?: string } }
   | { moduleId: "knowledge"; binding: { task: "kb-qa" } }
   | { moduleId: "writing"; binding?: { templateId?: string } }
-  | { moduleId: "ppt"; binding: { task: "deck"; templateId?: string } };
+  | { moduleId: "ppt"; binding: { task: "deck"; templateId?: string } }
+  | {
+      moduleId: "translate";
+      binding?: { task?: "translate"; templateId?: string };
+    };
 
 export type ResolvedSkills = {
   processSkill: string | null;
@@ -367,6 +390,16 @@ export function resolveSkills(input: SkillResolveInput): ResolvedSkills {
         PPT_TEMPLATE_SKILL.default ??
         `skill-ppt-${tid}`;
       base.templatePackId = PPT_TEMPLATE_PACK[tid] ?? null;
+      return base;
+    }
+    case "translate": {
+      const tid = input.binding?.templateId?.trim();
+      if (tid) {
+        base.processSkill =
+          TRANSLATE_TEMPLATE_SKILL[tid] ?? `skill-tr-${tid}`;
+      } else {
+        base.processSkill = TRANSLATE_DEFAULT_SKILL;
+      }
       return base;
     }
     default:

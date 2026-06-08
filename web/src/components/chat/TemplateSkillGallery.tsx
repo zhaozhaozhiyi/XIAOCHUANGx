@@ -32,6 +32,10 @@ const MODULE_GALLERY_COPY: Record<
     title: "演示模板",
     subtitle: "真实幻灯片样张，可翻页预览后一键选用",
   },
+  translate: {
+    title: "翻译场景",
+    subtitle: "文本 / 文档 / 润色 三个 Skill，按粘贴内容选择",
+  },
 };
 
 export function TemplateSkillGallery({ module }: Props) {

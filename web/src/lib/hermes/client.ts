@@ -78,6 +78,7 @@ export async function streamChatCompletion(
       surfaceModuleId: params.context.surfaceModuleId,
       writingTemplateId: params.context.writingTemplateId,
       pptTemplateId: params.context.pptTemplateId,
+      translateTemplateId: params.context.translateTemplateId,
       messages: history,
       useClientHistory: params.useClientHistory,
     }),

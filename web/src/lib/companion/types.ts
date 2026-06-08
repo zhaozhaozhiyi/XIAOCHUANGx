@@ -93,6 +93,7 @@ export type CreateRunBinding =
   | { moduleId: "chat"; mode: ChatModeId }
   | { moduleId: "writing"; templateId: string }
   | { moduleId: "ppt"; task: "deck"; templateId?: string }
+  | { moduleId: "translate"; task: "translate"; templateId?: string }
   | { moduleId: "meeting"; task: "summary"; templateId?: string }
   | { moduleId: "knowledge"; task: "kb-qa" };
 
@@ -120,7 +121,7 @@ export type CreateRunRequest = {
   useClientHistory?: boolean;
   processSkill?: string | null;
   platformNormSkill?: string;
-  timeoutProfile?: "default" | "fast" | "deep" | "writing" | "ppt";
+  timeoutProfile?: "default" | "fast" | "deep" | "writing" | "ppt" | "translate";
   timeoutMs?: number;
   idleTimeoutMs?: number;
 };

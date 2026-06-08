@@ -1,15 +1,22 @@
 import {
   type ModuleId,
   PPT_SKILL_CATALOG,
+  TRANSLATE_DEFAULT_SKILL,
   WRITING_DEFAULT_SKILL,
 } from "@/lib/module-registry";
 
-export { WRITING_DEFAULT_SKILL };
+export { TRANSLATE_DEFAULT_SKILL, WRITING_DEFAULT_SKILL };
 
 /** 复用对话 UI 的模块 */
-export type ChatSurfaceModuleId = Extract<ModuleId, "chat" | "writing" | "ppt">;
+export type ChatSurfaceModuleId = Extract<
+  ModuleId,
+  "chat" | "writing" | "ppt" | "translate"
+>;
 
-export type ModuleSkillPickerKind = Extract<ChatSurfaceModuleId, "writing" | "ppt">;
+export type ModuleSkillPickerKind = Extract<
+  ChatSurfaceModuleId,
+  "writing" | "ppt" | "translate"
+>;
 
 export const PPT_DEFAULT_SKILL = "skill-ppt-pitch-deck";
 
@@ -57,9 +64,35 @@ export type PptSkillTemplateId =
 
 export const DEFAULT_PPT_SKILL_TEMPLATE_ID: PptSkillTemplateId = "pitch-deck";
 
+/** 翻译 Composer 底栏 Skill（templateId → TRANSLATE_TEMPLATE_SKILL） */
+export const TRANSLATE_SKILL_OPTIONS = [
+  {
+    templateId: "text",
+    label: "文本翻译",
+    description: "粘贴片段，即时多备选译文（默认）",
+  },
+  {
+    templateId: "doc",
+    label: "文档翻译",
+    description: "整篇翻译，保留层级与表格，可选对照模式",
+  },
+  {
+    templateId: "polish",
+    label: "译文润色",
+    description: "已有译文 → 调整语气、术语、文体",
+  },
+] as const satisfies readonly ModuleSkillOption[];
+
+export type TranslateSkillTemplateId =
+  (typeof TRANSLATE_SKILL_OPTIONS)[number]["templateId"];
+
+export const DEFAULT_TRANSLATE_SKILL_TEMPLATE_ID: TranslateSkillTemplateId =
+  "text";
+
 const SKILL_STORAGE_PREFIX: Record<ModuleSkillPickerKind, string> = {
   writing: "jlc-writing-skill",
   ppt: "jlc-ppt-skill",
+  translate: "jlc-translate-skill",
 };
 
 const SKILL_OPTIONS: Record<
@@ -68,11 +101,13 @@ const SKILL_OPTIONS: Record<
 > = {
   writing: WRITING_SKILL_OPTIONS,
   ppt: PPT_SKILL_OPTIONS,
+  translate: TRANSLATE_SKILL_OPTIONS,
 };
 
 const DEFAULT_SKILL_TEMPLATE_ID: Record<ModuleSkillPickerKind, string> = {
   writing: DEFAULT_WRITING_SKILL_TEMPLATE_ID,
   ppt: DEFAULT_PPT_SKILL_TEMPLATE_ID,
+  translate: DEFAULT_TRANSLATE_SKILL_TEMPLATE_ID,
 };
 
 export function moduleSkillStorageKey(
@@ -198,6 +233,21 @@ export const MODULE_CHAT_SURFACES: Record<
     defaultProcessSkill: PPT_DEFAULT_SKILL,
     ensureModuleId: "ppt",
   },
+  translate: {
+    moduleId: "translate",
+    basePath: "/translate",
+    newSessionHref: "/translate/new",
+    newSessionLabel: "新建翻译",
+    homeTitle: "今天要翻译什么？",
+    homeSubtitle:
+      "粘贴文本或上传文档，对话内可切换文本/文档/润色 Skill，结果落工作区",
+    threadTitleFallback: "翻译",
+    defaultSessionTitle: "新翻译",
+    showModePicker: false,
+    skillPicker: "translate",
+    defaultProcessSkill: TRANSLATE_DEFAULT_SKILL,
+    ensureModuleId: "translate",
+  },
 };
 
 export function getChatSurfaceFromPathname(
@@ -208,6 +258,9 @@ export function getChatSurfaceFromPathname(
   }
   if (pathname === "/writing" || pathname.startsWith("/writing/")) {
     return MODULE_CHAT_SURFACES.writing;
+  }
+  if (pathname === "/translate" || pathname.startsWith("/translate/")) {
+    return MODULE_CHAT_SURFACES.translate;
   }
   return MODULE_CHAT_SURFACES.chat;
 }

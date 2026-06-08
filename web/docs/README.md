@@ -25,5 +25,6 @@
 | ~~[writing-module-prd.md](./writing-module-prd.md)~~ | 写作 v0.1（已被 v2 替代，保留作历史） |
 | [ppt-module-prd.v2.md](./ppt-module-prd.v2.md) | **PPT（v1.0，2026-05-31，现行）**：对话 + PPT Skill + 交付物 + 导出 |
 | ~~[ppt-module-prd.md](./ppt-module-prd.md)~~ | PPT v0.1（已被 v2 替代，保留作历史） |
+| [translate-module-prd.md](./translate-module-prd.md) | **翻译（v1.0，2026-06-06，现行）**：对话 + 翻译 Skill + 交付物 + 导出；废止 PRD-小窗 §6.3 的 3 子页 |
 
 产品总览：[PRD v3.6.7](../../PRD-小窗.md) · [技术方案 v1.5](../../技术方案.md) · [功能清单](../../功能清单.md) · [设计文档审计](../../docs/design-doc-audit-recommendations.md)

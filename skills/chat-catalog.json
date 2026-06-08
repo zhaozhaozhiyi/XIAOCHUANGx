@@ -57,6 +57,24 @@
       "summary": "知识库 RAG 问答：限定在已上传文档内检索后作答，引用片段锚点"
     },
     {
+      "slug": "skill-tr-text",
+      "kind": "workflow",
+      "scope": ["chat", "translate"],
+      "summary": "文本翻译：粘贴片段即时中英互译，必给 ≥ 2 个备选译文"
+    },
+    {
+      "slug": "skill-tr-doc",
+      "kind": "workflow",
+      "scope": ["chat", "translate"],
+      "summary": "文档翻译：保留层级与表格的整篇中英互译，可选对照模式"
+    },
+    {
+      "slug": "skill-tr-polish",
+      "kind": "workflow",
+      "scope": ["chat", "translate"],
+      "summary": "译文润色：已有译文按语气/术语/文体方向打磨，给修改对照"
+    },
+    {
       "slug": "skill-ppt-pitch-deck",
       "kind": "workflow",
       "scope": ["chat", "ppt"],

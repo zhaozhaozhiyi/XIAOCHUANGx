@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  Languages,
   Library,
   MessageSquare,
   Mic,
@@ -55,6 +56,19 @@ export const NAV_MODULES: NavModule[] = [
         label: "PPT",
         href: "/ppt/new",
         description: "对话式生成演示文稿",
+      },
+    ],
+  },
+  {
+    id: "translate",
+    label: "翻译",
+    href: "/translate",
+    icon: Languages,
+    subNav: [
+      {
+        label: "翻译",
+        href: "/translate/new",
+        description: "对话式翻译，文档/文本/润色统一入口",
       },
     ],
   },

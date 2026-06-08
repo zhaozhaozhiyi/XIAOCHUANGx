@@ -61,6 +61,7 @@ export function ChatHome({
     attachments?: ChatComposerSendPayload["attachments"],
     writingTemplateId?: ChatComposerSendPayload["writingTemplateId"],
     pptTemplateId?: ChatComposerSendPayload["pptTemplateId"],
+    translateTemplateId?: ChatComposerSendPayload["translateTemplateId"],
   ) => {
     const trimmed = text.trim();
     if (!trimmed && !attachments?.length) return;
@@ -81,6 +82,9 @@ export function ChatHome({
           ? { writingTemplateId }
           : {}),
         ...(surface.moduleId === "ppt" && pptTemplateId ? { pptTemplateId } : {}),
+        ...(surface.moduleId === "translate" && translateTemplateId
+          ? { translateTemplateId }
+          : {}),
         executionSource,
         agentId,
         agentModel,
@@ -144,6 +148,7 @@ export function ChatHome({
                 payload.attachments,
                 payload.writingTemplateId,
                 payload.pptTemplateId,
+                payload.translateTemplateId,
               )
             }
           />

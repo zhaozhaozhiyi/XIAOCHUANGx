@@ -2,6 +2,7 @@ import { resolveChatOrchestration } from "@jlc/runtime-core";
 import {
   type ChatSurfaceModuleId,
   PPT_DEFAULT_SKILL,
+  TRANSLATE_DEFAULT_SKILL,
   WRITING_DEFAULT_SKILL,
 } from "@/lib/module-chat-config";
 import { normalizeChatMode } from "@/lib/navigation";
@@ -105,7 +106,9 @@ export async function buildCreateRunRequest(
       ? "writing"
       : parsed.surfaceModuleId === "ppt"
         ? "ppt"
-        : "chat";
+        : parsed.surfaceModuleId === "translate"
+          ? "translate"
+          : "chat";
 
   let workspaceProjectId: string;
   let ensuredProject: ResearchProject | undefined;
@@ -136,6 +139,10 @@ export async function buildCreateRunRequest(
     surfaceModuleId === "ppt"
       ? parsed.pptTemplateId?.trim() || "pitch-deck"
       : "pitch-deck";
+  const translateTemplateId =
+    surfaceModuleId === "translate"
+      ? parsed.translateTemplateId?.trim() || "text"
+      : "text";
 
   const moduleSkills =
     surfaceModuleId === "writing"
@@ -148,16 +155,25 @@ export async function buildCreateRunRequest(
             moduleId: "ppt",
             binding: { task: "deck", templateId: pptTemplateId },
           })
-        : null;
+        : surfaceModuleId === "translate"
+          ? resolveSkills({
+              moduleId: "translate",
+              binding: { task: "translate", templateId: translateTemplateId },
+            })
+          : null;
 
   const processSkill =
     surfaceModuleId === "writing"
       ? (moduleSkills?.processSkill ?? WRITING_DEFAULT_SKILL)
       : surfaceModuleId === "ppt"
         ? (moduleSkills?.processSkill ?? PPT_DEFAULT_SKILL)
-        : orchestration.baseProcessSkill;
+        : surfaceModuleId === "translate"
+          ? (moduleSkills?.processSkill ?? TRANSLATE_DEFAULT_SKILL)
+          : orchestration.baseProcessSkill;
   const platformNormSkill =
-    surfaceModuleId === "writing" || surfaceModuleId === "ppt"
+    surfaceModuleId === "writing" ||
+    surfaceModuleId === "ppt" ||
+    surfaceModuleId === "translate"
       ? (moduleSkills?.platformNormSkill ?? orchestration.platformNormSkill)
       : orchestration.platformNormSkill;
   const executionMode = chatExecutionMode();
@@ -166,9 +182,11 @@ export async function buildCreateRunRequest(
       ? "writing"
       : surfaceModuleId === "ppt"
         ? "ppt"
-        : mode === "deep"
-          ? "deep"
-          : "fast";
+        : surfaceModuleId === "translate"
+          ? "translate"
+          : mode === "deep"
+            ? "deep"
+            : "fast";
 
   if (
     executionMode === "companion" &&
@@ -204,7 +222,13 @@ export async function buildCreateRunRequest(
                 task: "deck" as const,
                 templateId: pptTemplateId,
               }
-            : { moduleId: "chat" as const, mode },
+            : surfaceModuleId === "translate"
+              ? {
+                  moduleId: "translate" as const,
+                  task: "translate" as const,
+                  templateId: translateTemplateId,
+                }
+              : { moduleId: "chat" as const, mode },
       agentId: parsed.agentId,
       agentModel: parsed.agentModel,
       messages,

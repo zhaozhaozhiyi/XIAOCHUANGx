@@ -214,6 +214,7 @@ export function ChatThread({
         surfaceModuleId,
         writingTemplateId: payload.writingTemplateId,
         pptTemplateId: payload.pptTemplateId,
+        translateTemplateId: payload.translateTemplateId,
         agentId: payload.agentId,
         agentModel: payload.agentModel,
         apiProvider,
@@ -319,6 +320,10 @@ export function ChatThread({
           surface.skillPicker === "ppt"
             ? readStoredModuleSkillTemplateId("ppt", id)
             : undefined,
+        translateTemplateId:
+          surface.skillPicker === "translate"
+            ? readStoredModuleSkillTemplateId("translate", id)
+            : undefined,
         agentId,
         agentModel,
         apiProvider,
@@ -385,6 +390,11 @@ export function ChatThread({
           pending.pptTemplateId ??
           (surface.skillPicker === "ppt"
             ? readStoredModuleSkillTemplateId("ppt", id)
+            : undefined),
+        translateTemplateId:
+          pending.translateTemplateId ??
+          (surface.skillPicker === "translate"
+            ? readStoredModuleSkillTemplateId("translate", id)
             : undefined),
         agentId: pending.agentId,
         agentModel: pending.agentModel,

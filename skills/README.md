@@ -85,7 +85,9 @@ pnpm skills:verify-ppt    # 同步 + 校验关键 Skill 可读
 | `skill-wr-sector-data` | 写作 | ✅ | V1.1 | `sector-data` 行业数据点评；2026-06-06 占位 |
 | `skill-ppt-deck` | PPT | ✅ | V1.1 | 默认 deck |
 | `skill-ppt-pitch-deck` 等 | PPT | ✅ | V1.1 | 见 `PPT_TEMPLATE_SKILL` |
-| `skill-tr-polish` | 翻译 | ❌ | V1.1 可选 | API 主路径，非必须 |
+| `skill-tr-text` | 翻译 | ✅ | V1.1 | templateId `text` 文本翻译（默认）；2026-06-06 落地 |
+| `skill-tr-doc` | 翻译 | ✅ | V1.1 | `doc` 文档翻译；2026-06-06 落地 |
+| `skill-tr-polish` | 翻译 | ✅ | V1.1 | `polish` 译文润色；2026-06-06 落地 |
 
 **模板资产包 `tpl-*`：** 会议 `tpl-mm-*` 多数 ❌；PPT `tpl-ppt-*` 随 Open Design 同步部分 ✅。详见各模块子 PRD。
 

@@ -73,6 +73,7 @@ export type PendingSession = {
   projectId?: string;
   writingTemplateId?: string;
   pptTemplateId?: string;
+  translateTemplateId?: string;
 };
 
 export function setPendingSession(id: string, payload: PendingSession) {

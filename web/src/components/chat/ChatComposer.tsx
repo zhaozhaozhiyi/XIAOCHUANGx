@@ -41,6 +41,7 @@ import {
   writeStoredModuleSkillTemplateId,
   type ModuleSkillPickerKind,
   type PptSkillTemplateId,
+  type TranslateSkillTemplateId,
   type WritingSkillTemplateId,
 } from "@/lib/module-chat-config";
 
@@ -54,6 +55,7 @@ export type ChatComposerSendPayload = {
   projectId: string;
   writingTemplateId?: WritingSkillTemplateId;
   pptTemplateId?: PptSkillTemplateId;
+  translateTemplateId?: TranslateSkillTemplateId;
 };
 
 type ChatComposerProps = {
@@ -524,6 +526,9 @@ export function ChatComposer({
           : {}),
         ...(skillPickerModule === "ppt"
           ? { pptTemplateId: moduleSkillId as PptSkillTemplateId }
+          : {}),
+        ...(skillPickerModule === "translate"
+          ? { translateTemplateId: moduleSkillId as TranslateSkillTemplateId }
           : {}),
       });
       if (settings.rememberLastChatMode) {
