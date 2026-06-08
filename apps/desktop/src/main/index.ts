@@ -19,6 +19,7 @@ import { getCompanionSupervisor } from "./companion-supervisor.js";
 import { stopEmbeddedWebServer } from "./embedded-web.js";
 import { pickAndImportFolder } from "./import-folder.js";
 import { popupTopMenu, TOP_MENU_IDS, type TopMenuId } from "./shortcuts.js";
+import { getTrayManager, isQuitting, setQuittingFlag } from "./tray.js";
 import { resolveWebAppUrl } from "./web-url.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -107,6 +108,19 @@ async function createWindow(): Promise<void> {
     win.setTitle(APP_DISPLAY_NAME);
   });
 
+  // V1.1 D1.2：Win/Linux 关闭主窗口默认隐藏到托盘
+  // - mac 沿用系统行为（窗口关掉 dock 还在）
+  // - 托盘"退出"菜单 / Cmd+Q / 系统关机会先 setQuittingFlag(true) 或触发
+  //   before-quit；此时 isQuitting() 为 true，放行 close
+  // - 设置面板 toggle "关闭即真退出" 留到后续；现在统一隐藏到托盘
+  if (process.platform !== "darwin") {
+    win.on("close", (event) => {
+      if (isQuitting()) return;
+      event.preventDefault();
+      win.hide();
+    });
+  }
+
   win.webContents.on("preload-error", (_event, path, error) => {
     console.error("[desktop] preload failed:", path, error);
   });
@@ -138,6 +152,12 @@ app.whenReady().then(() => {
   void supervisor.start();
   ipcMain.handle("companion:get-status", () => supervisor.getStatus());
   ipcMain.handle("companion:restart", async () => supervisor.restart());
+
+  // V1.1 D1.2：托盘（desktop-v1.1-roadmap.md §4）
+  // 必须在 supervisor.start() 之后再 install()，否则首次 subscribe 立即推
+  // 的状态会是默认 "starting" 占位 —— 也无所谓，supervisor 会在下一次
+  // health 探测后再广播一遍真实状态。
+  getTrayManager().install();
 
   // 自定义标题栏内嵌菜单 — 渲染端按钮点击时 popup 原生菜单（VSCode 同款）
   ipcMain.handle("desktop:popup-menu", (event, input: unknown) => {
@@ -192,14 +212,21 @@ app.whenReady().then(() => {
 
 app.on("window-all-closed", () => {
   applyBrandIcon();
+  // V1.1 D1.2：Win/Linux 关闭主窗口走的是 hide，根本不会触发
+  // window-all-closed；这里保留 mac 的"未点关闭按钮但所有窗口都没了"
+  // 老分支不变。Win/Linux 真退出由托盘"退出"菜单 / Cmd+Q 触发。
   if (process.platform !== "darwin") app.quit();
 });
 
 app.on("before-quit", () => {
+  // 不论入口是托盘"退出"还是 Cmd+Q，都置真退出标记，让 close 拦截放行
+  setQuittingFlag(true);
   applyBrandIcon();
   stopEmbeddedWebServer();
   // V1.1 D1.1：杀 supervisor 自己 spawn 的 Companion 子进程（external 进程不动）
   void getCompanionSupervisor().stop();
+  // V1.1 D1.2：销毁托盘
+  getTrayManager().destroy();
 });
 
 app.on("will-quit", () => {

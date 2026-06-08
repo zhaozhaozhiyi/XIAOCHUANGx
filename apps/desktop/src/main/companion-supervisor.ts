@@ -99,6 +99,8 @@ export class CompanionSupervisor {
   private stopping = false;
   /** 最近一次 broadcast 出去的 JSON，状态实质未变就不重复 send */
   private lastBroadcastJson = "";
+  /** 主进程内订阅者（D1.2 托盘等），在 broadcast 时同步触发 */
+  private listeners = new Set<(status: CompanionStatus) => void>();
 
   // ---------------------------------------------------------------------------
   // public API
@@ -148,6 +150,24 @@ export class CompanionSupervisor {
 
   getStatus(): CompanionStatus {
     return { ...this.status };
+  }
+
+  /**
+   * 主进程内订阅状态变化（D1.2 托盘 / 系统通知等）。
+   * 仅在 broadcast 实质变化时触发；返回 unsubscribe。
+   * 注：渲染层走 IPC 'companion:status'，不要走这个入口。
+   */
+  subscribe(listener: (status: CompanionStatus) => void): () => void {
+    this.listeners.add(listener);
+    // 立即推一次当前状态，订阅方不必再主动调 getStatus()
+    try {
+      listener(this.getStatus());
+    } catch (err) {
+      console.warn("[desktop] companion subscribe initial push failed:", err);
+    }
+    return () => {
+      this.listeners.delete(listener);
+    };
   }
 
   /**
@@ -411,6 +431,16 @@ export class CompanionSupervisor {
         win.webContents.send("companion:status", this.status);
       } catch (err) {
         console.warn("[desktop] broadcast companion:status failed:", err);
+      }
+    }
+
+    // 主进程内订阅者（D1.2 tray 等）。listener 异常被吞，避免一个坏订阅
+    // 拖垮其它订阅者。
+    for (const listener of this.listeners) {
+      try {
+        listener(this.status);
+      } catch (err) {
+        console.warn("[desktop] companion listener failed:", err);
       }
     }
   }

@@ -103,10 +103,10 @@ Companion: 已连接（绿）/ 重启中（黄）/ 未连接（红）
 
 ### 4.4 验收
 
-- [ ] 关闭主窗口后托盘图标存在；点击恢复主窗口
-- [ ] Companion 状态变化时 tooltip 实时更新
-- [ ] 右键"重启 Companion"→ 触发 `CompanionSupervisor.restart()`
-- [ ] 右键"退出"→ 完整清理 Companion 子进程后再退出
+- [x] 关闭主窗口后托盘图标存在；点击恢复主窗口（Win/Linux：`win.on('close')` 拦截后 `win.hide()`；mac：沿用系统行为）
+- [x] Companion 状态变化时 tooltip 实时更新（`CompanionSupervisor.subscribe` → `TrayManager.refresh`）
+- [x] 右键"重启 Companion"→ 触发 `CompanionSupervisor.restart()`
+- [x] 右键"退出"→ `setQuittingFlag(true)` + `app.quit()`，`before-quit` 内 `supervisor.stop()` 清理 Companion 子进程
 
 ---
 
@@ -251,7 +251,7 @@ flowchart LR
 完整套件验收（按优先级排序，可逐项打勾发版本）：
 
 - [ ] **D1.1（P0）** Companion 自动启动 / 健康守护：冷启动 5s 内可用；崩溃自动重启
-- [ ] **D1.2（P0）** 托盘：最小化到托盘 + 右键菜单 + tooltip 状态
+- [x] **D1.2（P0）** 托盘：最小化到托盘 + 右键菜单 + tooltip 状态（2026-06-08；`apps/desktop/src/main/tray.ts`）
 - [ ] **D1.3（P0）** HMAC：`fromTrustedPicker` 区分桌面 vs 浏览器路径；第三方伪造 401/403
 - [ ] **D1.4（P1）** Companion 捆绑：dmg/nsis 装完即可用；卸载干净
 - [ ] **D1.5（P1）** 自动更新：服务端发布新版 → 桌面壳后台拉取 → 重启即新版
