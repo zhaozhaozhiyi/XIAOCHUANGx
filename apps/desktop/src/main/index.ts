@@ -15,6 +15,7 @@ import {
   resolveBrandIcon,
 } from "./brand.js";
 import { getCompanionHealth } from "./companion-health.js";
+import { getCompanionSupervisor } from "./companion-supervisor.js";
 import { stopEmbeddedWebServer } from "./embedded-web.js";
 import { pickAndImportFolder } from "./import-folder.js";
 import { popupTopMenu, TOP_MENU_IDS, type TopMenuId } from "./shortcuts.js";
@@ -131,6 +132,13 @@ app.whenReady().then(() => {
   ipcMain.handle("desktop:pick-and-import", async () => pickAndImportFolder());
   ipcMain.handle("desktop:companion-health", async () => getCompanionHealth());
 
+  // V1.1 D1.1：Companion 自动启动 / 健康守护（desktop-v1.1-roadmap.md §3）
+  // 模块级单例；start() 异步触发，状态变化通过 IPC 'companion:status' 广播
+  const supervisor = getCompanionSupervisor();
+  void supervisor.start();
+  ipcMain.handle("companion:get-status", () => supervisor.getStatus());
+  ipcMain.handle("companion:restart", async () => supervisor.restart());
+
   // 自定义标题栏内嵌菜单 — 渲染端按钮点击时 popup 原生菜单（VSCode 同款）
   ipcMain.handle("desktop:popup-menu", (event, input: unknown) => {
     if (!isRecord(input)) return { ok: false };
@@ -190,6 +198,8 @@ app.on("window-all-closed", () => {
 app.on("before-quit", () => {
   applyBrandIcon();
   stopEmbeddedWebServer();
+  // V1.1 D1.1：杀 supervisor 自己 spawn 的 Companion 子进程（external 进程不动）
+  void getCompanionSupervisor().stop();
 });
 
 app.on("will-quit", () => {
