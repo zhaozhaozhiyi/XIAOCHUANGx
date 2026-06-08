@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { verifyDesktopImportToken } from "../desktop/secrets.js";
 import {
   createProject,
   ensureDefaultTaskProject,
@@ -66,8 +67,38 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     if (!baseDir?.trim()) {
       return reply.code(400).send({ error: "baseDir_required" });
     }
+
+    // V1.1 D1.3：HMAC token 校验
+    // - 缺 token：合法（浏览器路径），fromTrustedPicker=false
+    // - 有 token 但无效：拒绝（401/403），不静默降级
+    //   理由：发了 token 还失败说明配置错或被篡改，降级会掩盖问题
+    const rawToken = request.headers["x-jlc-desktop-import-token"];
+    const tokenStr = Array.isArray(rawToken) ? rawToken[0] : rawToken;
+    let fromTrustedPicker = false;
+    if (typeof tokenStr === "string" && tokenStr.trim()) {
+      const verdict = await verifyDesktopImportToken({
+        token: tokenStr,
+        baseDir,
+      });
+      if (!verdict.ok) {
+        const status =
+          verdict.code === "missing" || verdict.code === "malformed"
+            ? 401
+            : 403;
+        return reply.code(status).send({
+          error: "desktop_import_token_invalid",
+          reason: verdict.code,
+        });
+      }
+      fromTrustedPicker = true;
+    }
+
     try {
-      const project = await importFolder({ name, baseDir });
+      const project = await importFolder({
+        name,
+        baseDir,
+        fromTrustedPicker,
+      });
       return reply.code(201).send(project);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

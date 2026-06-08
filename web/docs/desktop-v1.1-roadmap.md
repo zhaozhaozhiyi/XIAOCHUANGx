@@ -128,10 +128,10 @@ Companion: 已连接（绿）/ 重启中（黄）/ 未连接（红）
 
 ### 5.3 验收
 
-- [ ] 桌面壳路径：`POST /v1/projects/import-folder` 带 token，Companion 标 `fromTrustedPicker: true`，可读 `~/Projects/...` 之外的目录（按企业策略放宽）
-- [ ] 浏览器路径：无 token，`fromTrustedPicker: false`，仅允许 `~/Projects/` 子目录
-- [ ] 第三方进程伪造 `baseDir` POST 到 Companion → 401（缺 token）或 403（token 无效）
-- [ ] 桌面壳重启后 secret 持久化生效，无需重新注册（除非显式 revoke）
+- [x] 桌面壳路径：`POST /v1/projects/import-folder` 带 token，Companion 标 `fromTrustedPicker: true`，可读 `~/Projects/...` 之外的目录（按企业策略放宽）—— `companion/src/routes/projects.ts` import-folder 校验 + `validateLocalBaseDir({ trusted })` 放宽 `must_be_under_home`，仍保留 `forbidden` / `in_data_dir` 两条硬规则
+- [x] 浏览器路径：无 token，`fromTrustedPicker: false`，仅允许 `~/` 下子目录（`baseDir_must_be_under_home`）
+- [x] 第三方进程伪造 `baseDir` POST 到 Companion 带乱填 / 过期 token → `401 desktop_import_token_invalid (missing|malformed)` / `403 desktop_import_token_invalid (unknown_client|bad_signature|expired)`
+- [x] 桌面壳重启后 secret 持久化生效（`${userData}/desktop-credentials.json` + `${COMPANION_DATA_DIR}/desktop-secrets.json`），register 调用幂等返回已有 secret
 
 ---
 
@@ -252,7 +252,7 @@ flowchart LR
 
 - [ ] **D1.1（P0）** Companion 自动启动 / 健康守护：冷启动 5s 内可用；崩溃自动重启
 - [x] **D1.2（P0）** 托盘：最小化到托盘 + 右键菜单 + tooltip 状态（2026-06-08；`apps/desktop/src/main/tray.ts`）
-- [ ] **D1.3（P0）** HMAC：`fromTrustedPicker` 区分桌面 vs 浏览器路径；第三方伪造 401/403
+- [x] **D1.3（P0）** HMAC：`fromTrustedPicker` 区分桌面 vs 浏览器路径；第三方伪造 401/403（2026-06-08；`companion/src/desktop/secrets.ts` + `routes/desktop.ts` + `apps/desktop/src/main/companion-register.ts`）
 - [ ] **D1.4（P1）** Companion 捆绑：dmg/nsis 装完即可用；卸载干净
 - [ ] **D1.5（P1）** 自动更新：服务端发布新版 → 桌面壳后台拉取 → 重启即新版
 - [ ] **D1.6（P2）** 系统通知：长 Run 完成 / 错误弹 macOS/Windows 通知

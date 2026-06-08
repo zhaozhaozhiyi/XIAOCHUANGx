@@ -4,6 +4,7 @@ import { authHook } from "./auth.js";
 import { config, assertLoopbackBind } from "./config.js";
 import { healthRoutes } from "./routes/health.js";
 import { agentRoutes } from "./routes/agents.js";
+import { desktopRoutes } from "./routes/desktop.js";
 import { projectRoutes } from "./routes/projects.js";
 import { runRoutes } from "./routes/runs.js";
 import { sessionRoutes } from "./routes/sessions.js";
@@ -40,6 +41,7 @@ export async function buildServer() {
 
   await app.register(healthRoutes);
   await app.register(agentRoutes);
+  await app.register(desktopRoutes);
   await app.register(projectRoutes);
   await app.register(runRoutes);
   await app.register(sessionRoutes);

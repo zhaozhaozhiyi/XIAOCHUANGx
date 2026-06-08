@@ -15,6 +15,7 @@ import {
   resolveBrandIcon,
 } from "./brand.js";
 import { getCompanionHealth } from "./companion-health.js";
+import { getCompanionRegistrar } from "./companion-register.js";
 import { getCompanionSupervisor } from "./companion-supervisor.js";
 import { stopEmbeddedWebServer } from "./embedded-web.js";
 import { pickAndImportFolder } from "./import-folder.js";
@@ -158,6 +159,21 @@ app.whenReady().then(() => {
   // 的状态会是默认 "starting" 占位 —— 也无所谓，supervisor 会在下一次
   // health 探测后再广播一遍真实状态。
   getTrayManager().install();
+
+  // V1.1 D1.3：HMAC 注册（desktop-v1.1-roadmap.md §5）
+  // - supervisor 状态首次到 running 时触发 ensureRegistered
+  // - register 失败不阻塞用户操作（10s 节流，下次 import-folder 时还会再试）
+  // - 已注册过的桌面壳从 userData/desktop-credentials.json 读 clientId+secret，
+  //   此处的 register 调用主要是刷新 lastSeenAt（companion 侧幂等）
+  const registrar = getCompanionRegistrar();
+  const unsubReg = supervisor.subscribe((status) => {
+    if (status.state === "running") {
+      void registrar.ensureRegistered();
+      // 进过一次 running 就够了；后续靠 import-folder 时按需 ensureRegistered
+      // 触发节流重试。订阅取消放在 before-quit 也行，但这里直接释放更轻量。
+      unsubReg();
+    }
+  });
 
   // 自定义标题栏内嵌菜单 — 渲染端按钮点击时 popup 原生菜单（VSCode 同款）
   ipcMain.handle("desktop:popup-menu", (event, input: unknown) => {

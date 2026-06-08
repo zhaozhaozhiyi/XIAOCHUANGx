@@ -127,15 +127,25 @@ export function formatPathSummary(absPath: string): string {
   return resolved;
 }
 
-export function validateLocalBaseDir(baseDir: string): string {
+export function validateLocalBaseDir(
+  baseDir: string,
+  /**
+   * V1.1 D1.3：HMAC-trusted 桌面路径开放 home 之外（企业目录、外接硬盘等）；
+   * 仅 system/forbidden 与 dataDir 两条硬规则保留。
+   * 浏览器 / 不带 token 的请求保持 false（默认行为）。
+   */
+  options: { trusted?: boolean } = {},
+): string {
   const resolved = resolve(baseDir);
   if (parse(resolved).root === resolved) {
     throw new Error("baseDir_forbidden");
   }
-  const home = homedir();
-  const rel = relative(home, resolved);
-  if (platform() !== "win32" && (rel.startsWith("..") || isAbsolute(rel))) {
-    throw new Error("baseDir_must_be_under_home");
+  if (!options.trusted) {
+    const home = homedir();
+    const rel = relative(home, resolved);
+    if (platform() !== "win32" && (rel.startsWith("..") || isAbsolute(rel))) {
+      throw new Error("baseDir_must_be_under_home");
+    }
   }
   const normalizedResolved =
     platform() === "win32" ? resolved.toLowerCase() : resolved;
@@ -177,10 +187,15 @@ export function validateLocalBaseDir(baseDir: string): string {
 
 /**
  * 文件夹导入：绑定 local_bound，不复制；同一路径幂等返回已有 projectId。
+ *
+ * V1.1 D1.3：fromTrustedPicker 由路由层（projects.ts）决定 ——
+ * 桌面壳通过 HMAC token 校验后才置 true，其它路径（浏览器 / 第三方）
+ * 一律为 false。trusted=true 时 validateLocalBaseDir 放宽 home 限制。
  */
 export async function importFolder(input: {
   name?: string;
   baseDir: string;
+  fromTrustedPicker?: boolean;
 }): Promise<CompanionProjectSummary> {
   await ensureDataDir();
   if (!input.baseDir?.trim()) throw new Error("baseDir_required");
@@ -193,7 +208,7 @@ export async function importFolder(input: {
     throw new Error("baseDir_not_accessible");
   }
 
-  validateLocalBaseDir(resolved);
+  validateLocalBaseDir(resolved, { trusted: !!input.fromTrustedPicker });
   await access(resolved, constants.R_OK).catch(() => {
     throw new Error("baseDir_not_accessible");
   });

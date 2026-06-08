@@ -1,5 +1,6 @@
 import { basename } from "node:path";
 import { dialog } from "electron";
+import { getCompanionRegistrar } from "./companion-register.js";
 
 export type PickAndImportSuccess = {
   ok: true;
@@ -28,6 +29,10 @@ function projectImportErrorMessage(code: string): string {
       return "不能绑定 Companion 数据目录，请选择您的课题目录";
     case "baseDir_required":
       return "请填写文件夹路径";
+    case "desktop_import_token_invalid":
+      // 桌面壳与 Companion 之间的 HMAC 凭证失效 / 不一致 —— 通常是 secrets
+      // 文件被改动或时钟严重偏差。提示用户重启可让桌面壳重新 register。
+      return "桌面壳与 Companion 凭证不匹配，请重启小窗后再试";
     default:
       return code;
   }
@@ -55,10 +60,21 @@ export async function pickAndImportFolder(): Promise<PickAndImportResult> {
   const baseDir = picked.filePaths[0];
   const name = basename(baseDir);
 
+  // V1.1 D1.3：带 HMAC token；register 没就绪时不阻塞，走无 token 路径
+  // （Companion 侧把它当作浏览器请求处理，仍要求 baseDir 在 home 下）
+  const token = await getCompanionRegistrar()
+    .signImportToken({ baseDir })
+    .catch((err: unknown) => {
+      console.warn("[desktop] sign import token failed:", err);
+      return null;
+    });
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["X-JLC-Desktop-Import-Token"] = token;
+
   try {
     const res = await fetch(`${companionBaseUrl()}/v1/projects/import-folder`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ name, baseDir }),
     });
     const body = (await res.json().catch(() => ({}))) as {
