@@ -20,7 +20,8 @@ export type RunTimeoutProfile =
   | "fast"
   | "deep"
   | "writing"
-  | "ppt";
+  | "ppt"
+  | "translate";
 
 export const PACKAGE_VERSION = "0.1.0";
 
@@ -65,6 +66,8 @@ export const config = {
   runTimeoutDeepMs: envInt("COMPANION_RUN_TIMEOUT_DEEP_MS", 1_800_000),
   runTimeoutWritingMs: envInt("COMPANION_RUN_TIMEOUT_WRITING_MS", 2_700_000),
   runTimeoutPptMs: envInt("COMPANION_RUN_TIMEOUT_PPT_MS", 3_600_000),
+  // V1.1 收口（2026-06-08）：翻译模块同 deep 档（30 min），长篇文档翻译可承受
+  runTimeoutTranslateMs: envInt("COMPANION_RUN_TIMEOUT_TRANSLATE_MS", 1_800_000),
   runIdleTimeoutMs: envInt("COMPANION_RUN_IDLE_TIMEOUT_MS", 900_000),
 } as const;
 
@@ -84,6 +87,8 @@ export function resolveRunTimeoutMs(
       return config.runTimeoutWritingMs;
     case "ppt":
       return config.runTimeoutPptMs;
+    case "translate":
+      return config.runTimeoutTranslateMs;
     default:
       return config.runTimeoutMs;
   }

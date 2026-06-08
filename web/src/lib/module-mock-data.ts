@@ -64,73 +64,10 @@ export const MOCK_MEETING_HISTORY: MeetingRecord[] = [
   },
 ];
 
-export type AssetRecord = {
-  id: string;
-  title: string;
-  template?: string;
-  status: "draft" | "done";
-  updatedAt: string;
-};
-
-export const MOCK_WRITING_ASSETS: AssetRecord[] = [
-  {
-    id: "w1",
-    title: "螺纹钢社会库存解读",
-    template: "行业数据解读",
-    status: "done",
-    updatedAt: "昨天",
-  },
-  {
-    id: "w2",
-    title: "2025 宏观政策专题",
-    template: "政策解读",
-    status: "draft",
-    updatedAt: "2 天前",
-  },
-];
-
-export const MOCK_PPT_ASSETS: AssetRecord[] = [
-  {
-    id: "p1",
-    title: "螺纹钢市场展望路演",
-    status: "done",
-    updatedAt: "3 天前",
-  },
-  {
-    id: "p2",
-    title: "原油策略汇报草稿",
-    status: "draft",
-    updatedAt: "今天",
-  },
-];
-
-export type TranslateRecord = {
-  id: string;
-  title: string;
-  from: string;
-  to: string;
-  mode: "document" | "text";
-  updatedAt: string;
-};
-
-export const MOCK_TRANSLATE_HISTORY: TranslateRecord[] = [
-  {
-    id: "t1",
-    title: "OPEC 月报节选.pdf",
-    from: "英语",
-    to: "中文",
-    mode: "document",
-    updatedAt: "昨天",
-  },
-  {
-    id: "t2",
-    title: "粘贴文本 · 库存数据段落",
-    from: "中文",
-    to: "英语",
-    mode: "text",
-    updatedAt: "2 小时前",
-  },
-];
+// V1.1 收口（2026-06-08）：删除 AssetRecord / MOCK_WRITING_ASSETS / MOCK_PPT_ASSETS
+//   及 TranslateRecord / MOCK_TRANSLATE_HISTORY —— 写作/PPT v2 PRD 决策已废止
+//   「我的文稿 / 我的 PPT / 翻译历史」二级菜单，相关 mock 数据零引用。
+//   见 memory: ppt-prd-v2-supersedes-v1。原来的 AssetListPanel 组件也已一并删除。
 
 export const MOCK_SOURCE_ITEMS = [
   { id: "s1", name: "机构 A 周报", bias: "偏多", updated: "05-18" },

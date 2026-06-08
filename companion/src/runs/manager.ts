@@ -220,6 +220,7 @@ function resolveTimeoutProfile(req: CreateRunRequest): RunTimeoutProfile {
   if (req.timeoutProfile) return req.timeoutProfile;
   if (req.moduleId === "writing") return "writing";
   if (req.moduleId === "ppt") return "ppt";
+  if (req.moduleId === "translate") return "translate";
   if (
     req.binding.moduleId === "chat" &&
     normalizeChatMode(req.binding.mode) === "deep"

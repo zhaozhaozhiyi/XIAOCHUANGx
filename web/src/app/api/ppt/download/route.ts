@@ -101,7 +101,10 @@ export async function POST(request: Request) {
   try {
     const { bytes, mime } = await readFileBytes(filePath, projectId);
     const name = basenameFromPath(filePath);
-    return new Response(bytes, {
+    // V1.1 收口（2026-06-08）：Node 22 起 Buffer<ArrayBufferLike> 不再直接
+    // 满足 BodyInit 约束（已知 web tsc 历史债，commit 0a22e3b 提交说明点过名）。
+    // 转 Uint8Array 兼顾 Buffer 子类与 BodyInit 形态。
+    return new Response(new Uint8Array(bytes), {
       headers: {
         "Content-Type": mime,
         "Content-Disposition": `attachment; filename="${encodeURIComponent(name)}"`,

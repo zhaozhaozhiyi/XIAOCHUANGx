@@ -1,6 +1,5 @@
 "use client";
 
-import { AssetListPanel } from "./panels/AssetListPanel";
 import { KnowledgePanel } from "./panels/KnowledgePanel";
 import { MeetingHistoryPanel } from "./panels/MeetingHistoryPanel";
 import { UploadPanel } from "./panels/UploadPanel";

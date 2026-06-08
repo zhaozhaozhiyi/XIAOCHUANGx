@@ -3205,7 +3205,8 @@ Session {               // 对话会话；字段名实现可对齐 conversationI
 | ~~`/writing/mine`~~ | ~~我的文稿~~ | ❌ 已废止 | v2：工作区文件即文稿（同上） |
 | `/ppt/new` | PPT | ✅ | v2：加载 ChatHome + `skill-ppt-pitch-deck`，对话内切换 PPT Skill（2026-06-06） |
 | ~~`/ppt/from-writing` / `/ppt/templates` / `/ppt/mine`~~ | ~~从文稿/路演模板/我的 PPT~~ | ❌ 已废止 | v2：均改为对话内 Skill 切换（[ppt-module-prd.v2](./web/docs/ppt-module-prd.v2.md)） |
-| `/translate/*` | 翻译三入口 | ⬜ | 占位 |
+| `/translate/new` | 翻译 | ✅ | v2：加载 ChatHome + `skill-tr-text`/`skill-tr-doc`/`skill-tr-polish`，对话内 Skill 切换（2026-06-08，commit 0a22e3b） |
+| ~~`/translate/{template}` / `/translate/mine`~~ | ~~三入口 / 历史~~ | ❌ 已废止 | v2：单二级菜单 + 对话内 Skill 切换 |
 
 实现来源：`web/src/lib/navigation.ts`（`NAV_MODULES`）、`web/src/app/(main)/**`。
 

@@ -1,6 +1,8 @@
 ---
 slug: skill-writing-meeting-minutes
 module: writing
+task: writing
+templateId: meeting-minutes
 version: "1.0"
 ---
 

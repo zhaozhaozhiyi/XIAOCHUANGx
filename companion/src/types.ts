@@ -12,7 +12,8 @@ export type ModuleId =
   | "meeting"
   | "knowledge"
   | "writing"
-  | "ppt";
+  | "ppt"
+  | "translate";
 
 export type WorkspaceKind = "sandbox" | "local_bound" | "cloud";
 
@@ -108,7 +109,9 @@ export type CreateRunBinding =
   | { moduleId: "writing"; templateId: string }
   | { moduleId: "ppt"; task: "deck" }
   | { moduleId: "meeting"; task: "summary"; templateId?: string }
-  | { moduleId: "knowledge"; task: "kb-qa" };
+  | { moduleId: "knowledge"; task: "kb-qa" }
+  // V1.1 收口（2026-06-08）：与 web/src/lib/companion/types.ts 对齐
+  | { moduleId: "translate"; task: "translate"; templateId?: string };
 
 export type ChatRunMessage = {
   id?: string;

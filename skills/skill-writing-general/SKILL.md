@@ -1,6 +1,8 @@
 ---
 slug: skill-writing-general
 module: writing
+task: writing
+templateId: general
 version: "1.0"
 ---
 

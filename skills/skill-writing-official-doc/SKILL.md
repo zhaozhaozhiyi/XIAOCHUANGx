@@ -1,6 +1,8 @@
 ---
 slug: skill-writing-official-doc
 module: writing
+task: writing
+templateId: official-doc
 version: "1.0"
 ---
 

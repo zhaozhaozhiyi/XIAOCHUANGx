@@ -33,6 +33,7 @@ const MODULE_IDS = new Set<string>([
   "knowledge",
   "writing",
   "ppt",
+  "translate",
 ]);
 const TIMEOUT_PROFILES = new Set([
   "default",
@@ -40,6 +41,7 @@ const TIMEOUT_PROFILES = new Set([
   "deep",
   "writing",
   "ppt",
+  "translate",
 ]);
 
 function sleep(ms: number): Promise<void> {
