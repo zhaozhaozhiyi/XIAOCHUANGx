@@ -1,4 +1,5 @@
 dist/
 release/
-resources/web-standalone/
+# D1.4 prepare 阶段输出：companion bundle + skills/prompts 镜像 + web standalone
+resources/
 .dev-electron/

@@ -14,8 +14,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "icons": "node ../../scripts/generate-brand-icons.mjs",
     "prepare:web": "node ../../scripts/prepare-desktop-web.mjs",
-    "pack:dir": "pnpm icons && pnpm build && pnpm prepare:web && electron-builder --dir",
-    "pack": "pnpm icons && pnpm build && pnpm prepare:web && electron-builder"
+    "prepare:companion": "pnpm --filter @jlcresearch/companion bundle && node ../../scripts/prepare-companion-bundle.mjs",
+    "pack:dir": "pnpm icons && pnpm build && pnpm prepare:web && pnpm prepare:companion && electron-builder --dir",
+    "pack": "pnpm icons && pnpm build && pnpm prepare:web && pnpm prepare:companion && electron-builder"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

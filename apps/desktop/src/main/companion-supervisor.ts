@@ -58,25 +58,54 @@ const RESTART_LIMIT = 3; // 5min 内 ≥3 次 → needs-manual-start
 const SPAWN_GRACE_MS = 8_000; // spawn 后给 8s 让 Companion 监听端口
 
 // -----------------------------------------------------------------------------
-// sidecar binary 定位
+// sidecar bundle 定位（D1.4 desktop-v1.1-roadmap.md §6）
 // -----------------------------------------------------------------------------
 
 /**
- * 找 Companion sidecar binary。
+ * D1.4 捆绑方案：
+ *  - Companion 用 esbuild 打成单个 CJS（`companion.cjs`，~数百 KB），
+ *    放进 `process.resourcesPath/companion/`
+ *  - Skills / Prompts 不进 bundle，作为静态目录放在 `process.resourcesPath/{skills,prompts}/`
+ *  - 运行时由 supervisor 用 `spawn(process.execPath, [bundlePath], { ELECTRON_RUN_AS_NODE: "1" })`
+ *    跑成纯 Node 进程（Electron binary 内嵌 Node runtime）
  *
- * D1.4 之前（捆绑还没做）：始终返回 null，走 "needs-manual-start" 路径。
- * D1.4 之后：打包态从 `process.resourcesPath/companion(.exe)` 取。
+ * 偏离 roadmap §6.3 写的 pkg/nexe 路线 —— 见 web/docs/desktop-d1.4-bundle-status.md
+ * 的"决策"小节。
  */
-export function findCompanionBinary(): string | null {
-  // 开发态（未打包）→ 不 spawn，让用户走 `pnpm companion:dev`
+export type SidecarLayout = {
+  /** Electron 主进程 binary（process.execPath），用作 Node runtime */
+  execPath: string;
+  /** companion.cjs 绝对路径 */
+  bundlePath: string;
+  /** skills/ 目录（注入到 JLC_SKILLS_DIR） */
+  skillsDir: string;
+  /** prompts/ 目录（注入到 JLC_PROMPTS_DIR） */
+  promptsDir: string;
+};
+
+/**
+ * 找 Companion sidecar bundle + 附属资源目录。
+ *
+ * 开发态（!app.isPackaged）始终返回 null —— 让用户继续走 `pnpm companion:dev`。
+ * 打包态 bundle 缺失也返回 null，由调用方回退到 "needs-manual-start"。
+ */
+export function findCompanionBundle(): SidecarLayout | null {
+  // 开发态：不 spawn；保持 D1.1 既有行为
   if (!app.isPackaged) return null;
 
-  const exeName = process.platform === "win32" ? "companion.exe" : "companion";
-  const candidate = join(process.resourcesPath, exeName);
-  if (existsSync(candidate)) return candidate;
+  const resources = process.resourcesPath;
+  const bundlePath = join(resources, "companion", "companion.cjs");
+  if (!existsSync(bundlePath)) return null;
 
-  // D1.4 还没把 binary 塞进 resources → graceful fail
-  return null;
+  // skills/ 与 prompts/ 是软依赖：缺也能跑（runtime-core/paths.ts 会回退）
+  // 但既然 prepare 脚本会一起拷，缺意味着安装包损坏；这里仍 return 让用户能跑，
+  // 失败由 Companion 启动期暴露
+  return {
+    execPath: process.execPath,
+    bundlePath,
+    skillsDir: join(resources, "skills"),
+    promptsDir: join(resources, "prompts"),
+  };
 }
 
 // -----------------------------------------------------------------------------
@@ -262,16 +291,30 @@ export class CompanionSupervisor {
   /**
    * 尝试 spawn sidecar；返回 true 表示进程已 fork 成功
    * （不保证服务已就绪，后续轮询会 → running 或继续 crashed→restart 链路）。
+   *
+   * D1.4 实现：
+   *  - 用 process.execPath（Electron binary 内嵌 Node）+ ELECTRON_RUN_AS_NODE=1
+   *    跑 companion.cjs，不需要单独打 Node binary
+   *  - JLC_SKILLS_DIR / JLC_PROMPTS_DIR 让 runtime-core/paths.ts 找到资源目录；
+   *    用户已显式设的 env 优先（?? 兜底），便于企业部署覆盖
    */
   private trySpawnSidecar(): boolean {
-    const binary = findCompanionBinary();
-    if (!binary) return false;
+    const layout = findCompanionBundle();
+    if (!layout) return false;
 
     try {
-      const child = spawn(binary, [], {
+      const child = spawn(layout.execPath, [layout.bundlePath], {
         stdio: ["ignore", "pipe", "pipe"],
         windowsHide: true,
         // 不开 detached：主进程退出连带杀子
+        env: {
+          ...process.env,
+          // 关键：让 Electron binary 跑成纯 Node，跳过 GUI、命令行参数、Chromium
+          ELECTRON_RUN_AS_NODE: "1",
+          // 让 runtime-core 找到资源目录（用户 env 优先）
+          JLC_SKILLS_DIR: process.env.JLC_SKILLS_DIR ?? layout.skillsDir,
+          JLC_PROMPTS_DIR: process.env.JLC_PROMPTS_DIR ?? layout.promptsDir,
+        },
       });
       this.child = child;
       this.consecutiveFailures = 0;

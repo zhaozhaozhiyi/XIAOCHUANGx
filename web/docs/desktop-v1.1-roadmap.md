@@ -141,28 +141,36 @@ Companion: 已连接（绿）/ 重启中（黄）/ 未连接（红）
 
 终端用户**不感知 Companion 单独存在**——下载小窗安装包即装好桌面壳 + Companion；卸载也一并清理。
 
-### 6.2 设计
+### 6.2 设计（实施版 · 2026-06-08 决策偏离原 6.3）
 
 | 平台 | 策略 |
 |------|------|
-| **Win NSIS** | `extraResources` 包含 `companion-binary.exe`（pkg/nexe 打包后的单文件二进制），安装到 `%ProgramFiles%/小窗/resources/companion.exe` |
-| **mac dmg** | `extraResources` 包含 `companion-binary`（mac 单文件），代码签名（含 entitlements） |
+| **Win NSIS** | `extraResources` 含 `companion/companion.cjs`（esbuild 打的 CJS bundle）；运行时由 supervisor `spawn(process.execPath, [companion.cjs], { ELECTRON_RUN_AS_NODE: "1" })` 启动 |
+| **mac dmg** | 同上策略；签名 entitlements 见 `apps/desktop/build/entitlements.mac.plist`（已写好占位，待 Apple Developer 证书 + `hardenedRuntime: true`） |
 | **Linux** | V1.1+ 暂不交付 |
 
-### 6.3 工程
+> **决策偏离 §6.3**：原计划 pkg/nexe 打 Node 单二进制，最终改用 **esbuild bundle + Electron `ELECTRON_RUN_AS_NODE` 共享 runtime**。理由：(1) Electron binary 内嵌 Node，不必再带一份 Node ≈ 省 ~50MB DMG 体积；(2) bundle ~1.8MB，比 pkg 单二进制（≈ 50MB）小一个数量级；(3) D1.5 electron-updater 替换整个 .app/.exe 时 bundle 自动跟随更新；(4) 不需要 Node 预构建，跨平台构建零成本；(5) skills/prompts 仍以静态目录形态外挂，便于企业用户就地修改。详见 [desktop-d1.4-bundle-status.md](./desktop-d1.4-bundle-status.md)。
 
-| 任务 | 说明 |
-|------|------|
-| Companion 单文件打包 | `pnpm --filter companion build:bin`（新增）使用 [pkg](https://github.com/vercel/pkg) 或 [nexe](https://github.com/nexe/nexe)；产出 `dist/companion-{platform}-{arch}` |
-| `electron-builder.yml` 改造 | `extraResources` 加入对应平台 binary |
-| `CompanionSupervisor.findBinary()` | 打包态优先用 `process.resourcesPath/companion(.exe)`；开发态走 `pnpm companion:dev` |
-| 代码签名 | mac 需 `entitlements.plist` 含 `com.apple.security.network.server`（Companion 监听端口）；Win 需 EV 证书或 Authenticode |
+### 6.3 工程（实施版）
+
+| 任务 | 实施 | 状态 |
+|------|------|------|
+| Companion bundle | `pnpm --filter @jlcresearch/companion bundle` → `companion/dist-bin/companion.cjs`（esbuild、CJS、target node20，1.8MB） | ✅ |
+| Prepare 脚本 | `scripts/prepare-companion-bundle.mjs` 同步 bundle + skills + prompts 到 `apps/desktop/resources/` | ✅ |
+| `electron-builder.yml` 改造 | `extraResources` 加 `companion/`、`skills/`、`prompts/` 三项 | ✅ |
+| `CompanionSupervisor.findCompanionBundle()` | 返回 `{ execPath, bundlePath, skillsDir, promptsDir }`；`trySpawnSidecar` 用 `process.execPath` + `ELECTRON_RUN_AS_NODE=1` + 注入 `JLC_SKILLS_DIR/JLC_PROMPTS_DIR` | ✅ |
+| mac entitlements | `apps/desktop/build/entitlements.mac.plist` 含 `network.server/client`、`allow-jit`、`inherit` 等；当前 `hardenedRuntime: false` 不生效，签名时直接打开即可 | ✅ 占位 |
+| 代码签名 | Apple Developer 证书 + Win EV 证书；本批不接（需证书） | ⏸ 推后 |
 
 ### 6.4 验收
 
-- [ ] dmg / nsis 安装后立即启动小窗 → 无需用户安装 Companion → 对话立即可用
-- [ ] 卸载小窗 → Companion 进程退出 + 二进制清理（用户数据 `~/.jlcresearch/` 保留）
-- [ ] mac Gatekeeper / Win SmartScreen 打开
+- [x] 改 supervisor / electron-builder.yml / package.json 后 4 套 tsc 干净
+- [x] `pnpm --filter @jlcresearch/companion bundle` 跑通（bundle 1.8MB）
+- [x] bundle 真起 fastify on `127.0.0.1:9477` 验证（COMPANION_PORT=19477 烟测通过）
+- [x] `scripts/prepare-companion-bundle.mjs` 跑通，`apps/desktop/resources/{companion,skills,prompts}/` 三目录到位
+- [ ] 实跑 `pnpm --filter @jlc/desktop pack:dir`：dmg / nsis 装后立即可用（手测，需本地 Electron prebuild）
+- [ ] 卸载小窗 → Companion 进程退出 + bundle/skills/prompts 清理（用户数据 `~/.jlcresearch/` 保留）
+- [ ] mac Gatekeeper / Win SmartScreen 打开（需签名后再验）
 
 ---
 
@@ -253,7 +261,7 @@ flowchart LR
 - [ ] **D1.1（P0）** Companion 自动启动 / 健康守护：冷启动 5s 内可用；崩溃自动重启
 - [x] **D1.2（P0）** 托盘：最小化到托盘 + 右键菜单 + tooltip 状态（2026-06-08；`apps/desktop/src/main/tray.ts`）
 - [x] **D1.3（P0）** HMAC：`fromTrustedPicker` 区分桌面 vs 浏览器路径；第三方伪造 401/403（2026-06-08；`companion/src/desktop/secrets.ts` + `routes/desktop.ts` + `apps/desktop/src/main/companion-register.ts`）
-- [ ] **D1.4（P1）** Companion 捆绑：dmg/nsis 装完即可用；卸载干净
+- [x] **D1.4（P1）** Companion 捆绑：esbuild bundle + ELECTRON_RUN_AS_NODE 共享 runtime（2026-06-08；偏离原 §6.3 pkg/nexe 路线，详见 [desktop-d1.4-bundle-status.md](./desktop-d1.4-bundle-status.md)；DMG/NSIS 实跑与签名留作手测）
 - [ ] **D1.5（P1）** 自动更新：服务端发布新版 → 桌面壳后台拉取 → 重启即新版
 - [ ] **D1.6（P2）** 系统通知：长 Run 完成 / 错误弹 macOS/Windows 通知
 

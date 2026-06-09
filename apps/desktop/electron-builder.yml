@@ -17,6 +17,25 @@ extraResources:
       - "**/*"
   - from: build/icon.png
     to: icon.png
+  # D1.4（desktop-v1.1-roadmap.md §6）：Companion 捆绑 sidecar bundle
+  # 由 scripts/prepare-companion-bundle.mjs 在 pack 前生成；运行时由
+  # apps/desktop/src/main/companion-supervisor.ts 通过
+  # spawn(process.execPath, [companion.cjs], { ELECTRON_RUN_AS_NODE: "1" }) 启动。
+  - from: resources/companion
+    to: companion
+    filter:
+      - "**/*"
+  # skills/ + prompts/ 不打进 bundle —— 让用户可就地查看修改；
+  # supervisor 注入 JLC_SKILLS_DIR / JLC_PROMPTS_DIR 让 runtime-core/paths.ts
+  # 找到。详见 web/docs/desktop-d1.4-bundle-status.md。
+  - from: resources/skills
+    to: skills
+    filter:
+      - "**/*"
+  - from: resources/prompts
+    to: prompts
+    filter:
+      - "**/*"
 
 asar: true
 
@@ -29,6 +48,10 @@ mac:
   target:
     - dmg
   hardenedRuntime: false
+  # D1.4：留位 —— 接 Apple Developer 证书后开 hardenedRuntime: true 即生效。
+  # com.apple.security.network.server 是 Companion 监听 9477 端口必需。
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
 
 win:
   icon: build/icon.png
