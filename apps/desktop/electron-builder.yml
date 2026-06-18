@@ -61,3 +61,13 @@ win:
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
+
+# D1.5（desktop-v1.1-roadmap.md §7）：自动更新源
+# 占位 generic url —— 服务端（nginx 静态目录 / OSS）尚未接入；
+# auto-updater 启动时会 fetch latest.yml，404 静默走 'error' 状态，
+# 不影响主功能。运维接入后只需把 url 改为真实地址。
+# 详见 web/docs/desktop-d1.5-d1.6-status.md。
+publish:
+  - provider: generic
+    url: https://updates.jlcresearch.com/小窗/
+    channel: latest

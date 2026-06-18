@@ -18,6 +18,9 @@
     "pack:dir": "pnpm icons && pnpm build && pnpm prepare:web && pnpm prepare:companion && electron-builder --dir",
     "pack": "pnpm icons && pnpm build && pnpm prepare:web && pnpm prepare:companion && electron-builder"
   },
+  "dependencies": {
+    "electron-updater": "^6.6.2"
+  },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "electron": "33.4.11",

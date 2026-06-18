@@ -14,6 +14,7 @@ import {
   installDesktopBranding,
   resolveBrandIcon,
 } from "./brand.js";
+import { getAutoUpdater } from "./auto-updater.js";
 import { getCompanionHealth } from "./companion-health.js";
 import { getCompanionRegistrar } from "./companion-register.js";
 import { getCompanionSupervisor } from "./companion-supervisor.js";
@@ -175,6 +176,17 @@ app.whenReady().then(() => {
     }
   });
 
+  // V1.1 D1.5：自动更新（desktop-v1.1-roadmap.md §7）
+  // dev 下 start() 内部会立即 disable，不抛；packaged 才真去拉 latest.yml
+  const updater = getAutoUpdater();
+  updater.start();
+  ipcMain.handle("updater:get-status", () => updater.getStatus());
+  ipcMain.handle("updater:check", async () => updater.check());
+  ipcMain.handle("updater:install-now", () => {
+    updater.installNow();
+    return { ok: true };
+  });
+
   // 自定义标题栏内嵌菜单 — 渲染端按钮点击时 popup 原生菜单（VSCode 同款）
   ipcMain.handle("desktop:popup-menu", (event, input: unknown) => {
     if (!isRecord(input)) return { ok: false };
@@ -243,6 +255,9 @@ app.on("before-quit", () => {
   void getCompanionSupervisor().stop();
   // V1.1 D1.2：销毁托盘
   getTrayManager().destroy();
+  // V1.1 D1.5：停掉 updater 定时器（quitAndInstall 自身也会触发 before-quit；
+  // 这里 stop 只清自家 timer，没有副作用）
+  getAutoUpdater().stop();
 });
 
 app.on("will-quit", () => {

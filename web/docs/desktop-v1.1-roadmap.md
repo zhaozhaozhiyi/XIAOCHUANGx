@@ -200,9 +200,9 @@ Companion: 已连接（绿）/ 重启中（黄）/ 未连接（红）
 
 ### 7.4 验收
 
-- [ ] 安装包 v0.1 → 服务端发布 v0.2 → 桌面壳启动后 30s 检查到更新 → 后台下载 → 重启后已是 v0.2
-- [ ] 全局设置「关于」页显示当前版本 + "检查更新"按钮 + "下载进度"
-- [ ] 网络错误时静默失败，不阻塞主功能
+- [ ] 安装包 v0.1 → 服务端发布 v0.2 → 桌面壳启动后 30s 检查到更新 → 后台下载 → 重启后已是 v0.2（**待服务端**：publish 占位 `https://updates.jlcresearch.com/小窗/` 还未接入；代码路径全通，等运维上 nginx/OSS 静态目录即生效）
+- [x] 全局设置「关于」页显示当前版本 + "检查更新"按钮 + "下载进度"（`AboutSettingsSection` + `UpdaterPanel`，2026-06-08）
+- [x] 网络错误时静默失败，不阻塞主功能（`auto-updater.ts` 走 'error' 状态透出 hint 不抛；详见 [desktop-d1.5-d1.6-status.md](./desktop-d1.5-d1.6-status.md)）
 
 ---
 
@@ -262,7 +262,7 @@ flowchart LR
 - [x] **D1.2（P0）** 托盘：最小化到托盘 + 右键菜单 + tooltip 状态（2026-06-08；`apps/desktop/src/main/tray.ts`）
 - [x] **D1.3（P0）** HMAC：`fromTrustedPicker` 区分桌面 vs 浏览器路径；第三方伪造 401/403（2026-06-08；`companion/src/desktop/secrets.ts` + `routes/desktop.ts` + `apps/desktop/src/main/companion-register.ts`）
 - [x] **D1.4（P1）** Companion 捆绑：esbuild bundle + ELECTRON_RUN_AS_NODE 共享 runtime（2026-06-08；偏离原 §6.3 pkg/nexe 路线，详见 [desktop-d1.4-bundle-status.md](./desktop-d1.4-bundle-status.md)；DMG/NSIS 实跑与签名留作手测）
-- [ ] **D1.5（P1）** 自动更新：服务端发布新版 → 桌面壳后台拉取 → 重启即新版
+- [x] **D1.5（P1）** 自动更新：electron-updater + AboutSettingsSection 状态 / 检查 / 立即重启更新（2026-06-08；publish 占位 `https://updates.jlcresearch.com/小窗/` 待运维接入）
 - [ ] **D1.6（P2）** 系统通知：长 Run 完成 / 错误弹 macOS/Windows 通知
 
 ---

@@ -37,4 +37,29 @@ contextBridge.exposeInMainWorld("electronAPI", {
       return () => ipcRenderer.removeListener("companion:status", listener);
     },
   },
+
+  // V1.1 D1.5：自动更新（desktop-v1.1-roadmap.md §7）
+  // 设置「关于」页订阅 onStatusChange 渲染进度条 / 更新按钮
+  updater: {
+    getStatus: () => ipcRenderer.invoke("updater:get-status"),
+    check: () => ipcRenderer.invoke("updater:check"),
+    installNow: () => ipcRenderer.invoke("updater:install-now"),
+    /**
+     * 监听 'updater:status' 广播
+     * @param {(status: unknown) => void} cb
+     * @returns {() => void} 取消订阅
+     */
+    onStatusChange: (cb) => {
+      const listener = (_event, status) => {
+        try {
+          cb(status);
+        } catch (err) {
+          console.error("[preload] updater onStatusChange callback failed", err);
+        }
+      };
+      ipcRenderer.on("updater:status", listener);
+      return () => ipcRenderer.removeListener("updater:status", listener);
+    },
+  },
+
 });
