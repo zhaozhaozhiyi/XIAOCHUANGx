@@ -1,73 +1,219 @@
-# 小窗（原型 Monorepo）
+# 小窗 Xiaochuang
 
-| 包 | 说明 |
-|----|------|
-| [`web/`](./web/) | Next.js 前端 + BFF |
-| [`api/`](./api/) | NestJS 业务 API（账号、项目、对话会话元数据） |
-| [`packages/contracts/`](./packages/contracts/) | 共享 DTO / Zod 契约 |
-| [`companion/`](./companion/) | 本机 Companion（模式 B） |
-| [`apps/desktop/`](./apps/desktop/) | Electron 桌面壳（`pnpm desktop:dev`） |
+> Cursor 专注 coding，小窗专注 works。  
+> 研究、写作、演示、制图、推演，一个工作台搞定。
 
-文档：[PRD v3.6.7](./PRD-小窗.md)（**MVP = 对话 + 桌面壳 + 多 CLI / 多模型/API 接入核心能力**；实现快照 §12.5.9）· [工作区架构](./web/docs/workspace-architecture.md) · [设计文档审计建议](./docs/design-doc-audit-recommendations.md) · [技术方案](./技术方案.md) · [功能清单](./功能清单.md) · [会议纪要模块 PRD](./web/docs/meeting-module-prd.md) · [写作模块 PRD](./web/docs/writing-module-prd.md) · [PPT 模块 PRD](./web/docs/ppt-module-prd.md) · [MVP 收口清单](./web/docs/mvp-closure-checklist.md) · [执行路线图](./web/docs/chat-execution-roadmap.md) · [桌面壳](./web/docs/desktop-shell.md) · [Companion API](./web/docs/companion-api.md) · [业务 API](./api/README.md)
+<p align="center">
+  <img src="apps/desktop/build/icon@256.png" alt="小窗 Logo" width="96" />
+</p>
 
-## 本地开发
+<p align="center">
+  <a href="#首页视频">首页视频</a> ·
+  <a href="#一个故事讲清楚小窗">故事主线</a> ·
+  <a href="#典型界面">典型界面</a> ·
+  <a href="#核心架构">核心架构</a> ·
+  <a href="#交流与共建">交流与共建</a>
+</p>
 
-## 运行前置条件（必须）
+## 首页视频
 
-- **必须先启动 Companion**：未启动时，项目树读取、文件导入、Agent 执行链路将不可用。
-- 启动命令（建议单独终端常驻）：
+仓库已经内置小窗首页宣传视频，可直接放在 README 里看。
 
-```bash
-pnpm companion:dev
-# → http://127.0.0.1:9477
+<video src="web/public/login-video.mp4" controls muted playsinline width="100%"></video>
+
+如果当前客户端不支持内嵌播放，也可以直接打开：[`web/public/login-video.mp4`](./web/public/login-video.mp4)
+
+## 一个故事讲清楚小窗
+
+很多知识工作，表面上看是在“写点东西”“做个汇报”“画个图”，但真正麻烦的，从来不是某一个动作本身，而是这一整条链路太碎了。
+
+查资料在一个地方，记结论在一个地方，写文稿在一个地方，做 PPT 又去另一个地方。等到真正要交付时，内容、素材、结构、结论，已经散在一堆窗口和文件夹里。人不是在做工作，人是在找工作。
+
+小窗想做的，就是把这条链路重新收回来。
+
+### 从一句话开始
+
+你只需要说一句话。
+
+比如：
+
+> `2026 年上半年中国成品油市场复盘`
+
+小窗就从这里开始，把研究工作真正接起来。
+
+### 先做研究
+
+对话不是终点，而是入口。
+
+你提出问题之后，小窗会把信息整理成更清晰的结论、摘要和结构。不是让你在一长串聊天记录里自己翻重点，而是帮你先把问题收敛下来。
+
+一句话概括这一步：
+
+> 说一句话，小窗就开始帮你研究。
+
+### 需要成稿，就进入写作
+
+研究完，很多时候下一步不是“继续聊”，而是“把它写出来”。
+
+于是同一条工作链自然进入写作：确认需求，整理结构，生成大纲，继续写成稿件。你可以确认，也可以改；你可以让它先给框架，也可以直接推进正文。
+
+这一步最重要的不是“会写”，而是：
+
+> 研究的结论，不再丢在聊天里，而是继续长成真正的文稿。
+
+### 需要汇报，就继续做 PPT
+
+当文稿已经成型，下一步往往是演示和汇报。
+
+小窗会继续把内容转成页纲、结构、页面表达。路演、汇报、复盘、介绍，不需要把前面的工作重做一遍，而是顺着同一条线继续往前走。
+
+这一步想表达的是：
+
+> 从内容到表达，不需要换脑子，也不需要换工作台。
+
+### 需要画图，就进入 3D 绘图
+
+有些工作不是写和讲，而是要画出来、建出来、导出来。
+
+这时你依然可以从一句需求开始，把对象变成参数化模型，再继续调整，再继续导出成工程文件。不是把制图变成孤岛，而是让它也回到同一个工作过程里。
+
+这一步想解决的是：
+
+> 制图不该脱离上下文，工程文件也应该属于同一个交付链路。
+
+![3D 绘图](web/public/readme/scene07-3d-frame-2040.png)
+
+### 遇到复杂问题，就进入推演
+
+还有一些问题，既不是简单回答，也不是直接写稿，而是要拆结构、看变量、走路径、做判断。
+
+这时，小窗会把复杂问题拆开，把影响关系展开，把不同路径并排放出来，让人不是只看到一个答案，而是看到一组更可判断的方向。
+
+这一段的重点是：
+
+> 把复杂问题，变成可以继续推下去的结构。
+
+![推演分析](web/public/readme/scene08-simulation-frame-2460.png)
+
+### 最后，所有结果回到工作区
+
+研究、写作、演示、制图、推演，最后都不该只停在界面上。
+
+它们应该回到一个真实工作区里，变成真正能交付、能复用、能继续加工的文件和结果。这样你做的不是“一次对话”，而是一份真正留下来的工作。
+
+这也是小窗最想守住的一件事：
+
+> AI 跑完整个过程，人负责确认和交付。  
+> 聊天可以结束，结果必须留下。
+
+## 小窗能做什么
+
+- 对话研究：把一个问题收敛成结构化结论
+- 写作成稿：把研究继续推进成文稿
+- PPT 演示：把内容继续转成汇报表达
+- 3D 绘图：把需求变成可调整、可导出的模型
+- 推演分析：把复杂问题拆开、展开、继续往下推
+- 工作区交付：把所有结果沉淀成真正可用的文件资产
+
+## 典型界面
+
+下面这组画面来自项目宣传片中的典型帧，基本就是上面这段故事的视觉版。
+
+### 对话研究
+
+![对话研究](apps/video/out/frame-04-chat.png)
+
+### 写作成稿
+
+![写作成稿](apps/video/out/frame-05-writing.png)
+
+### PPT 演示
+
+![PPT 演示](apps/video/out/frame-06-ppt.png)
+
+### 3D 绘图
+
+![3D 绘图](web/public/readme/scene07-3d-frame-2040.png)
+
+### 推演分析
+
+![推演分析](web/public/readme/scene08-simulation-frame-2460.png)
+
+### 工作区交付
+
+![工作区交付](apps/video/out/frame-07-workspace.png)
+
+## 核心价值
+
+### 一个工作台
+
+研究、写作、演示、制图、推演，不再分散在一堆互不相干的工具里。
+
+### 一条工作链
+
+前一步的结果，能自然流到下一步，不需要重复搬运、重复整理、重复解释。
+
+### 一套交付心智
+
+不是只生成内容，而是把结果沉淀成真实工作区里的交付物。
+
+### 一种更适合知识工作的产品方式
+
+它不只是回答问题，而是陪你把问题做完。
+
+## 核心架构
+
+README 这里不展开讲实现细节，但会保留最重要的一层理解：小窗的设计，不是围绕“单个功能页”组织，而是围绕“完整工作过程”组织。
+
+```mermaid
+flowchart LR
+  A["一句需求"] --> B["对话研究"]
+  B --> C["写作成稿"]
+  C --> D["PPT 演示"]
+  B --> E["3D 绘图"]
+  B --> F["推演分析"]
+  D --> G["工作区交付"]
+  E --> G
+  F --> G
+  C --> G
 ```
 
-- 建议启动后先做健康检查：
+## 快速开始
 
 ```bash
-curl -s http://127.0.0.1:9477/v1/health
-```
-
-返回 `{"ok":true,...}` 后，再继续启动 API / Web / Desktop。
-
-**推荐主启动方式**：直接在仓库根目录运行：
-
-```bash
+pnpm install
 pnpm dev
 ```
 
-它会自动启动 API、Companion、Web，并在 Web / Companion 就绪后拉起桌面壳。
-
-如需分开调试，MVP 联调仍可按四个进程分别启动：API、Companion、Web；桌面壳为推荐交付形态。
+如果你想分开调试，也可以分别启动：
 
 ```bash
-# 1. 依赖服务
 docker compose up -d
-
-# 2. 安装
-pnpm install
-pnpm contracts:build && pnpm runtime-core:build
-
-# 3. 数据库（首次）
 cp api/.env.example api/.env
 pnpm db:push
-
-# 4. 启动 API（终端 A）
 pnpm dev:api
-# → http://localhost:3001/v1  Swagger: http://localhost:3001/docs
-
-# 5. 启动 Companion（终端 B，必需 — Agent 执行、项目树、文件夹导入）
 pnpm companion:dev
-# → http://127.0.0.1:9477
-
-# 6. 启动 Web（终端 C）
 pnpm dev:web
-# → http://localhost:3000
-
-# 7. 桌面壳（终端 D，MVP 推荐）
 pnpm desktop:dev
 ```
 
-Web 默认 `CHAT_EXECUTION=companion`、`COMPANION_BASE_URL=http://127.0.0.1:9477`；无本机 CLI 时可 `COMPANION_RUN_MODE=simulate pnpm companion:dev` 做 UI 演示。详见 [companion/README.md](./companion/README.md)。
+## 交流与共建
 
-开发登录：`.env` 中 `AUTH_DEV_MODE=true` 时验证码为 **123456**。
+如果你也相信“知识工作值得一个更完整的工作台”，欢迎来聊。
+
+![个人微信](web/public/lumina.jpg)
+
+开源协议采用 [The Unlicense](./LICENSE)：拿去用、拿去改、拿去商用，都可以。
+
+## 如果你愿意，给小窗点个 Star
+
+如果这个项目让你有一点点共鸣：
+
+- 你也觉得知识工作的工具链太碎了
+- 你也想看到“从问题到交付”被真正串起来
+- 你也愿意支持一个认真做 works 的项目
+
+欢迎点一个 `Star`。
+
+它会帮小窗被更多人看见。  
+也会让我们继续把这件事做下去的时候，更有底气一点。调皮地说，就是那种“多一个 Star，就想多填一个坑”的底气。
