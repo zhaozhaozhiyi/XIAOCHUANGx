@@ -1,2 +1,0 @@
-class GenerateTaskStoppedError(Exception):
-    pass

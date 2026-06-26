@@ -1,1 +1,0 @@
-# Core integration tests package
