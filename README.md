@@ -81,7 +81,7 @@
 
 > 制图不该脱离上下文，工程文件也应该属于同一个交付链路。
 
-![3D 绘图](web/public/readme/scene07-3d-frame-2040.png)
+![3D 绘图](web/public/readme/real/3d-home.png)
 
 ### 遇到复杂问题，就进入推演
 
@@ -93,7 +93,7 @@
 
 > 把复杂问题，变成可以继续推下去的结构。
 
-![推演分析](web/public/readme/scene08-simulation-frame-2460.png)
+![推演分析](web/public/readme/real/simulation-home.png)
 
 ### 最后，所有结果回到工作区
 
@@ -121,27 +121,27 @@
 
 ### 对话研究
 
-![对话研究](apps/video/out/frame-04-chat.png)
+![对话研究](web/public/readme/real/chat-home.png)
 
 ### 写作成稿
 
-![写作成稿](apps/video/out/frame-05-writing.png)
+![写作成稿](web/public/readme/real/writing-home.png)
 
 ### PPT 演示
 
-![PPT 演示](apps/video/out/frame-06-ppt.png)
+![PPT 演示](web/public/readme/real/ppt-home.png)
 
 ### 3D 绘图
 
-![3D 绘图](web/public/readme/scene07-3d-frame-2040.png)
+![3D 绘图](web/public/readme/real/3d-home.png)
 
 ### 推演分析
 
-![推演分析](web/public/readme/scene08-simulation-frame-2460.png)
+![推演分析](web/public/readme/real/simulation-home.png)
 
 ### 工作区交付
 
-![工作区交付](apps/video/out/frame-07-workspace.png)
+![工作区交付](web/public/readme/real/chat-session-workspace.png)
 
 ## 核心价值
 
@@ -197,23 +197,45 @@ pnpm dev:web
 pnpm desktop:dev
 ```
 
-## 交流与共建
+## 适合谁来共建
 
-如果你也相信“知识工作值得一个更完整的工作台”，欢迎来聊。
+我们尤其欢迎这些朋友：
+
+- 全栈工程师：愿意一起把链路做稳，把边界做清楚
+- AIGC 工程师：愿意一起接模型、调流程、做能力编排
+- 产品经理：愿意一起把体验、流程和策略做深
+- 设计师：愿意一起把创作工作台打磨得更专业
+- 内容创作者：愿意用真实场景给系统提要求
+
+能提 Issue、能提 PR、能给建议、能指出“这里不对劲”，都非常欢迎。
+
+开源不是大家来围观我表演，而是大家一起把事情做成。认真地说，真的很需要你。
+
+## 联系我
+
+如果你想聊产品、聊技术、聊 AI 内容生产，或者想认真参与共建，欢迎来加我。
+
+### 个人微信
 
 ![个人微信](web/public/lumina.jpg)
 
-开源协议采用 [The Unlicense](./LICENSE)：拿去用、拿去改、拿去商用，都可以。
+- 微信号：待补充
+- 添加备注：`小窗 + 来意`
 
-## 如果你愿意，给小窗点个 Star
+## 如果这个项目对你有一点点启发
 
-如果这个项目让你有一点点共鸣：
+欢迎你做三件小事：
 
-- 你也觉得知识工作的工具链太碎了
-- 你也想看到“从问题到交付”被真正串起来
-- 你也愿意支持一个认真做 works 的项目
+- 点一个 [GitHub Star](https://github.com/zhaozhaozhiyi/XIAOCHUANGv) 支持一下
+- 提一个 Issue 告诉我你最想一起做的方向
+- 把它转给可能会感兴趣的朋友
 
-欢迎点一个 `Star`。
+Star 对开源项目真的很重要。  
+它既是鼓励，也是信号，还是一种很朴素但很有效的“别停，继续做”。
 
-它会帮小窗被更多人看见。  
-也会让我们继续把这件事做下去的时候，更有底气一点。调皮地说，就是那种“多一个 Star，就想多填一个坑”的底气。
+所以如果你觉得这个方向值得，就拜托点一下。  
+小窗先谢谢你，认真谢谢，也稍微调皮地谢谢。
+
+## License
+
+本项目基于 [MIT License](./LICENSE) 开源。你可以自由使用、修改、分发和商用，但请保留原始版权声明与许可声明。
