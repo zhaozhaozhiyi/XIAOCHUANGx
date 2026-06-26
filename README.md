@@ -1,10 +1,11 @@
-# 小窗 Xiaochuang
+<p align="center">
+  <img src="apps/desktop/build/icon@256.png" alt="小窗XIAOCHUANGx Logo" width="112" />
+</p>
 
-> Cursor 专注 coding，小窗专注 works。  
-> 研究、写作、演示、制图、推演，一个工作台搞定。
+<h1 align="center">小窗XIAOCHUANGx</h1>
 
 <p align="center">
-  <img src="apps/desktop/build/icon@256.png" alt="小窗 Logo" width="96" />
+  研究、写作、演示、制图、推演，一个工作台搞定。
 </p>
 
 <p align="center">
