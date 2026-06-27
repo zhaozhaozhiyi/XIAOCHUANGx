@@ -1,0 +1,477 @@
+import { getMockActivityEvents, getMockReply } from "@/lib/chat";
+import { buildDeliverablesPart } from "@/lib/mock-deliverables";
+import { buildMockAiUiFlow } from "@/lib/mock-ai-ui-flow";
+import { encodeMockActivitySse } from "@/lib/mock-activity-sse";
+import {
+  DEFAULT_API_PROVIDER_CONFIG,
+  hasUsableApiProviderConfig,
+  redactSensitiveText,
+  toUserFacingProviderError,
+  trimApiProviderConfig,
+} from "@/lib/byok/shared";
+import { streamApiProviderChat } from "@/lib/byok/server";
+import {
+  buildCreateRunRequest,
+  companionRunResponse,
+} from "@/lib/companion/run";
+import { chatExecutionMode } from "@/lib/companion/config";
+import { assertAgentAvailableServer } from "@/lib/agents-server";
+import {
+  assertAgentAvailable,
+  gatewaySessionKey,
+  isValidAgentId,
+  resolveUpstreamModel,
+} from "@/lib/hermes/agent";
+import {
+  gatewaySessionId,
+  hermesChatCompletionsUrl,
+  hermesConfig,
+} from "@/lib/hermes/config";
+import { buildChatCompletionMessages } from "@/lib/hermes/openai";
+import type { ChatModeId } from "@/lib/navigation";
+import { normalizeChatMode } from "@/lib/navigation";
+import type { ChatCompletionRequestBody } from "@/lib/hermes/types";
+import { proxySseStream } from "@/lib/sse-proxy";
+
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function mockSseStream(
+  text: string,
+  mode: ChatModeId,
+  lastUser: string,
+  options?: {
+    surfaceModuleId?: "chat" | "writing" | "ppt" | "3d" | "video" | "simulation";
+    writingTemplateId?: string;
+    pptTemplateId?: string;
+  },
+): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  const activity = getMockActivityEvents(mode, lastUser);
+  const moduleId =
+    options?.surfaceModuleId === "writing" ||
+    options?.surfaceModuleId === "ppt" ||
+    options?.surfaceModuleId === "3d" ||
+    options?.surfaceModuleId === "video" ||
+    options?.surfaceModuleId === "simulation"
+      ? options.surfaceModuleId
+      : "chat";
+  const templateId =
+    moduleId === "writing"
+      ? options?.writingTemplateId
+      : moduleId === "ppt"
+        ? options?.pptTemplateId
+        : undefined;
+  const mockAiUiFlow = buildMockAiUiFlow({
+    moduleId,
+    templateId,
+    lastUserText: lastUser,
+  });
+
+  return new ReadableStream({
+    async start(controller) {
+      if (mockAiUiFlow) {
+        for (const part of mockAiUiFlow.parts) {
+          controller.enqueue(
+            encoder.encode(
+              `event: part.append\ndata: ${JSON.stringify({ part })}\n\n`,
+            ),
+          );
+          await new Promise((r) => setTimeout(r, 60));
+        }
+        if (mockAiUiFlow.stopAfterParts) {
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          controller.close();
+          return;
+        }
+        if (mockAiUiFlow.deliverables) {
+          controller.enqueue(
+            encoder.encode(
+              `event: part.append\ndata: ${JSON.stringify({ part: mockAiUiFlow.deliverables })}\n\n`,
+            ),
+          );
+          await new Promise((r) => setTimeout(r, 60));
+        }
+      }
+
+      for (const ev of activity) {
+        for (const chunk of encodeMockActivitySse(encoder, ev, "hermes")) {
+          controller.enqueue(chunk);
+        }
+        await new Promise((r) => setTimeout(r, 60));
+      }
+      const deliverablesPart = mockAiUiFlow
+        ? null
+        : buildDeliverablesPart(mode, lastUser);
+      if (deliverablesPart) {
+        controller.enqueue(
+          encoder.encode(
+            `event: part.append\ndata: ${JSON.stringify({ part: deliverablesPart })}\n\n`,
+          ),
+        );
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      const finalText = mockAiUiFlow?.finalText ?? text;
+      const finalParts = finalText.match(/[\s\S]{1,48}/g) ?? [finalText];
+      for (const part of finalParts) {
+        const payload = JSON.stringify({
+          choices: [{ index: 0, delta: { content: part } }],
+        });
+        controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
+        await new Promise((r) => setTimeout(r, 40));
+      }
+      controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+      controller.close();
+    },
+  });
+}
+
+function parseBody(body: unknown): ChatCompletionRequestBody | null {
+  if (!body || typeof body !== "object") return null;
+  const b = body as Record<string, unknown>;
+  if (typeof b.sessionId !== "string" || !b.sessionId.trim()) return null;
+  const mode = typeof b.mode === "string" ? normalizeChatMode(b.mode) : null;
+  if (!mode) return null;
+  const executionSource = b.executionSource === "api" ? "api" : "cli";
+  if (typeof b.agentId !== "string" || !isValidAgentId(b.agentId)) return null;
+  if (typeof b.agentModel !== "string" || !b.agentModel.trim()) return null;
+  if (!Array.isArray(b.messages)) return null;
+
+  type RawChatMessage = {
+    role: string;
+    content: string;
+    id?: string;
+    attachments?: unknown[];
+  };
+  const allowedRoles = new Set(["user", "assistant"]);
+  const messages = b.messages
+    .filter(
+      (m): m is RawChatMessage =>
+        !!m &&
+        typeof m === "object" &&
+        allowedRoles.has((m as { role: string }).role) &&
+        typeof (m as { content: string }).content === "string",
+    )
+    .map((m) => ({
+      id: m.id,
+      role: m.role as "user" | "assistant",
+      content: m.content,
+      attachments: m.attachments,
+    }));
+
+  const projectId =
+    typeof b.projectId === "string" ? b.projectId.trim() : undefined;
+  const surfaceModuleId =
+    b.surfaceModuleId === "writing"
+      ? ("writing" as const)
+      : b.surfaceModuleId === "ppt"
+        ? ("ppt" as const)
+        : b.surfaceModuleId === "3d"
+          ? ("3d" as const)
+          : b.surfaceModuleId === "video"
+            ? ("video" as const)
+            : b.surfaceModuleId === "simulation"
+              ? ("simulation" as const)
+        : ("chat" as const);
+  const writingTemplateId =
+    typeof b.writingTemplateId === "string" && b.writingTemplateId.trim()
+      ? b.writingTemplateId.trim()
+      : undefined;
+  const pptTemplateId =
+    typeof b.pptTemplateId === "string" && b.pptTemplateId.trim()
+      ? b.pptTemplateId.trim()
+      : undefined;
+  const apiProvider =
+    b.apiProvider && typeof b.apiProvider === "object"
+      ? (b.apiProvider as ChatCompletionRequestBody["apiProvider"])
+      : undefined;
+
+  return {
+    sessionId: b.sessionId.trim(),
+    mode,
+    executionSource,
+    agentId: b.agentId,
+    agentModel: b.agentModel.trim(),
+    apiProvider,
+    messages,
+    projectId,
+    surfaceModuleId,
+    writingTemplateId,
+    pptTemplateId,
+    useClientHistory: b.useClientHistory === true,
+  };
+}
+
+function findLastUserMessageIndex(
+  messages: ChatCompletionRequestBody["messages"],
+): number {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    if (messages[i]?.role === "user") return i;
+  }
+  return -1;
+}
+
+export async function POST(request: Request) {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const parsed = parseBody(body);
+  if (!parsed) {
+    return Response.json(
+      {
+        error:
+          "sessionId, mode, agentId, agentModel, and messages are required",
+      },
+      { status: 400 },
+    );
+  }
+
+  const { sessionId, mode, agentId, agentModel, messages, useClientHistory } =
+    parsed;
+  const executionSource = parsed.executionSource ?? "cli";
+  const lastUserIndex = findLastUserMessageIndex(messages);
+  const lastUser = lastUserIndex >= 0 ? messages[lastUserIndex] : undefined;
+  const mockSurfaceModuleId =
+    parsed.surfaceModuleId === "writing" ||
+    parsed.surfaceModuleId === "ppt" ||
+    parsed.surfaceModuleId === "3d" ||
+    parsed.surfaceModuleId === "video" ||
+    parsed.surfaceModuleId === "simulation"
+      ? parsed.surfaceModuleId
+      : "chat";
+
+  if (executionSource === "api") {
+    // 优先使用前端传来的配置，环境变量作为回退
+    const fromClient = parsed.apiProvider;
+    const providerConfig = trimApiProviderConfig({
+      ...DEFAULT_API_PROVIDER_CONFIG,
+      enabled: true,
+      protocol:
+        fromClient?.protocol ??
+        (process.env.JLC_BYOK_PROTOCOL === "anthropic" ? "anthropic" : "openai"),
+      baseUrl:
+        fromClient?.baseUrl ??
+        process.env.JLC_BYOK_BASE_URL ??
+        DEFAULT_API_PROVIDER_CONFIG.baseUrl,
+      apiKey:
+        fromClient?.apiKey ??
+        process.env.JLC_BYOK_API_KEY ??
+        "",
+      model:
+        fromClient?.model ??
+        process.env.JLC_BYOK_MODEL ??
+        "",
+      providerLabel:
+        fromClient?.providerLabel ??
+        process.env.JLC_BYOK_PROVIDER_LABEL ??
+        DEFAULT_API_PROVIDER_CONFIG.providerLabel,
+      anthropicVersion:
+        fromClient?.anthropicVersion ??
+        process.env.JLC_BYOK_ANTHROPIC_VERSION ??
+        DEFAULT_API_PROVIDER_CONFIG.anthropicVersion,
+    });
+
+    if (!hasUsableApiProviderConfig(providerConfig)) {
+      return Response.json(
+        {
+          error: "provider_unavailable",
+          message: "当前未配置可用的模型 API Provider",
+          debug: {
+            enabled: providerConfig.enabled,
+            hasBaseUrl: !!providerConfig.baseUrl,
+            hasApiKey: !!providerConfig.apiKey,
+            hasModel: !!providerConfig.model,
+          },
+        },
+        { status: 422 },
+      );
+    }
+
+    try {
+      return await streamApiProviderChat({
+        config: providerConfig,
+        history: messages,
+        mode,
+        agentId,
+        agentModel,
+        signal: request.signal,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to reach provider";
+      const safeMessage = toUserFacingProviderError({
+        detail: redactSensitiveText(message),
+      });
+
+      // 添加详细的错误诊断信息
+      const debugInfo = {
+        providerUrl: providerConfig.baseUrl,
+        providerModel: providerConfig.model,
+        providerProtocol: providerConfig.protocol,
+        hasApiKey: !!providerConfig.apiKey,
+        errorType: error instanceof Error ? error.constructor.name : typeof error,
+        errorMessage: safeMessage,
+      };
+
+      console.error("[API Chat] Provider request failed:", debugInfo);
+
+      return Response.json(
+        {
+          error: "provider_unreachable",
+          message: safeMessage,
+          debug: debugInfo,
+        },
+        { status: 502 },
+      );
+    }
+  }
+
+  const agentError =
+    chatExecutionMode() === "companion"
+      ? await assertAgentAvailableServer(agentId)
+      : assertAgentAvailable(agentId);
+  if (agentError) {
+    return Response.json(
+      { error: "agent_unavailable", message: agentError },
+      { status: 422 },
+    );
+  }
+
+  if (chatExecutionMode() === "companion") {
+    let runBuild:
+      | Awaited<ReturnType<typeof buildCreateRunRequest>>
+      | null = null;
+    try {
+      runBuild = await buildCreateRunRequest(parsed);
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "run_build_failed";
+      const status =
+        code === "project_id_unresolved" ||
+        code === "module_id_required_for_default_workspace"
+          ? 422
+          : 502;
+      return Response.json({ error: code }, { status });
+    }
+    const { request: runReq, ensuredProject } = runBuild;
+    const extraHeaders: Record<string, string> = {};
+    if (ensuredProject) {
+      extraHeaders["X-JLC-Project-Id"] = ensuredProject.id;
+      extraHeaders["X-JLC-Project-Name"] = encodeURIComponent(
+        ensuredProject.name,
+      );
+      extraHeaders["X-JLC-Project-Path"] = encodeURIComponent(
+        ensuredProject.pathSummary,
+      );
+    }
+    return companionRunResponse(runReq, request.signal, extraHeaders);
+  }
+
+  if (hermesConfig.useMock) {
+    const reply = getMockReply(lastUser?.content ?? "", mode, agentId);
+    return new Response(
+      mockSseStream(reply, mode, lastUser?.content ?? "", {
+        surfaceModuleId: mockSurfaceModuleId,
+        writingTemplateId: parsed.writingTemplateId,
+        pptTemplateId: parsed.pptTemplateId,
+      }),
+      {
+        headers: {
+          "Content-Type": "text/event-stream; charset=utf-8",
+          "Cache-Control": "no-cache, no-transform",
+          Connection: "keep-alive",
+          "X-Hermes-Client": "mock",
+          "X-JLC-Agent-Id": agentId,
+        },
+      },
+    );
+  }
+
+  const openaiMessages = buildChatCompletionMessages(
+    messages,
+    mode,
+    agentId,
+    agentModel,
+  );
+  const hermesSessionId = gatewaySessionId(sessionId);
+  const upstreamModel = resolveUpstreamModel(agentId, agentModel);
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "X-Hermes-Session-Key": gatewaySessionKey(sessionId, agentId),
+  };
+  if (!useClientHistory) {
+    headers["X-Hermes-Session-Id"] = hermesSessionId;
+  }
+  if (hermesConfig.apiKey) {
+    headers.Authorization = `Bearer ${hermesConfig.apiKey}`;
+  }
+
+  let upstream: Response;
+  try {
+    upstream = await fetch(hermesChatCompletionsUrl(), {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model: upstreamModel,
+        messages: openaiMessages,
+        stream: true,
+      }),
+      signal: request.signal,
+    });
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Failed to reach Hermes API Server";
+    return Response.json(
+      {
+        error: "hermes_unreachable",
+        message: `${message}. Start \`hermes gateway\` with API_SERVER_ENABLED=true, or set HERMES_USE_MOCK=true.`,
+        baseUrl: hermesConfig.baseUrl,
+      },
+      { status: 502 },
+    );
+  }
+
+  if (!upstream.ok) {
+    const detail = await upstream.text().catch(() => "");
+    return Response.json(
+      {
+        error: "hermes_error",
+        status: upstream.status,
+        message: detail.slice(0, 500) || upstream.statusText,
+      },
+      { status: 502 },
+    );
+  }
+
+  if (!upstream.body) {
+    return Response.json(
+      { error: "hermes_error", message: "Empty response body from Hermes" },
+      { status: 502 },
+    );
+  }
+
+  const responseHeaders = new Headers({
+    "Content-Type": "text/event-stream; charset=utf-8",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+    "X-Hermes-Client": "proxy",
+    "X-Hermes-Session-Id": hermesSessionId,
+    "X-JLC-Agent-Id": agentId,
+  });
+
+  const sessionKey = upstream.headers.get("X-Hermes-Session-Key");
+  if (sessionKey) {
+    responseHeaders.set("X-Hermes-Session-Key", sessionKey);
+  }
+
+  return new Response(
+    proxySseStream(upstream.body, request.signal, "hermes_stream_error"),
+    { status: 200, headers: responseHeaders },
+  );
+}

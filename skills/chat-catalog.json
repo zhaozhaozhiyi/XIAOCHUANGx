@@ -1,0 +1,216 @@
+{
+  "version": "1",
+  "description": "对话模块可见 Skill 目录（仅摘要进入 system；全文由 Agent 按需经 Agent Kit 读取）。维护说明见 docs/technical/chat-core-architecture.md",
+  "entries": [
+    {
+      "slug": "skill-writing-general",
+      "kind": "workflow",
+      "scope": ["chat", "writing"],
+      "summary": "默认写作流程：产出 Markdown 文稿并写入工作区，支持研报、政策解读、行业分析等"
+    },
+    {
+      "slug": "skill-writing-official-doc",
+      "kind": "workflow",
+      "scope": ["writing"],
+      "summary": "公文写作：通知、请示、报告、函等机关公文体裁与规范用语"
+    },
+    {
+      "slug": "skill-writing-meeting-minutes",
+      "kind": "workflow",
+      "scope": ["writing"],
+      "summary": "会议纪要撰写：议题归纳、决议与待办表格，可基于要点或附件成稿"
+    },
+    {
+      "slug": "skill-wr-policy",
+      "kind": "workflow",
+      "scope": ["chat", "writing"],
+      "summary": "政策解读：政策原文 → 一句话核心 + 逐条解读 + 风险与不确定性"
+    },
+    {
+      "slug": "skill-wr-topic",
+      "kind": "workflow",
+      "scope": ["chat", "writing"],
+      "summary": "专题研究：围绕特定问题整合多源资料，含图表与情景推演"
+    },
+    {
+      "slug": "skill-wr-industry",
+      "kind": "workflow",
+      "scope": ["chat", "writing"],
+      "summary": "行业研究：产业链、市场规模、竞争格局、驱动与制约、可选投资视角"
+    },
+    {
+      "slug": "skill-wr-macro",
+      "kind": "workflow",
+      "scope": ["chat", "writing"],
+      "summary": "宏观数据解读：当期/滚动数据点评（CPI、社融、PMI 等），含市场与政策含义"
+    },
+    {
+      "slug": "skill-wr-sector-data",
+      "kind": "workflow",
+      "scope": ["chat", "writing"],
+      "summary": "行业数据解读：高频量价/库存/产业链传导周月度点评"
+    },
+    {
+      "slug": "skill-kb-qa",
+      "kind": "workflow",
+      "scope": ["chat", "knowledge"],
+      "summary": "知识库 RAG 问答：限定在已上传文档内检索后作答，引用片段锚点"
+    },
+    {
+      "slug": "skill-tr-text",
+      "kind": "workflow",
+      "scope": ["chat", "translate"],
+      "summary": "文本翻译：粘贴片段即时中英互译，必给 ≥ 2 个备选译文"
+    },
+    {
+      "slug": "skill-tr-doc",
+      "kind": "workflow",
+      "scope": ["chat", "translate"],
+      "summary": "文档翻译：保留层级与表格的整篇中英互译，可选对照模式"
+    },
+    {
+      "slug": "skill-tr-polish",
+      "kind": "workflow",
+      "scope": ["chat", "translate"],
+      "summary": "译文润色：已有译文按语气/术语/文体方向打磨，给修改对照"
+    },
+    {
+      "slug": "skill-ppt-pitch-deck",
+      "kind": "workflow",
+      "scope": ["chat", "ppt"],
+      "summary": "路演 Pitch 十页结构与叙事；PPT 模块默认模板"
+    },
+    {
+      "slug": "skill-ppt-deck",
+      "kind": "workflow",
+      "scope": ["chat", "ppt"],
+      "summary": "默认演示文稿结构与生成流程；HTML 幻灯片 deck"
+    },
+    {
+      "slug": "skill-ppt-weekly-report",
+      "kind": "workflow",
+      "scope": ["ppt"],
+      "summary": "周报幻灯片：品种跟踪与数据摘要"
+    },
+    {
+      "slug": "skill-ppt-quarterly-review",
+      "kind": "workflow",
+      "scope": ["ppt"],
+      "summary": "季度回顾：复盘、路线图与关键指标"
+    },
+    {
+      "slug": "skill-ppt-tech-sharing",
+      "kind": "workflow",
+      "scope": ["ppt"],
+      "summary": "技术分享：方法论与案例结构"
+    },
+    {
+      "slug": "skill-ppt-fintech-swiss",
+      "kind": "workflow",
+      "scope": ["ppt"],
+      "summary": "金融科技瑞系风格：数据驱动、瑞士网格"
+    },
+    {
+      "slug": "skill-ppt-knowledge-arch",
+      "kind": "workflow",
+      "scope": ["ppt"],
+      "summary": "知识架构梳理与体系化呈现"
+    },
+    {
+      "slug": "skill-ppt-blue-professional",
+      "kind": "workflow",
+      "scope": ["ppt"],
+      "summary": "专业蓝调机构研报风格幻灯片"
+    },
+    {
+      "slug": "skill-ppt-guizang-editorial",
+      "kind": "workflow",
+      "scope": ["ppt"],
+      "summary": "归藏编辑墨水：杂志风叙事与多调色板"
+    },
+    {
+      "slug": "skill-ppt-swiss-international",
+      "kind": "workflow",
+      "scope": ["ppt"],
+      "summary": "瑞士国际主义：极简网格与强排版"
+    },
+    {
+      "slug": "skill-ppt-editorial-burgundy",
+      "kind": "workflow",
+      "scope": ["ppt"],
+      "summary": "编辑工作室：文化叙事与原则清单"
+    },
+    {
+      "slug": "skill-ppt-open-canvas",
+      "kind": "workflow",
+      "scope": ["ppt"],
+      "summary": "自由画布 1920×1080 自定义排版"
+    },
+    {
+      "slug": "skill-ppt-html-studio",
+      "kind": "tool",
+      "scope": ["chat", "ppt"],
+      "summary": "HTML PPT Studio：多风格静态 HTML 幻灯片主技能"
+    },
+    {
+      "slug": "skill-ppt-pptx",
+      "kind": "tool",
+      "scope": ["ppt"],
+      "summary": "PPTX 读写与编辑（Anthropic 官方技能）"
+    },
+    {
+      "slug": "skill-ppt-pptx-generator",
+      "kind": "tool",
+      "scope": ["ppt"],
+      "summary": "PptxGenJS 生成原生 PPTX"
+    },
+    {
+      "slug": "skill-ppt-slides",
+      "kind": "tool",
+      "scope": ["ppt"],
+      "summary": "Markdown 转幻灯片（OpenAI Slides）"
+    },
+    {
+      "slug": "skill-ppt-fidelity-audit",
+      "kind": "tool",
+      "scope": ["ppt"],
+      "summary": "HTML 与 PPTX 导出保真度对照与修复"
+    },
+    {
+      "slug": "skill-industrial-drawing-base",
+      "kind": "workflow",
+      "scope": ["chat", "3d"],
+      "summary": "工业制图基座：需求收敛、3D 摘要/结构方案、参数化 CAD 文件落盘与 OpenSCAD 预览导出流程"
+    },
+    {
+      "slug": "skill-industrial-drawing-parametric",
+      "kind": "workflow",
+      "scope": ["chat", "3d"],
+      "summary": "参数化 OpenSCAD 建模：生成可编辑 drawing.scad 与 drawing.parameters.json，支持后续参数回改"
+    },
+    {
+      "slug": "skill-industrial-drawing-export",
+      "kind": "tool",
+      "scope": ["chat", "3d"],
+      "summary": "工业制图预览与导出：OpenSCAD STL/DXF、工具链状态、fallback 来源标注与导出质量检查"
+    },
+    {
+      "slug": "skill-vp-base",
+      "kind": "workflow",
+      "scope": ["chat", "video"],
+      "summary": "视频制作基座：收敛视频 brief，P0 默认交接网页视频生产 Skill，产出可预览、可录屏的 presentation 项目；Remotion/MP4 属于 P1"
+    },
+    {
+      "slug": "skill-vp-web-video-presentation",
+      "kind": "workflow",
+      "scope": ["chat", "video"],
+      "summary": "网页视频生产：从文章或口播稿生成 Vite/React presentation 项目，支持 ?reel=1 自动预览、?audio=1 配音检查、?auto=1 录屏出片路径"
+    },
+    {
+      "slug": "skill-simulation-base",
+      "kind": "workflow",
+      "scope": ["chat", "simulation"],
+      "summary": "推演基座：收敛复杂问题边界，拆解主体、变量、假设和多条情景路径，生成可继续深挖的推演报告"
+    }
+  ]
+}

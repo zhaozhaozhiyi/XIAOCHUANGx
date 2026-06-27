@@ -1,0 +1,39 @@
+# 本地开发：PostgreSQL + Redis（业务 API 依赖）
+name: jlc-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: jlc-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: jlc
+      POSTGRES_PASSWORD: jlc_dev
+      POSTGRES_DB: jlc
+    volumes:
+      - jlc_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jlc -d jlc"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: jlc-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - jlc_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  jlc_pg_data:
+  jlc_redis_data:

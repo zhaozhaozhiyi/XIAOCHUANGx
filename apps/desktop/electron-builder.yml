@@ -1,0 +1,80 @@
+appId: com.jlcresearch.xiaochuang
+productName: 小窗
+copyright: Copyright © 2026 金联创
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - dist/**/*
+  - package.json
+
+extraResources:
+  - from: resources/web-standalone
+    to: web-standalone
+    filter:
+      - "**/*"
+  - from: build/icon.png
+    to: icon.png
+  # D1.4（desktop-v1.1-roadmap.md §6）：Companion 捆绑 sidecar bundle
+  # 由 scripts/prepare-companion-bundle.mjs 在 pack 前生成；运行时由
+  # apps/desktop/src/main/companion-supervisor.ts 通过
+  # spawn(process.execPath, [companion.cjs], { ELECTRON_RUN_AS_NODE: "1" }) 启动。
+  - from: resources/companion
+    to: companion
+    filter:
+      - "**/*"
+  # skills/ + prompts/ 不打进 bundle —— 让用户可就地查看修改；
+  # supervisor 注入 JLC_SKILLS_DIR / JLC_PROMPTS_DIR 让 runtime-core/paths.ts
+  # 找到。详见 web/docs/desktop-d1.4-bundle-status.md。
+  - from: resources/skills
+    to: skills
+    filter:
+      - "**/*"
+  - from: resources/prompts
+    to: prompts
+    filter:
+      - "**/*"
+  # 3D / 工业制图：产品托管 OpenSCAD Runtime。
+  # 平台二进制放在 resources/engines/openscad/{darwin,win32,linux}/，
+  # Web CAD API 运行时从 process.resourcesPath/engines/openscad 解析。
+  - from: resources/engines
+    to: engines
+    filter:
+      - "**/*"
+
+asar: true
+
+mac:
+  category: public.app-category.productivity
+  icon: build/icon.icns
+  extendInfo:
+    CFBundleName: 小窗
+    CFBundleDisplayName: 小窗
+  target:
+    - dmg
+  hardenedRuntime: false
+  # D1.4：留位 —— 接 Apple Developer 证书后开 hardenedRuntime: true 即生效。
+  # com.apple.security.network.server 是 Companion 监听 9477 端口必需。
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+
+win:
+  icon: build/icon.png
+  target:
+    - nsis
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+
+# D1.5（desktop-v1.1-roadmap.md §7）：自动更新源
+# 占位 generic url —— 服务端（nginx 静态目录 / OSS）尚未接入；
+# auto-updater 启动时会 fetch latest.yml，404 静默走 'error' 状态，
+# 不影响主功能。运维接入后只需把 url 改为真实地址。
+# 详见 web/docs/desktop-d1.5-d1.6-status.md。
+publish:
+  - provider: generic
+    url: https://updates.jlcresearch.com/小窗/
+    channel: latest

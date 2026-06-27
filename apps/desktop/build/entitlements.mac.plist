@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  D1.4 Companion 捆绑（desktop-v1.1-roadmap.md §6）entitlements 占位。
+
+  说明：
+   - mac.hardenedRuntime 当前为 false（未签名 / 内部分发），这份 plist
+     不会真正生效；保留它是为了 D1.4 后续接入 Apple Developer 证书时
+     直接 hardenedRuntime: true 即可，不必再回头补 entitlements。
+   - com.apple.security.network.server 是 Companion 监听 127.0.0.1:9477
+     必需；硬化运行时下没有这条会被 macOS 阻止 bind。
+   - com.apple.security.network.client 是 Companion 出站访问 BYOK
+     Provider / Hermes Gateway 必需。
+   - allow-jit / allow-unsigned-executable-memory 给 V8（Electron / Node）
+     用，硬化运行时下没有这两条会启动失败。
+   - inherit 给子进程（Companion 通过 spawn(process.execPath, ...) 启动），
+     不传 inherit 时子进程会被 reset entitlements。
+-->
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <true/>
+    <key>com.apple.security.network.server</key>
+    <true/>
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+    <key>com.apple.security.inherit</key>
+    <true/>
+</dict>
+</plist>

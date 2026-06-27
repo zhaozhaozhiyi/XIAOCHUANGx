@@ -1,0 +1,75 @@
+# dependencies
+node_modules/
+.xiaochuang
+output/
+
+# Python (参考项目)
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# build outputs
+dist/
+.next/
+out/
+build/
+!apps/desktop/build/
+!apps/desktop/build/**
+*.tsbuildinfo
+
+# env & secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+!.env.*.example
+
+# logs
+*.log
+.pnpm-debug.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS & IDE
+.DS_Store
+.vercel
+coverage/
+
+# 参考项目（提交源码，排除嵌套仓库、依赖、构建产物和大文件）
+参考项目/**/.git/
+参考项目/**/node_modules/
+参考项目/**/.venv/
+参考项目/**/venv/
+参考项目/**/__pycache__/
+参考项目/**/*.pyc
+参考项目/**/dist/
+参考项目/**/.next/
+参考项目/**/out/
+参考项目/**/build/
+参考项目/**/coverage/
+参考项目/**/target/
+参考项目/**/.tmp/
+参考项目/**/.turbo/
+参考项目/**/*.tsbuildinfo
+参考项目/**/*.a
+参考项目/**/*.dll
+参考项目/**/*.dylib
+参考项目/**/*.exe
+参考项目/**/*.node
+参考项目/**/*.o
+参考项目/**/*.pdb
+参考项目/**/*.rlib
+参考项目/**/*.so
+参考项目/llm_wiki/src-tauri/pdfium/
+参考项目/dify-main/web/public/vs/language/typescript/tsWorker.js
+参考项目/open-design/assets/prompt-templates/video/
+参考项目/open-design/skills/*/assets/*.mp4
+参考项目/open-design/docs/assets/github-metrics.svg
+
+# 本地绿色版服务（PG+Redis）
+.runtime/
+
+# Claude Code 本地工作目录
+.claude/

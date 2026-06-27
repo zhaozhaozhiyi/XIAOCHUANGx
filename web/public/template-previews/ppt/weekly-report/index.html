@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>周报 · 预览样张</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; }
+      html, body {
+        width: 100%; height: 100%; overflow: hidden;
+        font-family: "PingFang SC", sans-serif;
+        background: #f4f6f8; color: #111827;
+      }
+      .stage { width: 100vw; height: 100vh; display: grid; place-items: center; padding: 2rem; }
+      .slide {
+        width: min(960px, 92vw); aspect-ratio: 16/9; border-radius: 12px;
+        padding: 2.5rem 3rem; background: #fff;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 12px 40px rgba(15, 23, 42, 0.08);
+        display: flex; flex-direction: column; justify-content: center;
+      }
+      .tag { display: inline-block; font-size: 12px; color: #0369a1; background: #e0f2fe; padding: 0.25rem 0.625rem; border-radius: 999px; margin-bottom: 1rem; }
+      h1 { font-size: 2rem; color: #0c4a6e; }
+      h2 { font-size: 1.35rem; margin-bottom: 0.75rem; }
+      table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.95rem; }
+      th, td { border: 1px solid #e5e7eb; padding: 0.5rem 0.75rem; text-align: left; }
+      th { background: #f8fafc; }
+      #page-badge { position: fixed; right: 1rem; bottom: 1rem; font-size: 12px; color: #6b7280; }
+    </style>
+  </head>
+  <body>
+    <div class="stage">
+      <section class="slide">
+        <span class="tag">Weekly Report</span>
+        <h1>黑色系品种周度跟踪</h1>
+        <p style="margin-top:0.75rem;color:#4b5563">2026-W22 · 数据摘要与观点</p>
+      </section>
+      <section class="slide" hidden>
+        <h2>库存与需求</h2>
+        <table>
+          <tr><th>品种</th><th>库存环比</th><th>需求</th></tr>
+          <tr><td>螺纹钢</td><td>-2.1%</td><td>温和回升</td></tr>
+          <tr><td>热卷</td><td>+0.6%</td><td>平稳</td></tr>
+        </table>
+      </section>
+      <section class="slide" hidden>
+        <h2>下周关注</h2>
+        <ul style="padding-left:1.25rem;line-height:1.7">
+          <li>钢厂复产节奏</li>
+          <li>宏观政策预期</li>
+          <li>出口订单变化</li>
+        </ul>
+      </section>
+    </div>
+    <div id="page-badge">1 / 3</div>
+    <script src="/template-previews/ppt/_shared/deck-viewer.js"></script>
+  </body>
+</html>

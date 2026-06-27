@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum WorkspaceKind {
+  sandbox
+  local_bound
+  cloud
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     User[]
+  projects  Project[]
+}
+
+model User {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  nickname  String   @default("研究员")
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  sessions  AuthSession[]
+  projects  Project[]
+  chatSessions ChatSession[]
+
+  @@index([tenantId])
+}
+
+/// 登录会话（Cookie / Bearer 对应的服务端记录）
+model AuthSession {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/// 研究项目（始终有 projectId，PRD §5.3.2.1）
+model Project {
+  id            String        @id @default(cuid())
+  userId        String
+  tenantId      String
+  workspaceKind WorkspaceKind
+  baseDir       String?
+  name          String?
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant        Tenant        @relation(fields: [tenantId], references: [id])
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  chatSessions  ChatSession[]
+
+  @@index([userId])
+  @@index([tenantId])
+}
+
+/// 对话会话（绑定 projectId，创建后不可改）
+model ChatSession {
+  id        String   @id @default(cuid())
+  userId    String
+  projectId String
+  title     String?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([projectId])
+}
