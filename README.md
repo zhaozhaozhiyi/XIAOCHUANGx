@@ -18,11 +18,13 @@
 
 ## 首页视频
 
-仓库已经内置小窗首页宣传视频，可直接放在 README 里看。
+下面就是小窗首页宣传片，可以直接在 README 里看。
 
-<video src="web/public/login-video.mp4" controls muted playsinline width="100%"></video>
+<p align="center">
+  <video src="https://raw.githubusercontent.com/zhaozhaozhiyi/XIAOCHUANGx/main/web/public/login-video.mp4" poster="web/public/readme/video-cover.png" controls muted playsinline width="100%"></video>
+</p>
 
-如果当前客户端不支持内嵌播放，也可以直接打开：[`web/public/login-video.mp4`](./web/public/login-video.mp4)
+如果当前客户端没有展示播放器，也可以直接打开：[`web/public/login-video.mp4`](./web/public/login-video.mp4)
 
 ## 一个故事讲清楚小窗
 
@@ -82,8 +84,6 @@
 
 > 制图不该脱离上下文，工程文件也应该属于同一个交付链路。
 
-![3D 绘图](web/public/readme/real/3d-home.png)
-
 ### 遇到复杂问题，就进入推演
 
 还有一些问题，既不是简单回答，也不是直接写稿，而是要拆结构、看变量、走路径、做判断。
@@ -93,8 +93,6 @@
 这一段的重点是：
 
 > 把复杂问题，变成可以继续推下去的结构。
-
-![推演分析](web/public/readme/real/simulation-home.png)
 
 ### 最后，所有结果回到工作区
 
@@ -120,29 +118,38 @@
 
 下面这组画面来自项目宣传片中的典型帧，基本就是上面这段故事的视觉版。
 
-### 对话研究
-
-![对话研究](web/public/readme/real/chat-home.png)
-
-### 写作成稿
-
-![写作成稿](web/public/readme/real/writing-home.png)
-
-### PPT 演示
-
-![PPT 演示](web/public/readme/real/ppt-home.png)
-
-### 3D 绘图
-
-![3D 绘图](web/public/readme/real/3d-home.png)
-
-### 推演分析
-
-![推演分析](web/public/readme/real/simulation-home.png)
-
-### 工作区交付
-
-![工作区交付](web/public/readme/real/chat-session-workspace.png)
+<table>
+  <tr>
+    <td width="50%">
+      <strong>对话研究</strong><br />
+      <img src="web/public/readme/real/chat-home.png" alt="对话研究" />
+    </td>
+    <td width="50%">
+      <strong>写作成稿</strong><br />
+      <img src="web/public/readme/real/writing-home.png" alt="写作成稿" />
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <strong>PPT 演示</strong><br />
+      <img src="web/public/readme/real/ppt-home.png" alt="PPT 演示" />
+    </td>
+    <td width="50%">
+      <strong>3D 绘图</strong><br />
+      <img src="web/public/readme/real/3d-home.png" alt="3D 绘图" />
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <strong>推演分析</strong><br />
+      <img src="web/public/readme/real/simulation-home.png" alt="推演分析" />
+    </td>
+    <td width="50%">
+      <strong>工作区交付</strong><br />
+      <img src="web/public/readme/real/chat-session-workspace.png" alt="工作区交付" />
+    </td>
+  </tr>
+</table>
 
 ## 核心价值
 
