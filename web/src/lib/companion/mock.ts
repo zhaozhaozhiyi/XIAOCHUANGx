@@ -1,5 +1,6 @@
 import { getMockActivityEvents, getMockReply } from "@/lib/chat";
 import { buildDeliverablesPart } from "@/lib/mock-deliverables";
+import { buildMockAiUiFlow } from "@/lib/mock-ai-ui-flow";
 import { encodeMockActivitySse } from "@/lib/mock-activity-sse";
 import type { ChatModeId } from "@/lib/navigation";
 import { AGENT_FALLBACK_MODELS } from "@/lib/agent-catalog";
@@ -48,12 +49,16 @@ export function mockCompanionRunSse(
   lastUser: string,
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
-  const mode = req.binding.moduleId === "chat" ? req.binding.mode : "fast";
+  const mode = req.binding.moduleId === "chat" ? req.binding.mode : "auto";
   const text = getMockReply(lastUser, mode as ChatModeId, req.agentId);
   const cliName = agentLabel(req.agentId).replace(" CLI", "");
   const body = `【${cliName} · 本机 CLI Mock】\n\n${text}`;
-  const parts = body.match(/[\s\S]{1,40}/g) ?? [body];
   const activity = getMockActivityEvents(mode as ChatModeId, lastUser);
+  const mockAiUiFlow = buildMockAiUiFlow({
+    moduleId: req.moduleId,
+    templateId: "templateId" in req.binding ? req.binding.templateId : undefined,
+    lastUserText: lastUser,
+  });
 
   return new ReadableStream({
     async start(controller) {
@@ -83,6 +88,34 @@ export function mockCompanionRunSse(
       );
       await new Promise((r) => setTimeout(r, 60));
 
+      if (mockAiUiFlow) {
+        for (const part of mockAiUiFlow.parts) {
+          controller.enqueue(
+            encoder.encode(
+              `event: part.append\ndata: ${JSON.stringify({ part })}\n\n`,
+            ),
+          );
+          await new Promise((r) => setTimeout(r, 80));
+        }
+        if (mockAiUiFlow.stopAfterParts) {
+          controller.enqueue(
+            encoder.encode(
+              `event: run.finished\ndata: ${JSON.stringify({ runId })}\n\n`,
+            ),
+          );
+          controller.close();
+          return;
+        }
+        if (mockAiUiFlow.deliverables) {
+          controller.enqueue(
+            encoder.encode(
+              `event: part.append\ndata: ${JSON.stringify({ part: mockAiUiFlow.deliverables })}\n\n`,
+            ),
+          );
+          await new Promise((r) => setTimeout(r, 80));
+        }
+      }
+
       for (const ev of activity) {
         for (const chunk of encodeMockActivitySse(encoder, ev, "companion")) {
           controller.enqueue(chunk);
@@ -90,10 +123,12 @@ export function mockCompanionRunSse(
         await new Promise((r) => setTimeout(r, 80));
       }
 
-      const deliverablesPart = buildDeliverablesPart(
-        mode as ChatModeId,
-        lastUser,
-      );
+      const deliverablesPart = mockAiUiFlow
+        ? null
+        : buildDeliverablesPart(
+            mode as ChatModeId,
+            lastUser,
+          );
       if (deliverablesPart) {
         controller.enqueue(
           encoder.encode(
@@ -103,7 +138,9 @@ export function mockCompanionRunSse(
         await new Promise((r) => setTimeout(r, 60));
       }
 
-      for (const part of parts) {
+      const finalBody = mockAiUiFlow?.finalText ?? body;
+      const finalParts = finalBody.match(/[\s\S]{1,40}/g) ?? [finalBody];
+      for (const part of finalParts) {
         controller.enqueue(
           encoder.encode(
             `event: message.delta\ndata: ${JSON.stringify({ content: part })}\n\n`,

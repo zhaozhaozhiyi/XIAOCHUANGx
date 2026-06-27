@@ -50,6 +50,7 @@ import { fetchRunEvents, fetchRunRecord } from "@/lib/companion/runtime";
 import { applyRunEventsToMessage } from "@/lib/chat-run-events";
 import { useChatSessionOptional } from "@/contexts/ChatSessionContext";
 import { ChevronDown } from "lucide-react";
+import type { OutlineCommitPayload } from "@/lib/chat-parts";
 import type { ChatComposerSendPayload } from "@/components/chat/ChatComposer";
 import { selectionToApiConfig } from "@/lib/byok/model-providers";
 
@@ -72,8 +73,9 @@ export function ChatThread({
   const scrollRootRef = useRef<HTMLDivElement>(null);
   const [dismissedTodoKey, setDismissedTodoKey] = useState<string | null>(null);
   const [lastMode, setLastMode] = useState<ChatModeId>(
-    surface.showModePicker ? "fast" : "deep",
+    surfaceModuleId === "chat" ? "auto" : "deep",
   );
+  const initialMessagesLoaded = useRef(false);
 
   const pinnedTodo = useMemo(
     () => latestTodoPartFromMessages(messages),
@@ -117,10 +119,6 @@ export function ChatThread({
   );
 
   useEffect(() => {
-    setSessionProjectIdLocal(getSessionProjectId(id));
-  }, [id]);
-
-  useEffect(() => {
     const onProjectUpdate = (event: Event) => {
       const detail = (event as CustomEvent<{ sessionId: string; projectId: string }>)
         .detail;
@@ -148,10 +146,10 @@ export function ChatThread({
 
   useEffect(() => {
     let cancelled = false;
-    setHydrated(false);
     void loadSessionMessagesHybrid(id).then((msgs) => {
       if (cancelled) return;
       if (msgs.length > 0) setMessages(msgs);
+      initialMessagesLoaded.current = true;
       setHydrated(true);
     });
     return () => {
@@ -197,7 +195,7 @@ export function ChatThread({
     async (payload: ChatComposerSendPayload) => {
       markPinned();
       setDismissedTodoKey(null);
-      setLastMode(normalizeChatMode(payload.mode) ?? "fast");
+      setLastMode(normalizeChatMode(payload.mode) ?? "auto");
 
       // 从新的配置系统构建 API 配置
       const apiProvider =
@@ -210,11 +208,10 @@ export function ChatThread({
 
       await sendMessage(payload.text, {
         executionSource: payload.executionSource,
-        mode: surface.showModePicker ? payload.mode : "deep",
+        mode: surfaceModuleId === "chat" ? payload.mode : "deep",
         surfaceModuleId,
         writingTemplateId: payload.writingTemplateId,
         pptTemplateId: payload.pptTemplateId,
-        translateTemplateId: payload.translateTemplateId,
         agentId: payload.agentId,
         agentModel: payload.agentModel,
         apiProvider,
@@ -225,7 +222,6 @@ export function ChatThread({
     [
       markPinned,
       sendMessage,
-      surface.showModePicker,
       surfaceModuleId,
       settings.modelProviders,
       settings.activeApiSelection,
@@ -310,7 +306,7 @@ export function ChatThread({
 
       sendMessage(`我补充的信息如下，请继续完成刚才的任务：\n\n${answer}`, {
         executionSource,
-        mode: surface.showModePicker ? lastMode : "deep",
+        mode: surfaceModuleId === "chat" ? lastMode : "deep",
         surfaceModuleId,
         writingTemplateId:
           surface.skillPicker === "writing"
@@ -319,10 +315,6 @@ export function ChatThread({
         pptTemplateId:
           surface.skillPicker === "ppt"
             ? readStoredModuleSkillTemplateId("ppt", id)
-            : undefined,
-        translateTemplateId:
-          surface.skillPicker === "translate"
-            ? readStoredModuleSkillTemplateId("translate", id)
             : undefined,
         agentId,
         agentModel,
@@ -336,6 +328,8 @@ export function ChatThread({
       executionSource,
       id,
       lastMode,
+      surface.skillPicker,
+      surfaceModuleId,
       agentId,
       agentModel,
       settings.modelProviders,
@@ -343,6 +337,142 @@ export function ChatThread({
       settings.apiProvider,
       sessionProjectId,
     ],
+  );
+
+  const handleRequirementsSubmitted = useCallback(
+    (partId: string, answer: string) => {
+      setSessionRunStatus(id, "running");
+      setMessages((prev) =>
+        prev.map((message) => {
+          if (message.role !== "assistant" || !message.parts) return message;
+          let changed = false;
+          const parts = message.parts.map((part) => {
+            if (
+              part.id !== partId ||
+              (part.kind !== "writing_requirements" &&
+                part.kind !== "ppt_requirements" &&
+                part.kind !== "3d_requirements" &&
+                part.kind !== "video_requirements")
+            ) {
+              return part;
+            }
+            changed = true;
+            return {
+              ...part,
+              submitted: true,
+              answer,
+              streaming: false,
+              completedAt: Date.now(),
+            };
+          });
+          return changed
+            ? {
+                ...message,
+                parts,
+                status: "complete" as const,
+              }
+            : message;
+        }),
+      );
+    },
+    [id, setMessages],
+  );
+
+  const handleRequirementsDraftChange = useCallback(
+    (
+      partId: string,
+      patch: {
+        selectedOptions?: Record<string, string[]>;
+        answers?: Record<string, string>;
+      },
+    ) => {
+      setMessages((prev) =>
+        prev.map((message) => {
+          if (message.role !== "assistant" || !message.parts) return message;
+          let changed = false;
+          const parts = message.parts.map((part) => {
+            if (
+              part.id !== partId ||
+              (part.kind !== "writing_requirements" &&
+                part.kind !== "ppt_requirements" &&
+                part.kind !== "3d_requirements" &&
+                part.kind !== "video_requirements")
+            ) {
+              return part;
+            }
+            changed = true;
+            return {
+              ...part,
+              ...patch,
+            };
+          });
+          return changed ? { ...message, parts } : message;
+        }),
+      );
+    },
+    [setMessages],
+  );
+
+  const handleOutlineCommitted = useCallback(
+    (partId: string, patch: OutlineCommitPayload) => {
+      setMessages((prev) =>
+        prev.map((message) => {
+          if (message.role !== "assistant" || !message.parts) return message;
+          let changed = false;
+          const parts = message.parts.map((part) => {
+            if (
+              part.id !== partId ||
+              (part.kind !== "writing_outline" &&
+                part.kind !== "ppt_outline" &&
+                part.kind !== "3d_outline" &&
+                part.kind !== "video_outline")
+            ) {
+              return part;
+            }
+            changed = true;
+            if (part.kind === "writing_outline" && patch.kind === "writing_outline") {
+              return {
+                ...part,
+                outline: patch.outline,
+                markdown: patch.markdown,
+                completedAt: Date.now(),
+              };
+            }
+            if (part.kind === "ppt_outline" && patch.kind === "ppt_outline") {
+              return {
+                ...part,
+                coverTitle: patch.coverTitle,
+                outline: patch.outline,
+                markdown: patch.markdown,
+                completedAt: Date.now(),
+              };
+            }
+            if (part.kind === "3d_outline" && patch.kind === "3d_outline") {
+              return {
+                ...part,
+                outline: patch.outline,
+                markdown: patch.markdown,
+                completedAt: Date.now(),
+              };
+            }
+            if (part.kind === "video_outline" && patch.kind === "video_outline") {
+              return {
+                ...part,
+                outline: patch.outline,
+                markdown: patch.markdown,
+                completedAt: Date.now(),
+              };
+            }
+            return {
+              ...part,
+              completedAt: Date.now(),
+            };
+          });
+          return changed ? { ...message, parts } : message;
+        }),
+      );
+    },
+    [setMessages],
   );
 
   const stored = getChatSession(id);
@@ -379,7 +509,7 @@ export function ChatThread({
 
       sendMessage(pending.text, {
         executionSource: pending.executionSource,
-        mode: surface.showModePicker ? pending.mode : "deep",
+        mode: surfaceModuleId === "chat" ? pending.mode : "deep",
         surfaceModuleId,
         writingTemplateId:
           pending.writingTemplateId ??
@@ -390,11 +520,6 @@ export function ChatThread({
           pending.pptTemplateId ??
           (surface.skillPicker === "ppt"
             ? readStoredModuleSkillTemplateId("ppt", id)
-            : undefined),
-        translateTemplateId:
-          pending.translateTemplateId ??
-          (surface.skillPicker === "translate"
-            ? readStoredModuleSkillTemplateId("translate", id)
             : undefined),
         agentId: pending.agentId,
         agentModel: pending.agentModel,
@@ -408,6 +533,8 @@ export function ChatThread({
     id,
     markPinned,
     sendMessage,
+    surface.skillPicker,
+    surfaceModuleId,
     sessionProjectId,
     settings.modelProviders,
     settings.activeApiSelection,
@@ -587,6 +714,10 @@ export function ChatThread({
               onClarificationSubmitted={handleClarificationSubmitted}
               onClarificationContinue={handleClarificationContinue}
               onClarificationDraftChange={handleClarificationDraftChange}
+              onRequirementsSubmitted={handleRequirementsSubmitted}
+              onRequirementsContinue={handleClarificationContinue}
+              onRequirementsDraftChange={handleRequirementsDraftChange}
+              onOutlineCommitted={handleOutlineCommitted}
             />
           )}
         </div>
@@ -617,9 +748,10 @@ export function ChatThread({
               agentId={agentId}
               agentModel={agentModel}
               showProjectPicker={showProjectPicker}
-              showModePicker={surface.showModePicker}
+              showModePicker={false}
               skillPickerModule={surface.skillPicker}
-              defaultMode="deep"
+              newSessionHref={surface.newSessionHref}
+              defaultMode={surfaceModuleId === "chat" ? "auto" : "deep"}
               placeholder={
                 showProjectPicker
                   ? "输入问题… 输入 @ 提及当前项目内文件"

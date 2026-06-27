@@ -5,7 +5,7 @@ import { useCallback, useState } from "react";
 import type { DeliverableItem, DeliverablesPart } from "@/lib/chat-parts";
 import { deliverableTypeLabel } from "@/lib/deliverable-mime";
 import { useOpenFileAt } from "@/hooks/useOpenFileAt";
-import { FileText, FolderOpen, ImageIcon, Presentation } from "lucide-react";
+import { ExternalLink, FileText, Folder, FolderOpen, ImageIcon, Presentation } from "lucide-react";
 import { useWorkspaceOptional } from "@/components/workspace/WorkspaceContext";
 import { getSessionProjectId, NO_PROJECT_ID } from "@/lib/research-projects";
 
@@ -17,12 +17,17 @@ function basename(path: string): string {
 function RowIcon({
   path,
   mime,
+  kind,
   className,
 }: {
   path: string;
   mime?: string;
+  kind?: DeliverableItem["kind"];
   className?: string;
 }) {
+  if (kind === "directory") {
+    return <Folder className={className} aria-hidden />;
+  }
   const ext = path.split(".").pop()?.toLowerCase() ?? "";
   if (mime?.startsWith("image/") || ["png", "jpg", "jpeg", "webp"].includes(ext)) {
     return <ImageIcon className={className} aria-hidden />;
@@ -60,10 +65,12 @@ function DeliverableRow({
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const label = item.label ?? basename(item.path);
-  const typeLabel = deliverableTypeLabel(item.path, item.mime);
+  const typeLabel =
+    item.kind === "directory" ? "目录" : deliverableTypeLabel(item.path, item.mime);
   const canExportDocx = showDocxExport && isMarkdownPath(item.path);
   const canDownloadPpt =
     showPptDownload && isPptDownloadablePath(item.path);
+  const canOpenPreview = Boolean(item.previewUrl);
 
   const exportDocx = useCallback(async () => {
     if (!canExportDocx || projectId === NO_PROJECT_ID) return;
@@ -140,6 +147,7 @@ function DeliverableRow({
       <RowIcon
         path={item.path}
         mime={item.mime}
+        kind={item.kind}
         className={`h-4 w-4 shrink-0 ${primary ? "text-[var(--accent)]" : "text-[var(--fg-tertiary)]"}`}
       />
       <button
@@ -166,8 +174,19 @@ function DeliverableRow({
           className="rounded-md px-2 py-1 text-xs text-[var(--accent)] hover:bg-[var(--accent-muted)]"
           onClick={() => openFileAt(item.path)}
         >
-          打开
+          {item.kind === "directory" ? "打开目录" : "打开"}
         </button>
+        {canOpenPreview ? (
+          <a
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-[var(--accent)] hover:bg-[var(--accent-muted)]"
+            href={item.previewUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            打开预览
+            <ExternalLink className="h-3 w-3" aria-hidden />
+          </a>
+        ) : null}
         {canExportDocx ? (
           <button
             type="button"
@@ -209,6 +228,15 @@ function DeliverableRow({
       {exportError ? (
         <p className="px-1 text-xs text-[var(--danger)]">{exportError}</p>
       ) : null}
+      {item.recordingUrl || item.devCommand ? (
+        <div className="px-1 text-xs leading-relaxed text-[var(--fg-tertiary)]">
+          {item.recordingUrl ? (
+            <span>录屏入口：{item.recordingUrl}</span>
+          ) : null}
+          {item.recordingUrl && item.devCommand ? <span> · </span> : null}
+          {item.devCommand ? <span>启动命令：{item.devCommand}</span> : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -220,6 +248,7 @@ export function DeliverablesCard({ part }: { part: DeliverablesPart }) {
   const sessionId =
     pathname.match(/^\/writing\/([^/]+)$/)?.[1] ??
     pathname.match(/^\/ppt\/([^/]+)$/)?.[1] ??
+    pathname.match(/^\/video\/([^/]+)$/)?.[1] ??
     pathname.match(/^\/chat\/([^/]+)$/)?.[1];
   const projectId = sessionId
     ? getSessionProjectId(sessionId)
