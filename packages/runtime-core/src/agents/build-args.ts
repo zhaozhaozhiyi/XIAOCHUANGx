@@ -138,7 +138,9 @@ function buildClaudeArgs(ctx: BuildArgsContext): AgentLaunchSpec {
     bin: registry.execution.bin,
     args,
     streamFormat: registry.execution.streamFormat,
-    closeStdinAfterPrompt: true,
+    // Keep Claude's stream-json stdin open so later clarification/tool_result
+    // payloads can be written back into the same CLI process.
+    closeStdinAfterPrompt: false,
     stdinAsClaudeUserMessage: true,
     stdinPayload: "composed",
   };

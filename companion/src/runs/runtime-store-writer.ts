@@ -142,6 +142,23 @@ function mapEvent(
       label: typeof payload.label === "string" ? payload.label : "处理中",
     };
   }
+  if (eventName === "project.ensured") {
+    const id =
+      typeof payload.id === "string"
+        ? payload.id
+        : typeof payload.projectId === "string"
+          ? payload.projectId
+          : "";
+    if (!id) return null;
+    return {
+      type: "project.ensured",
+      runId,
+      id,
+      name: typeof payload.name === "string" ? payload.name : id,
+      pathSummary:
+        typeof payload.pathSummary === "string" ? payload.pathSummary : "",
+    };
+  }
   if (eventName === "message.delta") {
     const text =
       typeof payload.content === "string"
@@ -219,6 +236,24 @@ function mapEvent(
       type: "todo.update",
       runId,
       items: Array.isArray(payload.items) ? payload.items : [],
+    };
+  }
+  if (eventName === "part.append" && payload.part) {
+    return {
+      type: "part.append",
+      runId,
+      part: payload.part,
+    };
+  }
+  if (eventName === "part.patch") {
+    return {
+      type: "part.patch",
+      runId,
+      id: typeof payload.id === "string" ? payload.id : "",
+      merge:
+        payload.merge && typeof payload.merge === "object"
+          ? (payload.merge as Record<string, unknown>)
+          : {},
     };
   }
   if (eventName === "run.finished") {

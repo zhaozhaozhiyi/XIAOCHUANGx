@@ -607,9 +607,10 @@ function videoDeliverablesPart(): ChatPart {
         label: "presentation/ 网页视频项目",
         mime: "inode/directory",
         kind: "directory",
-        previewUrl: "http://localhost:5173/?reel=1",
-        recordingUrl: "http://localhost:5173/?auto=1",
+        previewUrl: "http://localhost:5174/?reel=1",
+        recordingUrl: "http://localhost:5174/?auto=1",
         devCommand: "cd presentation && npm run dev",
+        devServerStatus: "unknown",
       },
       {
         path: "script.md",

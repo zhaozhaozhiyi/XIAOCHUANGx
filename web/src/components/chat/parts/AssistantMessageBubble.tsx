@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import type { ChatMessage } from "@/lib/chat";
-import type { ChatPart } from "@/lib/chat-parts";
+import type { ChatPart, OutlineCommitPayload } from "@/lib/chat-parts";
 import { computeThinkingGaps } from "@/lib/chat-thinking-gap";
 import { selectHasAssistantSummaryContent } from "@/lib/chat-message-selectors";
 import { buildTurnViewModel } from "@/lib/chat-turn-view-model";
@@ -22,6 +22,16 @@ type Props = {
       draft?: string;
     },
   ) => void;
+  onRequirementsSubmitted?: (partId: string, answer: string) => void;
+  onRequirementsContinue?: (answer: string) => void;
+  onRequirementsDraftChange?: (
+    partId: string,
+    patch: {
+      selectedOptions?: Record<string, string[]>;
+      answers?: Record<string, string>;
+    },
+  ) => void;
+  onOutlineCommitted?: (partId: string, patch: OutlineCommitPayload) => void;
 };
 
 function LoadingBubble() {
@@ -65,6 +75,10 @@ export function AssistantMessageBubble({
   onClarificationSubmitted,
   onClarificationContinue,
   onClarificationDraftChange,
+  onRequirementsSubmitted,
+  onRequirementsContinue,
+  onRequirementsDraftChange,
+  onOutlineCommitted,
 }: Props) {
   const status = message.status ?? "complete";
   const hasSummary = selectHasAssistantSummaryContent(message);
@@ -127,6 +141,10 @@ export function AssistantMessageBubble({
                 onClarificationSubmitted={onClarificationSubmitted}
                 onClarificationContinue={onClarificationContinue}
                 onClarificationDraftChange={onClarificationDraftChange}
+                onRequirementsSubmitted={onRequirementsSubmitted}
+                onRequirementsContinue={onRequirementsContinue}
+                onRequirementsDraftChange={onRequirementsDraftChange}
+                onOutlineCommitted={onOutlineCommitted}
               />
             ) : null}
             {viewModel.deliverablesPart ? (

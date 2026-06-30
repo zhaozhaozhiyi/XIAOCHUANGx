@@ -50,7 +50,7 @@ export function AddVoiceProviderGrid({ onAdd }: AddVoiceProviderGridProps) {
       <div>
         <p className="text-sm font-medium text-[var(--fg)]">添加语音厂商</p>
         <p className="mt-0.5 text-xs text-[var(--fg-tertiary)]">
-          配置语音识别（STT）与语音合成（TTS）Provider，供会议纪要、对话朗读等场景使用
+          配置语音识别（STT）与语音合成（TTS）Provider，供后续会议音频处理、对话朗读等场景使用
         </p>
       </div>
       <div className="model-vendor-grid">

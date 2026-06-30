@@ -33,7 +33,8 @@ export type ResolveCompanionWorkspaceResult = {
 
 /**
  * 将 Web 研究项目 ID 解析为 Companion 可扫描的 workspaceProjectId。
- * 未选课题时调用 ensure-default-task-project（§5.3.2.1a）。
+ * 未选课题且无需立即承接附件时，统一走懒创建：Agent 先写入临时目录，
+ * 产生真实文件后由 Companion 注册为 XIAOCHUANG/{module}/{date}/{title} 项目。
  */
 export async function resolveCompanionWorkspaceProjectId(
   uiProjectId: string,
@@ -62,10 +63,7 @@ export async function resolveCompanionWorkspaceProjectId(
     throw new Error("module_id_required_for_default_workspace");
   }
 
-  if (
-    (options.moduleId === "3d" || options.moduleId === "video") &&
-    !options.requiresImmediateWorkspace
-  ) {
+  if (!options.requiresImmediateWorkspace) {
     return {
       workspaceProjectId: "__lazy_default__",
       lazyDefaultWorkspace: {

@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChatAiDisclaimer } from "./ChatAiDisclaimer";
 import { ChatAgentModelPicker } from "./ChatAgentModelPicker";
 import { ChatComposer } from "./ChatComposer";
 import { ChatTurnList } from "./ChatTurnList";
@@ -107,7 +106,9 @@ export function ChatThread({
             .flatMap((part) =>
               part.items.map(
                 (item) =>
-                  `${part.id}:${part.completedAt ?? ""}:${item.path}`,
+                  `${part.id}:${part.workspaceProjectId ?? ""}:${
+                    item.workspaceProjectId ?? ""
+                  }:${part.completedAt ?? ""}:${item.path}`,
               ),
             ),
         )
@@ -797,7 +798,6 @@ export function ChatThread({
               generating={composerGenerating}
               onStop={handleStop}
             />
-            <ChatAiDisclaimer />
           </div>
         </footer>
       </div>

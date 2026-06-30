@@ -9,8 +9,23 @@
 const base = process.env.COMPANION_BASE_URL ?? "http://127.0.0.1:9477";
 const REQUIRED = ["codex", "claude"];
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function fetchWithRetry(url) {
+  let lastError = null;
+  for (let attempt = 1; attempt <= 20; attempt += 1) {
+    try {
+      return await fetch(url);
+    } catch (error) {
+      lastError = error;
+      await sleep(500);
+    }
+  }
+  throw lastError;
+}
+
 async function main() {
-  const res = await fetch(`${base}/v1/agents`).catch((e) => {
+  const res = await fetchWithRetry(`${base}/v1/agents`).catch((e) => {
     console.error(`[mvp:any] FAIL Companion 不可达 ${base}: ${e.message}`);
     process.exit(1);
   });

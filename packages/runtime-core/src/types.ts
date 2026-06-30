@@ -48,6 +48,21 @@ export type AgentStreamEvent =
         id: string;
         question: string;
         header?: string;
+        label?: string;
+        type?:
+          | "text"
+          | "textarea"
+          | "single_select"
+          | "multi_select"
+          | "date"
+          | "time"
+          | "datetime"
+          | "number"
+          | "file_pick"
+          | "file_upload";
+        required?: boolean;
+        description?: string;
+        placeholder?: string;
         options?: Array<{ label: string; description?: string }>;
         multiSelect?: boolean;
       }>;
@@ -94,6 +109,21 @@ export type RunAgentCallbacks = {
       id: string;
       question: string;
       header?: string;
+      label?: string;
+      type?:
+        | "text"
+        | "textarea"
+        | "single_select"
+        | "multi_select"
+        | "date"
+        | "time"
+        | "datetime"
+        | "number"
+        | "file_pick"
+        | "file_upload";
+      required?: boolean;
+      description?: string;
+      placeholder?: string;
       options?: Array<{ label: string; description?: string }>;
       multiSelect?: boolean;
     }>;

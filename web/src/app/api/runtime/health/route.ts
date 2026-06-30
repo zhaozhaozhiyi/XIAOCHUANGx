@@ -1,4 +1,5 @@
 import {
+  companionAgentsUrl,
   chatExecutionMode,
   companionConfig,
   companionHealthUrl,
@@ -10,6 +11,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const HEALTH_TIMEOUT_MS = 2500;
+const AGENTS_TIMEOUT_MS = 10_000;
 
 export async function GET() {
   const execution = chatExecutionMode();
@@ -43,6 +45,19 @@ export async function GET() {
         version?: string;
         runMode?: string;
       };
+      const agentsRes = await fetch(companionAgentsUrl(), {
+        method: "GET",
+        headers: companionConfig.apiToken
+          ? { Authorization: `Bearer ${companionConfig.apiToken}` }
+          : {},
+        signal: AbortSignal.timeout(AGENTS_TIMEOUT_MS),
+      }).catch(() => null);
+      const agents = agentsRes
+        ? ((await agentsRes.json().catch(() => ({}))) as {
+            agents?: unknown[];
+            inferenceChannel?: string;
+          })
+        : null;
 
       return Response.json({
         execution,
@@ -51,8 +66,9 @@ export async function GET() {
         baseUrl: companionConfig.baseUrl,
         version: health.version,
         runMode: health.runMode,
-        inferenceChannel: "unknown",
-        agentsStatus: "skipped",
+        agents: agents?.agents,
+        inferenceChannel: agents?.inferenceChannel ?? "unknown",
+        agentsStatus: agentsRes?.status ?? "skipped",
       });
     } catch (err) {
       return Response.json({

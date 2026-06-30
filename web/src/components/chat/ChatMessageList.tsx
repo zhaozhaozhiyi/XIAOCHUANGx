@@ -1,6 +1,7 @@
 "use client";
 
 import type { ChatMessage } from "@/lib/chat";
+import type { OutlineCommitPayload } from "@/lib/chat-parts";
 import { AssistantMessageBubble } from "@/components/chat/parts/AssistantMessageBubble";
 import { UserMessageBubble } from "@/components/chat/UserMessageBubble";
 
@@ -16,6 +17,16 @@ type Props = {
       draft?: string;
     },
   ) => void;
+  onRequirementsSubmitted?: (partId: string, answer: string) => void;
+  onRequirementsContinue?: (answer: string) => void;
+  onRequirementsDraftChange?: (
+    partId: string,
+    patch: {
+      selectedOptions?: Record<string, string[]>;
+      answers?: Record<string, string>;
+    },
+  ) => void;
+  onOutlineCommitted?: (partId: string, patch: OutlineCommitPayload) => void;
 };
 
 export function ChatMessageList({
@@ -24,6 +35,10 @@ export function ChatMessageList({
   onClarificationSubmitted,
   onClarificationContinue,
   onClarificationDraftChange,
+  onRequirementsSubmitted,
+  onRequirementsContinue,
+  onRequirementsDraftChange,
+  onOutlineCommitted,
 }: Props) {
   return (
     <div className="mx-auto max-w-3xl space-y-4">
@@ -40,6 +55,10 @@ export function ChatMessageList({
               onClarificationSubmitted={onClarificationSubmitted}
               onClarificationContinue={onClarificationContinue}
               onClarificationDraftChange={onClarificationDraftChange}
+              onRequirementsSubmitted={onRequirementsSubmitted}
+              onRequirementsContinue={onRequirementsContinue}
+              onRequirementsDraftChange={onRequirementsDraftChange}
+              onOutlineCommitted={onOutlineCommitted}
             />
           )}
         </div>

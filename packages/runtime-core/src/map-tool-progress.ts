@@ -55,7 +55,7 @@ function pickString(input: Record<string, unknown>, keys: string[]): string | un
   return undefined;
 }
 
-/** Canonical tool id for SSE / reducer (see web/docs/agent-cli-activity-mapping.md). */
+/** Canonical tool id for SSE / reducer (see docs/technical/agent-cli-activity-mapping.md). */
 export function canonicalToolName(wireName: string): string {
   if (SEARCH_TOOLS.has(wireName)) return "search";
   if (READ_TOOLS.has(wireName)) return "read_file";
@@ -160,11 +160,11 @@ export function progressFromReasoning(
   text: string,
   phase: "start" | "end",
 ): ToolProgressPayload {
-  const slice = text.trim().slice(0, 160) || "思考中";
+  const message = text.length > 0 ? text : "思考中";
   return {
     tool: "reasoning",
     status: phase === "start" ? "running" : "success",
-    message: slice,
+    message,
   };
 }
 

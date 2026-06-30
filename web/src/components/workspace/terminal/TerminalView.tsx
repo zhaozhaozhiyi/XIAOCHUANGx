@@ -31,6 +31,22 @@ export function TerminalView() {
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const activeSessionId = activeSession?.id ?? null;
+  const editable = !!(
+    activeSession &&
+    activeSession.group === "user" &&
+    !activeSession.readOnly
+  );
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [activeSession?.lines, activeSessionId]);
+
+  useEffect(() => {
+    if (editable) {
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
+  }, [activeSessionId, editable]);
 
   if (!activeSession) {
     return (
@@ -41,7 +57,6 @@ export function TerminalView() {
   }
 
   const isUser = activeSession.group === "user";
-  const editable = isUser && !activeSession.readOnly;
   const showAgentBanner = activeSession.readOnly && activeSession.agentUsing;
 
   const historyLines = editable
@@ -55,17 +70,6 @@ export function TerminalView() {
   const promptText = isUser
     ? trailingPrompt?.text ?? formatUserPrompt(activeSession.cwd)
     : (trailingPrompt?.text ?? "$ ");
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [activeSession.lines, activeSession.id]);
-
-  useEffect(() => {
-    setInput("");
-    if (editable) {
-      requestAnimationFrame(() => inputRef.current?.focus());
-    }
-  }, [activeSession.id, editable]);
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-white text-[#1a1a1a]">

@@ -1,12 +1,12 @@
-export type ChatModeId = "fast" | "deep";
+export type ChatModeId = "auto" | "fast" | "deep";
 
 /** @deprecated API 兼容；映射为 `deep` */
 export type LegacyChatModeId = ChatModeId | "research";
 
-/** 将请求中的 mode 规范为页内两档；`research` 等价 `deep`（PRD v3.2） */
+/** 将请求中的 mode 规范为自动策略；旧 `research` 等价 `deep`。 */
 export function normalizeChatMode(mode: string): ChatModeId | null {
   if (mode === "research") return "deep";
-  if (mode === "fast" || mode === "deep") return mode;
+  if (mode === "auto" || mode === "fast" || mode === "deep") return mode;
   return null;
 }
 

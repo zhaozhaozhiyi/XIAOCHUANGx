@@ -25,6 +25,7 @@ import {
   sessionPath,
   type ChatSurfaceModuleId,
 } from "@/lib/module-chat-config";
+import { getChatHomeSuggestions } from "@/lib/chat-home-suggestions";
 
 export function ChatHome({
   surfaceModuleId = "chat",
@@ -32,6 +33,7 @@ export function ChatHome({
   surfaceModuleId?: ChatSurfaceModuleId;
 }) {
   const surface = MODULE_CHAT_SURFACES[surfaceModuleId];
+  const suggestions = getChatHomeSuggestions(surfaceModuleId);
   const router = useRouter();
   const searchParams = useSearchParams();
   const sidebarCollapsed = useSidebarCollapsed();
@@ -61,7 +63,6 @@ export function ChatHome({
     attachments?: ChatComposerSendPayload["attachments"],
     writingTemplateId?: ChatComposerSendPayload["writingTemplateId"],
     pptTemplateId?: ChatComposerSendPayload["pptTemplateId"],
-    translateTemplateId?: ChatComposerSendPayload["translateTemplateId"],
   ) => {
     const trimmed = text.trim();
     if (!trimmed && !attachments?.length) return;
@@ -76,15 +77,12 @@ export function ChatHome({
       setPendingSession(id, {
         text: trimmed,
         attachments: uploadedAttachments,
-        mode: surface.showModePicker ? mode : "deep",
+        mode: surfaceModuleId === "chat" ? mode : "deep",
         surfaceModuleId,
         ...(surface.moduleId === "writing" && writingTemplateId
           ? { writingTemplateId }
           : {}),
         ...(surface.moduleId === "ppt" && pptTemplateId ? { pptTemplateId } : {}),
-        ...(surface.moduleId === "translate" && translateTemplateId
-          ? { translateTemplateId }
-          : {}),
         executionSource,
         agentId,
         agentModel,
@@ -128,9 +126,10 @@ export function ChatHome({
           </p>
           <ChatComposer
             showProjectPicker
-            showModePicker={surface.showModePicker}
+            showModePicker={false}
             skillPickerModule={surface.skillPicker}
-            defaultMode="deep"
+            newSessionHref={surface.newSessionHref}
+            defaultMode={surfaceModuleId === "chat" ? "auto" : "deep"}
             disabled={sending}
             projectId={projectId}
             onProjectIdChange={setProjectId}
@@ -140,7 +139,7 @@ export function ChatHome({
             onSend={(payload) =>
               startChat(
                 payload.text,
-                surface.showModePicker ? payload.mode : "deep",
+                surfaceModuleId === "chat" ? payload.mode : "deep",
                 payload.executionSource,
                 payload.agentId,
                 payload.agentModel,
@@ -148,16 +147,16 @@ export function ChatHome({
                 payload.attachments,
                 payload.writingTemplateId,
                 payload.pptTemplateId,
-                payload.translateTemplateId,
               )
             }
           />
-          {surface.showModePicker ? (
+          {suggestions ? (
             <ChatHomeTaskSuggestions
+              group={suggestions}
               onSelect={(q) =>
                 void startChat(
                   q,
-                  "fast",
+                  surfaceModuleId === "chat" ? "auto" : "deep",
                   executionSource,
                   agentId,
                   agentModel,

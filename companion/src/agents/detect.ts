@@ -19,7 +19,7 @@ import { config } from "../config.js";
 const execFileAsync = promisify(execFile);
 const VERSION_PROBE_TIMEOUT_MS = 1500;
 const MODEL_PROBE_TIMEOUT_MS = 2500;
-const AGENT_DETECT_TIMEOUT_MS = 4500;
+const AGENT_DETECT_TIMEOUT_MS = 9000;
 
 const AGENT_BINS: Record<AgentId, string> = Object.fromEntries(
   AGENT_IDS.map((id) => [id, AGENT_REGISTRY[id].execution.bin]),
@@ -228,7 +228,7 @@ export async function detectAgent(
       bin,
       status: "not_installed",
       version: null,
-      hint: `未检测到 ${spec.execution.displayName}，请联系管理员安装`,
+      hint: `未检测到 ${spec.execution.displayName}，请先完成安装后在设置中重新检测`,
       models,
       modelsSource,
       capability,
@@ -256,12 +256,10 @@ export async function detectAgent(
     ({ version } = await readVersion(path, signal));
   } catch (err) {
     if (isAbortError(err)) {
-      return {
-        ...timeoutAgentState(agentId),
-        path,
-      };
+      version = null;
+    } else {
+      throw err;
     }
-    throw err;
   }
   return {
     agentId,

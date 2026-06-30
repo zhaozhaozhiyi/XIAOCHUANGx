@@ -8,7 +8,7 @@ import { ChatHistorySidebar } from "@/components/chat/ChatHistorySidebar";
 import { ChatHistorySidebarBoundary } from "@/components/chat/ChatHistorySidebarBoundary";
 import { BrandMark } from "@/components/brand/BrandMark";
 import { getChatSurfaceFromPathname } from "@/lib/module-chat-config";
-import { NAV_MODULES } from "@/lib/navigation";
+import { getModuleByPath, NAV_MODULES } from "@/lib/navigation";
 
 type SidebarProps = {
   collapsed: boolean;
@@ -18,13 +18,29 @@ type SidebarProps = {
 export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname();
   const surface = getChatSurfaceFromPathname(pathname);
+  const currentModule = getModuleByPath(pathname);
+  const newEntry = currentModule
+    ? {
+        href: currentModule.subNav[0]?.href ?? currentModule.href,
+        label: currentModule.subNav[0]?.label ?? currentModule.label,
+      }
+    : {
+        href: surface.newSessionHref,
+        label: surface.newSessionLabel,
+      };
   const showHistorySidebar =
     pathname === "/chat" ||
     pathname.startsWith("/chat/") ||
     pathname === "/writing" ||
     pathname.startsWith("/writing/") ||
     pathname === "/ppt" ||
-    pathname.startsWith("/ppt/");
+    pathname.startsWith("/ppt/") ||
+    pathname === "/3d" ||
+    pathname.startsWith("/3d/") ||
+    pathname === "/video" ||
+    pathname.startsWith("/video/") ||
+    pathname === "/simulation" ||
+    pathname.startsWith("/simulation/");
 
   return (
     <aside
@@ -36,16 +52,18 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
 
       <div className={`px-2 pb-2 ${collapsed ? "flex justify-center" : ""}`}>
         <Link
-          href={surface.newSessionHref}
-          className={`btn btn-sidebar-new flex items-center justify-center gap-2 py-2 ${
+          href={newEntry.href}
+          className={`btn btn-sidebar-new flex items-center justify-center gap-2 py-2 text-[13px] leading-[18px] ${
             collapsed ? "h-9 w-9 px-0" : "w-full px-3"
           }`}
-          title={collapsed ? surface.newSessionLabel : undefined}
+          title={collapsed ? newEntry.label : undefined}
         >
           <Plus className="h-4 w-4 shrink-0" strokeWidth={1.75} />
           {!collapsed && (
             <>
-              <span className="flex-1 text-left">{surface.newSessionLabel}</span>
+              <span className="flex-1 text-left text-[13px] leading-[18px]">
+                {newEntry.label}
+              </span>
               <kbd className="hidden rounded border border-[var(--composer-border)] bg-white px-1.5 py-0.5 text-[10px] font-normal text-[var(--fg-tertiary)] sm:inline">
                 ⌘ K
               </kbd>
@@ -56,9 +74,9 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
 
       <nav
         aria-label="产品模块"
-        className="relative z-10 shrink-0 space-y-0.5 px-2 py-1"
+        className="relative z-10 shrink-0 px-2 py-1"
       >
-        <ul>
+        <ul className="sidebar-module-nav flex flex-col gap-px">
           {NAV_MODULES.map((mod) => {
             const active =
               pathname === mod.href || pathname.startsWith(`${mod.href}/`);
@@ -68,12 +86,23 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
                 <Link
                   href={mod.subNav[0]?.href ?? mod.href}
                   title={collapsed ? mod.label : undefined}
-                  className={`nav-item ${active ? "nav-item-active" : ""} ${
+                  className={`nav-item text-[14px] font-semibold leading-[18px] ${active ? "nav-item-active" : ""} ${
                     collapsed ? "justify-center px-2" : ""
                   }`}
                 >
                   <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.75} />
-                  {!collapsed && <span className="truncate">{mod.label}</span>}
+                  {!collapsed && (
+                    <>
+                      <span className="min-w-0 flex-1 truncate text-[14px] font-semibold leading-[18px]">
+                        {mod.label}
+                      </span>
+                      {mod.badge && (
+                        <span className="module-beta-badge nav-item-badge">
+                          {mod.badge}
+                        </span>
+                      )}
+                    </>
+                  )}
                 </Link>
               </li>
             );

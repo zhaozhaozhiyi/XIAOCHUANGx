@@ -5,10 +5,9 @@ import { NAV_MODULES } from "@/lib/navigation";
 
 const MOCK_MODULES_ENABLED = new Set([
   "chat",
-  "meeting",
-  "knowledge",
   "writing",
   "ppt",
+  "3d",
 ]);
 
 export function AccountSettingsSection() {
@@ -17,8 +16,8 @@ export function AccountSettingsSection() {
   return (
     <div className="space-y-6">
       <p className="text-sm text-[var(--fg-secondary)]">
-        以下为本平台账号信息（只读）。模块开通与数据权限由企业管理员配置，MVP
-        不与 外部业务系统账号打通。
+        以下为本平台账号信息（只读）。模块开通由企业管理员配置，当前版本
+        不与外部业务系统账号打通。
       </p>
 
       <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
@@ -54,16 +53,6 @@ export function AccountSettingsSection() {
             );
           })}
         </ul>
-      </div>
-
-      <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
-        <p className="text-overline">数据权限摘要</p>
-        <p className="mt-2 text-sm text-[var(--fg)]">
-          黑色系、能源化工、螺纹钢、聚乙烯等（示例；按本平台账号配置）
-        </p>
-        <p className="mt-2 text-xs text-[var(--fg-tertiary)]">
-          如需开通更多品种或模块，请联系企业管理员。
-        </p>
       </div>
     </div>
   );

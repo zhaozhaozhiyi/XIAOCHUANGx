@@ -25,7 +25,7 @@ export const SANDBOX_PROJECT_ID = "sandbox-default";
 /** UI：未绑定用户课题目录（首条消息前草稿态） */
 export const NO_PROJECT_ID = "none";
 
-export const PLATFORM_DEFAULT_GROUP_LABEL = "默认工作区（XIAOCHUANG）";
+export const PLATFORM_DEFAULT_GROUP_LABEL = "默认工作文件夹（XIAOCHUANG）";
 
 export const MOCK_RESEARCH_PROJECTS: ResearchProject[] = [
   {
@@ -68,6 +68,41 @@ export const MOCK_RESEARCH_PROJECTS: ResearchProject[] = [
 const SESSION_PROJECT_KEY = (sessionId: string) => `jlc-chat-project-${sessionId}`;
 const CUSTOM_PROJECTS_KEY = "jlc-custom-research-projects";
 const ENSURED_PROJECTS_KEY = "jlc-ensured-research-projects";
+const HIDDEN_PROJECTS_KEY = "jlc-hidden-research-projects";
+
+function readHiddenProjectIds(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(HIDDEN_PROJECTS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((id): id is string => typeof id === "string");
+  } catch {
+    return [];
+  }
+}
+
+function writeHiddenProjectIds(ids: string[]): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(HIDDEN_PROJECTS_KEY, JSON.stringify([...new Set(ids)]));
+}
+
+export function isResearchProjectHidden(projectId: string): boolean {
+  return readHiddenProjectIds().includes(projectId);
+}
+
+export function hideResearchProject(projectId: string): void {
+  if (typeof window === "undefined") return;
+  writeHiddenProjectIds([...readHiddenProjectIds(), projectId]);
+  notifyResearchProjectsUpdated();
+  window.dispatchEvent(new Event("jlc-chat-history-updated"));
+}
+
+function unhideResearchProject(projectId: string): void {
+  if (typeof window === "undefined") return;
+  writeHiddenProjectIds(readHiddenProjectIds().filter((id) => id !== projectId));
+}
 
 function readEnsuredProjects(): ResearchProject[] {
   if (typeof window === "undefined") return [];
@@ -92,6 +127,7 @@ function readEnsuredProjects(): ResearchProject[] {
 
 export function rememberEnsuredResearchProject(project: ResearchProject): void {
   if (typeof window === "undefined") return;
+  unhideResearchProject(project.id);
   const existing = readEnsuredProjects();
   const next = [
     ...existing.filter((p) => p.id !== project.id),
@@ -124,6 +160,7 @@ function readCustomProjects(): ResearchProject[] {
 
 export function addCustomResearchProject(project: ResearchProject): void {
   if (typeof window === "undefined") return;
+  unhideResearchProject(project.id);
   const existing = readCustomProjects();
   const next = [
     ...existing.filter((p) => p.id !== project.id),
@@ -134,6 +171,7 @@ export function addCustomResearchProject(project: ResearchProject): void {
 }
 
 export function getResearchProject(id: string): ResearchProject | undefined {
+  if (isResearchProjectHidden(id)) return undefined;
   const fromCompanion =
     typeof window === "undefined"
       ? []
@@ -163,6 +201,7 @@ export function listSelectableLocalProjects(): ResearchProject[] {
   const seen = new Set<string>();
   const merged: ResearchProject[] = [];
   for (const p of [...custom, ...mock]) {
+    if (isResearchProjectHidden(p.id)) continue;
     if (seen.has(p.id)) continue;
     seen.add(p.id);
     merged.push(p);
@@ -200,7 +239,7 @@ export function setSessionProjectId(sessionId: string, projectId: string): void 
 /**
  * @deprecated 使用 `useWorkspace().root` + `flattenWorkspaceFiles`（S2 真树）
  */
-export function getMentionableFiles(_projectId: string): WorkspaceFileNode[] {
+export function getMentionableFiles(): WorkspaceFileNode[] {
   return flattenWorkspaceFiles(WORKSPACE_ROOT.children ?? []);
 }
 

@@ -59,10 +59,14 @@ Phase 4   录屏 + 后期
 
 | URL | 用途 | 行为 |
 |---|---|---|
-| `localhost:5173/` | 制作 / 验章 | Manual：点击或键盘推进，不播音频 |
-| `localhost:5173/?reel=1` | 用户预览 | 自动播放，可暂停、点击画面快进、点进度条跳任意 step |
-| `localhost:5173/?audio=1` | 配音检查 | 进入 step 自动播音频，手动推进 |
-| `localhost:5173/?auto=1` | 最终录屏 | 按 Space 启动，音频结束自动推进，一镜到底 |
+| `localhost:<port>/` | 制作 / 验章 | Manual：点击或键盘推进，不播音频 |
+| `localhost:<port>/?reel=1` | 用户预览 | 自动播放，可暂停、点击画面快进、点进度条跳任意 step |
+| `localhost:<port>/?audio=1` | 配音检查 | 进入 step 自动播音频，手动推进 |
+| `localhost:<port>/?auto=1` | 最终录屏 | 按 Space 启动，音频结束自动推进，一镜到底 |
+
+脚手架 Vite 默认端口是 `5174`；若被占用，Vite 会自动换端口。Agent
+汇报时必须使用 dev server 真实输出的 URL。未启动 dev server 时，只给启动
+命令，不声称预览已经可打开。
 
 工作目录约定（agent 在用户当前目录下创建 / 编辑）：
 
@@ -259,6 +263,31 @@ bash <path-to-web-video-presentation>/scripts/scaffold.sh \
 bash <path-to-web-video-presentation>/scripts/scaffold.sh --list-themes
 ```
 
+脚手架完成后必须确认：
+
+```bash
+test -f script.md
+test -f outline.md
+test -f presentation/package.json
+find presentation/src/chapters -name narrations.ts -print -quit
+```
+
+任一缺失，都要先补齐再继续。不要把 scaffold 命令输出当作交付完成的证据。
+
+P0 默认启动预览：
+
+```bash
+cd presentation
+npm run dev
+```
+
+启动后从终端输出读取真实 URL，例如 `http://localhost:5174/` 或 Vite 自动
+分配的新端口。最终交付给用户时写：
+
+- 预览：`<真实 URL>?reel=1`
+- 录屏：`<真实 URL>?auto=1`
+- 若 dev server 未启动：`cd presentation && npm run dev`
+
 > 自定义主题 → 先按 [`references/THEMES.md`](references/THEMES.md)
 > "创作新主题"流程做一个 `themes/<my-theme>/`，再 `--theme=<my-theme>`。
 
@@ -288,7 +317,7 @@ rm -rf presentation/src/chapters/01-example
 **做完第 1 章后必须停下来**等用户验收：
 
 ```
-第 1 章 <id> 做完了，dev server 在 localhost:5173 运行。
+第 1 章 <id> 做完了，dev server 在 <真实 localhost URL> 运行。
 
 验收重点：
   □ 视觉气质对不对？符合 <theme nameZh> 的预期吗？
@@ -300,8 +329,8 @@ rm -rf presentation/src/chapters/01-example
 问题告诉我，我针对性改。OK 了告诉我"继续"，我按选定模式做第 2 章及之后。
 ```
 
-第一章验收默认给用户两个入口：`localhost:5173/?reel=1` 用于像视频一样
-自动预览，`localhost:5173/` 用于手动逐 step 检查细节。
+第一章验收默认给用户两个入口：`<真实 localhost URL>?reel=1` 用于像视频一样
+自动预览，`<真实 localhost URL>/` 用于手动逐 step 检查细节。
 
 ### 2.3 第 2~N 章 —— 按选定模式
 
@@ -374,7 +403,7 @@ rm -rf presentation/src/chapters/01-example
 Phase 2 结束后必须停下来，问用户：
 
 ```
-网页做完，{N} 章 {M} 步，dev server 在 localhost:5173 跑着。
+网页做完，{N} 章 {M} 步，dev server 在 <真实 localhost URL> 跑着。
 
 要不要合成音频做"自动播放录屏"？
   ✓ 合成 → 扫所有章节的 narrations.ts 出 audio-segments.json，
@@ -419,7 +448,7 @@ PRESENTATION_TTS=openai npm run synthesize-audio
 
 | 场景 | 推荐路径 |
 |---|---|
-| Phase 3 已合成音频 | **Auto 模式一镜到底**：浏览器开 `localhost:5173/?auto=1` → 按 SPACE → 整片自动播完 → 停录 → 裁头尾即成片，**无需后期对音轨** |
+| Phase 3 已合成音频 | **Auto 模式一镜到底**：浏览器开 `<真实 localhost URL>?auto=1` → 按 SPACE → 整片自动播完 → 停录 → 裁头尾即成片，**无需后期对音轨** |
 | Phase 3 跳过 | 默认 Manual 模式手动点击推进 → 后期任意剪辑工具配音 |
 
 > agent 在 Phase 3 / Checkpoint Audio 后**主动告诉用户**适合的录屏路径。

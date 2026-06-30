@@ -74,7 +74,6 @@ function ReasoningBlock({
       <TimelineCollapsible
         text={text}
         streaming={part.streaming}
-        completeLabel="结束"
         className="chat-timeline-reasoning"
       />
     );

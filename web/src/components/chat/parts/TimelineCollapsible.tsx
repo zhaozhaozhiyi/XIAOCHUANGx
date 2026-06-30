@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckCircle2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 function TimelineCompleteRow({ label }: { label: string }) {
   return (
@@ -34,6 +34,8 @@ export function TimelineCollapsible({
   className?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const preRef = useRef<HTMLPreElement | null>(null);
+  const shouldFollowTailRef = useRef(true);
 
   const { preview, collapsible } = useMemo(() => {
     if (completeLabel || streaming || !text) {
@@ -53,9 +55,28 @@ export function TimelineCollapsible({
 
   const showFull = streaming || expanded || !collapsible;
 
+  useEffect(() => {
+    if (!streaming) return;
+    if (!shouldFollowTailRef.current) return;
+    const el = preRef.current;
+    if (!el) return;
+    const frame = window.requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [streaming, text]);
+
   return (
     <div className={className}>
-      <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words font-mono text-[13px] leading-relaxed text-[var(--fg-secondary)]">
+      <pre
+        ref={preRef}
+        className="max-h-80 overflow-auto whitespace-pre-wrap break-words font-mono text-[13px] leading-relaxed text-[var(--fg-secondary)]"
+        onScroll={(event) => {
+          const el = event.currentTarget;
+          const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+          shouldFollowTailRef.current = distanceToBottom < 24;
+        }}
+      >
         {showFull ? text : preview}
         {streaming ? (
           <span className="mt-1 block text-[var(--accent)]">{streamingLabel}</span>

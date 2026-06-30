@@ -3,14 +3,17 @@ import { isComplexDeepQuestion, type ChatModeId } from "./chat-mode.js";
 export type SimulatedDeliverablesPayload = {
   headline: string;
   primaryPath: string;
+  workspaceProjectId?: string;
   items: Array<{
     path: string;
     label?: string;
     mime?: string;
     kind?: "primary" | "attachment" | "directory";
+    workspaceProjectId?: string;
     previewUrl?: string;
     recordingUrl?: string;
     devCommand?: string;
+    devServerStatus?: "running" | "unknown";
   }>;
 };
 

@@ -1,6 +1,8 @@
 import baseConfig from "./playwright.config";
 
-export default {
+const noWebserverConfig = {
   ...baseConfig,
   webServer: undefined,
 };
+
+export default noWebserverConfig;

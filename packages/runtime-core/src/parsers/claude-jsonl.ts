@@ -25,6 +25,21 @@ type NormalizedQuestion = {
   id: string;
   question: string;
   header?: string;
+  label?: string;
+  type?:
+    | "text"
+    | "textarea"
+    | "single_select"
+    | "multi_select"
+    | "date"
+    | "time"
+    | "datetime"
+    | "number"
+    | "file_pick"
+    | "file_upload";
+  required?: boolean;
+  description?: string;
+  placeholder?: string;
   options?: Array<{ label: string; description?: string }>;
   multiSelect?: boolean;
 };
@@ -39,7 +54,13 @@ function isAskUserQuestionTool(wireName: string): boolean {
 
 function normalizeAskUserQuestions(input: AskUserQuestionInput): NormalizedQuestion[] {
   if (typeof input.question === "string" && input.question.trim()) {
-    return [{ id: "question", question: input.question.trim() }];
+    return [
+      {
+        id: "question",
+        question: input.question.trim(),
+        label: input.question.trim(),
+      },
+    ];
   }
 
   const questions = Array.isArray(input.questions) ? input.questions : null;
@@ -50,6 +71,8 @@ function normalizeAskUserQuestions(input: AskUserQuestionInput): NormalizedQuest
     const question =
       typeof item.question === "string"
         ? item.question.trim()
+        : typeof item.label === "string"
+          ? item.label.trim()
         : typeof item.header === "string"
           ? item.header.trim()
           : "";
@@ -80,6 +103,32 @@ function normalizeAskUserQuestions(input: AskUserQuestionInput): NormalizedQuest
         header:
           typeof item.header === "string" && item.header.trim()
             ? item.header.trim()
+            : undefined,
+        label:
+          typeof item.label === "string" && item.label.trim()
+            ? item.label.trim()
+            : question,
+        type:
+          item.type === "text" ||
+          item.type === "textarea" ||
+          item.type === "single_select" ||
+          item.type === "multi_select" ||
+          item.type === "date" ||
+          item.type === "time" ||
+          item.type === "datetime" ||
+          item.type === "number" ||
+          item.type === "file_pick" ||
+          item.type === "file_upload"
+            ? item.type
+            : undefined,
+        required: item.required === true,
+        description:
+          typeof item.description === "string" && item.description.trim()
+            ? item.description.trim()
+            : undefined,
+        placeholder:
+          typeof item.placeholder === "string" && item.placeholder.trim()
+            ? item.placeholder.trim()
             : undefined,
         options,
         multiSelect: item.multiSelect === true,

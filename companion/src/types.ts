@@ -9,11 +9,11 @@ export type { RunTimeoutProfile } from "./config.js";
 
 export type ModuleId =
   | "chat"
-  | "meeting"
-  | "knowledge"
   | "writing"
   | "ppt"
-  | "translate";
+  | "3d"
+  | "video"
+  | "simulation";
 
 export type WorkspaceKind = "sandbox" | "local_bound" | "cloud";
 
@@ -108,10 +108,9 @@ export type CreateRunBinding =
   | { moduleId: "chat"; mode: ChatModeId }
   | { moduleId: "writing"; templateId: string }
   | { moduleId: "ppt"; task: "deck" }
-  | { moduleId: "meeting"; task: "summary"; templateId?: string }
-  | { moduleId: "knowledge"; task: "kb-qa" }
-  // V1.1 收口（2026-06-08）：与 web/src/lib/companion/types.ts 对齐
-  | { moduleId: "translate"; task: "translate"; templateId?: string };
+  | { moduleId: "3d" }
+  | { moduleId: "video" }
+  | { moduleId: "simulation" };
 
 export type ChatRunMessage = {
   id?: string;
@@ -125,6 +124,11 @@ export type CreateRunRequest = {
   sessionId: string;
   projectId: string;
   workspaceProjectId: string;
+  lazyDefaultWorkspace?: {
+    moduleId: ModuleId;
+    taskId?: string;
+    taskTitle?: string;
+  };
   moduleId: ModuleId;
   binding: CreateRunBinding;
   agentId: AgentId;

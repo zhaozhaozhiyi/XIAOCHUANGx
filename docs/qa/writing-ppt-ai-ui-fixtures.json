@@ -1,0 +1,195 @@
+{
+  "version": 1,
+  "updatedAt": "2026-06-23",
+  "scope": "writing-ppt-ai-ui",
+  "description": "Fixed fixtures for writing/PPT AI-to-UI acceptance. These cases define expected parts and artifacts; real Companion/Runtime runs should record results against them.",
+  "firstTurnFixtures": [
+    {
+      "id": "F1",
+      "moduleId": "writing",
+      "input": "帮我写一篇面向公司管理层的 2026 年上半年中国成品油市场复盘，要求用于内部经营会，正式分析文风，约 3000 字。",
+      "expect": {
+        "forbiddenParts": ["writing_requirements"],
+        "requiredParts": ["writing_requirement_summary"]
+      }
+    },
+    {
+      "id": "F2",
+      "moduleId": "writing",
+      "input": "帮我写一篇成品油市场分析。",
+      "expect": {
+        "requiredParts": ["writing_requirements"],
+        "forbiddenRepeatedFields": ["主题"]
+      }
+    },
+    {
+      "id": "F3",
+      "moduleId": "writing",
+      "input": "把这段研究结论整理成公众号短文：2026 年上半年国内成品油需求温和修复，汽油消费受出行恢复支撑，柴油受基建与物流节奏影响仍有波动，主营炼厂库存压力较去年同期下降。面向产业客户，口吻专业但易读，800 字左右。",
+      "expect": {
+        "forbiddenParts": ["writing_requirements"],
+        "requiredParts": ["writing_requirement_summary"],
+        "allowDirectDraft": true
+      }
+    },
+    {
+      "id": "F4",
+      "moduleId": "ppt",
+      "input": "做一份面向客户高层的金联创产品能力介绍 PPT，用于售前沟通，目标是说明数据、研究和交付优势，12 页左右。",
+      "expect": {
+        "forbiddenParts": ["ppt_requirements"],
+        "requiredParts": ["ppt_requirement_summary"]
+      }
+    },
+    {
+      "id": "F5",
+      "moduleId": "ppt",
+      "input": "帮我做个公司介绍 PPT。",
+      "expect": {
+        "requiredParts": ["ppt_requirements"],
+        "forbiddenRepeatedFields": ["主题"]
+      }
+    },
+    {
+      "id": "F6",
+      "moduleId": "ppt",
+      "input": "基于刚才的文稿生成一份 10 页汇报 PPT，面向内部经营会，重点突出市场判断和行动建议。",
+      "expect": {
+        "forbiddenParts": ["ppt_requirements"],
+        "requiredAnyParts": ["ppt_requirement_summary", "ppt_outline"]
+      }
+    }
+  ],
+  "flowFixtures": [
+    {
+      "id": "T1",
+      "moduleId": "writing",
+      "inputRef": "F1",
+      "expectedStages": ["writing_requirement_summary"],
+      "mustNotEmit": ["writing_requirements"]
+    },
+    {
+      "id": "T2",
+      "moduleId": "writing",
+      "input": "帮我写一篇成品油市场分析。",
+      "formAnswer": "体裁：公众号短文\n受众：产业客户\n用途：对外传播\n篇幅：800 字左右",
+      "expectedStages": ["writing_requirements", "writing_requirement_summary", "draft"],
+      "expectedArtifacts": [
+        {
+          "extension": ".md",
+          "required": true
+        }
+      ],
+      "mustNotEmit": ["writing_outline"]
+    },
+    {
+      "id": "T3",
+      "moduleId": "writing",
+      "input": "帮我写一份年度行业深度报告。",
+      "formAnswer": "行业：成品油市场\n年度范围：2026 年上半年复盘与下半年展望\n体裁：正式研究报告\n受众：公司管理层\n用途：内部决策\n篇幅：6000 字左右",
+      "expectedStages": ["writing_requirements", "writing_requirement_summary", "writing_outline"],
+      "expectedArtifacts": [
+        {
+          "extension": ".md",
+          "required": true
+        }
+      ],
+      "outline": {
+        "requiresStructured": true,
+        "requiresEditable": true,
+        "requiresCommittedUserVersion": true
+      }
+    },
+    {
+      "id": "T4",
+      "moduleId": "ppt",
+      "inputRef": "F4",
+      "expectedStages": ["ppt_requirement_summary"],
+      "mustNotEmit": ["ppt_requirements"]
+    },
+    {
+      "id": "T5",
+      "moduleId": "ppt",
+      "input": "帮我做个公司介绍 PPT。",
+      "formAnswer": "场景：售前沟通\n受众：客户高层\n目标：介绍公司能力并推动下一步交流\n页数：12 页\n风格：专业商务",
+      "expectedStages": ["ppt_requirements", "ppt_requirement_summary", "ppt_outline", "deliverables"],
+      "expectedArtifacts": [
+        {
+          "extension": ".html",
+          "required": true
+        },
+        {
+          "extension": ".pptx",
+          "required": true,
+          "allowExplicitFallback": true
+        }
+      ],
+      "outline": {
+        "requiresStructured": true,
+        "requiresEditable": true,
+        "requiresCommittedUserVersion": true
+      }
+    },
+    {
+      "id": "T6",
+      "moduleId": "writing",
+      "input": "用政策解读模板写一篇面向产业客户的成品油出口政策解读，1200 字。",
+      "templateExpectation": {
+        "baseSkillFirst": true,
+        "lightPass": true,
+        "targetSkillHint": "skill-wr-policy"
+      },
+      "expectedStages": ["writing_requirement_summary"]
+    },
+    {
+      "id": "T7",
+      "moduleId": "ppt",
+      "input": "用 pitch deck 风格做一份 12 页客户提案 PPT，面向客户高层，主题是把我们的金联创成品油研究与数据产品卖给一家大型省级炼厂，目标是说服他们在 2026 年下半年签订年度数据 + 研究订阅服务。",
+      "templateExpectation": {
+        "baseSkillFirst": true,
+        "lightPass": true,
+        "targetSkillHint": "skill-ppt-pitch-deck"
+      },
+      "expectedStages": ["ppt_requirement_summary", "ppt_outline"]
+    },
+    {
+      "id": "T8",
+      "moduleId": "ppt",
+      "input": "用周报模板做个 PPT。",
+      "templateExpectation": {
+        "baseSkillFirst": true,
+        "lightPass": false,
+        "targetSkillHint": "skill-ppt-weekly-report"
+      },
+      "expectedStages": ["ppt_requirements"],
+      "mustAskAnyOfGroups": [
+        ["场景", "用途", "周期", "团队", "项目"],
+        ["受众", "汇报对象", "对象"],
+        ["目标", "重点", "要点", "要传达"]
+      ]
+    },
+    {
+      "id": "T9",
+      "moduleId": "mixed",
+      "operation": "Edit outline card: add one item, delete one item, move one item, edit title and bullets, then commit.",
+      "expectedState": {
+        "outlineSource": "user",
+        "committed": true,
+        "markdownUpdated": true,
+        "nextRunConsumesCommittedOutline": true
+      }
+    },
+    {
+      "id": "T10",
+      "moduleId": "mixed",
+      "operation": "Refresh while session is at requirements, summary, outline, and deliverables stages.",
+      "expectedState": {
+        "requirementsSubmittedPersists": true,
+        "summaryPersists": true,
+        "outlineCommittedVersionPersists": true,
+        "unsubmittedLocalDraftMayBeLost": true,
+        "deliverablesPersist": true
+      }
+    }
+  ]
+}

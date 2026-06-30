@@ -1,24 +1,14 @@
 import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { chatExecutionMode, companionConfig } from "@/lib/companion/config";
 import { fetchCompanionProjectFile } from "@/lib/companion/client";
 import { resolveCompanionWorkspaceProjectId } from "@/lib/research-projects-server";
 import { NO_PROJECT_ID, SANDBOX_PROJECT_ID } from "@/lib/research-projects";
+import { resolveLegacySafePath } from "@/lib/legacy-workspace-path";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const LEGACY_PROJECT_ROOT = path.resolve(process.cwd(), "..");
-
 const DOWNLOADABLE_EXT = new Set(["pptx", "ppt", "html", "htm"]);
-
-function resolveLegacySafePath(relativePath: string): string | null {
-  const normalized = path.normalize(relativePath).replace(/^(\.\.(\/|\\|$))+/, "");
-  if (normalized.startsWith("..") || path.isAbsolute(normalized)) return null;
-  const full = path.join(LEGACY_PROJECT_ROOT, normalized);
-  if (!full.startsWith(LEGACY_PROJECT_ROOT)) return null;
-  return full;
-}
 
 function basenameFromPath(filePath: string): string {
   const parts = filePath.split(/[/\\]/);

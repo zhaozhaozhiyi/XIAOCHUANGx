@@ -1,0 +1,20 @@
+{
+  "runtime": "openscad-wasm-preview",
+  "version": "OpenSCAD-2026.06.21-WebAssembly-web",
+  "distUrl": "https://files.openscad.org/snapshots/OpenSCAD-2026.06.21-WebAssembly-web.zip",
+  "distSha256": "8203b58111d7fb5815c58b6584d97de5274372d85b80ecd6ef41848f0b67f5ee",
+  "sourceCodeUrl": "https://github.com/openscad/openscad",
+  "preparedAt": "2026-06-26T06:24:32.577Z",
+  "files": {
+    "openscad.js": {
+      "size": 100027,
+      "sha256": "e458673d46d506d77b780c526d6e5492250f353d582057c6f912724a9586d86e",
+      "name": "openscad.js"
+    },
+    "openscad.wasm": {
+      "size": 10761210,
+      "sha256": "502e7756ed1201698f484c9b3c6fd426fe826dc926189fcf91830dfc26c628ef",
+      "name": "openscad.wasm"
+    }
+  }
+}

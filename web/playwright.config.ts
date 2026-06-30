@@ -11,6 +11,17 @@ const chromePath =
     : "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome");
 
 const hasChrome = fs.existsSync(chromePath);
+const webServerEnv = Object.fromEntries(
+  Object.entries({
+    ...process.env,
+    CHAT_EXECUTION: "companion",
+    COMPANION_USE_MOCK: "true",
+    HERMES_USE_MOCK: "true",
+    FORCE_COLOR: "0",
+  }).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
+);
+
+delete webServerEnv.NO_COLOR;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -36,11 +47,7 @@ export default defineConfig({
     command: "npm run dev",
     url: baseURL,
     cwd: ".",
-    env: {
-      CHAT_EXECUTION: "companion",
-      COMPANION_USE_MOCK: "true",
-      HERMES_USE_MOCK: "true",
-    },
+    env: webServerEnv,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

@@ -37,8 +37,20 @@ function normalizePath(p: string): string {
   return p.replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+$/, "");
 }
 
+function normalizeWorkspaceRefPath(p: string): string {
+  const normalized = normalizePath(p);
+  if (!normalized || normalized.startsWith("/") || /^[A-Za-z]:\//i.test(normalized)) {
+    return normalized;
+  }
+  const parts = normalized.split("/").filter(Boolean);
+  while (parts[0] === "..") {
+    parts.shift();
+  }
+  return parts.join("/");
+}
+
 function isForbiddenPath(p: string): boolean {
-  const n = normalizePath(p);
+  const n = normalizeWorkspaceRefPath(p);
   if (n.includes("..")) return true;
   if (/^file:\/\//i.test(p.trim())) return true;
   return false;
@@ -63,7 +75,7 @@ export function resolveFileInTree(
   }
 
   const files = listProjectFiles(root);
-  const norm = normalizePath(pathOnly);
+  const norm = normalizeWorkspaceRefPath(pathOnly);
 
   if (norm.startsWith("/") || /^[A-Za-z]:\//i.test(norm)) {
     const abs = norm.toLowerCase();

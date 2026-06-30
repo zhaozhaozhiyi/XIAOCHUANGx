@@ -204,11 +204,7 @@ export function createCodexJsonParser(onEvent: Handler) {
         obj.message ?? obj.error,
         obj.type === "turn.failed" ? "Codex turn failed" : "Codex error",
       );
-      if (
-        typeof message === "string" &&
-        message.includes("Reconnecting...") &&
-        message.includes("timeout waiting for child process to exit")
-      ) {
+      if (typeof message === "string" && message.startsWith("Reconnecting...")) {
         onEvent({ type: "tool_progress", ...progressFromPhase(message) });
         return;
       }

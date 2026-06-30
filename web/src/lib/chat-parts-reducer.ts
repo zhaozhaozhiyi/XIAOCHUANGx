@@ -55,6 +55,53 @@ function withStreamSeq(part: ChatPart, seq: number): ChatPart {
   return { ...part, streamSeq: seq };
 }
 
+const SINGLETON_SUMMARY_PART_KINDS = new Set<string>([
+  "writing_requirements",
+  "writing_requirement_summary",
+  "writing_outline",
+  "ppt_requirements",
+  "ppt_requirement_summary",
+  "ppt_outline",
+  "3d_requirements",
+  "3d_requirement_summary",
+  "3d_outline",
+  "video_requirements",
+  "video_requirement_summary",
+  "video_outline",
+]);
+
+function findRepeatablePartIndex(parts: ChatPart[], part: ChatPart): number {
+  if (
+    part.kind !== "deliverables" &&
+    !SINGLETON_SUMMARY_PART_KINDS.has(part.kind)
+  ) {
+    return -1;
+  }
+  for (let idx = parts.length - 1; idx >= 0; idx -= 1) {
+    if (parts[idx]?.kind === part.kind) return idx;
+  }
+  return -1;
+}
+
+function mergeRepeatedPart(existing: ChatPart, incoming: ChatPart): ChatPart {
+  const streamSeq = existing.streamSeq ?? incoming.streamSeq;
+  if (existing.kind === "deliverables" && incoming.kind === "deliverables") {
+    const itemsByPath = new Map<string, (typeof incoming.items)[number]>();
+    for (const item of existing.items) itemsByPath.set(item.path, item);
+    for (const item of incoming.items) itemsByPath.set(item.path, item);
+    return {
+      ...incoming,
+      headline: incoming.headline ?? existing.headline,
+      primaryPath: incoming.primaryPath ?? existing.primaryPath,
+      workspaceProjectId:
+        incoming.workspaceProjectId ?? existing.workspaceProjectId,
+      items: Array.from(itemsByPath.values()),
+      streamSeq,
+    };
+  }
+  return { ...incoming, streamSeq };
+}
+
 /** 新开 activity 前封存尾部流式块，避免正文占位后工具只能排在后面 */
 function sealStreamingTail(parts: ChatPart[]): ChatPart[] {
   const last = parts[parts.length - 1];
@@ -78,6 +125,26 @@ function sealStreamingTail(parts: ChatPart[]): ChatPart[] {
 
 function withSegmentBoundary(state: AssistantPartsState): AssistantPartsState {
   return { ...state, pendingNewTextSegment: true };
+}
+
+function isReasoningPlaceholderChunk(chunk: string): boolean {
+  return chunk === "思考中";
+}
+
+function mergeReasoningMarkdown(current: string, chunk: string): string {
+  if (!chunk || isReasoningPlaceholderChunk(chunk)) return current;
+  if (!current || isReasoningPlaceholderChunk(current)) return chunk;
+  if (chunk === current || current.endsWith(chunk)) return current;
+  if (chunk.startsWith(current)) return chunk;
+
+  const overlapMax = Math.min(current.length, chunk.length);
+  for (let overlap = overlapMax; overlap > 0; overlap -= 1) {
+    if (current.slice(-overlap) === chunk.slice(0, overlap)) {
+      return `${current}${chunk.slice(overlap)}`;
+    }
+  }
+
+  return `${current}${chunk}`;
 }
 
 function forcesNewTextSegment(last: ChatPart | undefined): boolean {
@@ -212,10 +279,25 @@ export function reduceAppendPart(
   part: ChatPart,
 ): AssistantPartsState {
   const { seq, nextStreamSeq } = bumpStreamSeq(state);
+  const sealedParts = sealStreamingTail(state.parts);
+  const incoming = withStreamSeq(part, seq);
+  const repeatedIdx = findRepeatablePartIndex(sealedParts, incoming);
+  if (repeatedIdx >= 0) {
+    const nextParts = [...sealedParts];
+    nextParts[repeatedIdx] = mergeRepeatedPart(
+      sealedParts[repeatedIdx]!,
+      incoming,
+    );
+    return {
+      ...state,
+      nextStreamSeq,
+      parts: nextParts,
+    };
+  }
   return {
     ...state,
     nextStreamSeq,
-    parts: [...sealStreamingTail(state.parts), withStreamSeq(part, seq)],
+    parts: [...sealedParts, incoming],
   };
 }
 
@@ -506,19 +588,22 @@ export function reduceToolProgress(
     const parts = [...sealStreamingTail(state.parts)];
     const last = parts[parts.length - 1];
     const chunk = payload.message ?? "思考中";
+    const streaming = payload.status === "running";
+
     if (last?.kind === "reasoning") {
-      const streaming = payload.status === "running";
       parts[parts.length - 1] = {
         ...last,
-        markdown:
-          last.markdown === "思考中"
-            ? chunk
-            : `${last.markdown}\n${chunk}`,
+        markdown: mergeReasoningMarkdown(last.markdown, chunk),
         streaming,
         completedAt: streaming ? undefined : Date.now(),
       };
       return streaming ? { ...state, parts } : withSegmentBoundary({ ...state, parts });
     }
+
+    if (isReasoningPlaceholderChunk(chunk)) {
+      return state;
+    }
+
     const { seq, nextStreamSeq } = bumpStreamSeq(state);
     parts.push(
       withStreamSeq(
@@ -527,7 +612,7 @@ export function reduceToolProgress(
           zone: "activity",
           kind: "reasoning",
           markdown: chunk,
-          streaming: payload.status === "running",
+          streaming,
         },
         seq,
       ),

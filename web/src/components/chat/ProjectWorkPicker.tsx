@@ -13,7 +13,6 @@ import { buildLocalFolderPick } from "@/lib/pick-local-folder";
 import { useResearchProjects } from "@/contexts/ResearchProjectsContext";
 import {
   addCustomResearchProject,
-  NO_PROJECT_ID,
   isUsingLocalProject,
   type ResearchProject,
 } from "@/lib/research-projects";

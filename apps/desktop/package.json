@@ -1,9 +1,9 @@
 {
   "name": "@jlc/desktop",
   "productName": "小窗",
-  "version": "0.1.0",
+  "version": "0.1.2-alpha",
   "private": true,
-  "description": "小窗 — Electron 桌面壳（PRD v3.0 MVP §5.3.7）",
+  "description": "小窗 — Electron 桌面壳（Desktop Alpha §5.3.7）",
   "main": "dist/main/index.js",
   "type": "module",
   "scripts": {
@@ -23,8 +23,9 @@
     "prepare:openscad:required": "node ../../scripts/prepare-openscad-runtime.mjs --required && pnpm verify:openscad:required",
     "pack:dir": "pnpm icons && pnpm build && pnpm prepare:web && pnpm prepare:companion && pnpm prepare:openscad && electron-builder --dir",
     "pack": "pnpm icons && pnpm build && pnpm prepare:web && pnpm prepare:companion && pnpm prepare:openscad && electron-builder",
+    "pack:release": "pnpm icons && pnpm build && pnpm prepare:web && pnpm prepare:companion && pnpm prepare:openscad:required && pnpm --dir ../.. m1:3d:release-gate && electron-builder",
     "pack:ci": "pnpm icons && pnpm build && pnpm prepare:web && pnpm prepare:companion && pnpm prepare:openscad && electron-builder --publish never",
-    "pack:ci:release": "pnpm icons && pnpm build && pnpm verify:openscad-wasm:required && pnpm prepare:web && pnpm prepare:companion && pnpm verify:openscad:required && electron-builder --publish never"
+    "pack:ci:release": "pnpm icons && pnpm build && pnpm prepare:web && pnpm prepare:companion && pnpm verify:openscad:required && pnpm --dir ../.. m1:3d:release-gate && electron-builder --publish never"
   },
   "dependencies": {
     "electron-updater": "^6.6.2"

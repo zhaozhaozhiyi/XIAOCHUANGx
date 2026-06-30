@@ -11,13 +11,10 @@ export function useStickyStuck(
   scrollRootRef: React.RefObject<HTMLElement | null>,
   enabled: boolean,
 ) {
-  const [stuck, setStuck] = useState(false);
+  const [stuck, setStuck] = useState(enabled);
 
   useEffect(() => {
-    if (!enabled) {
-      setStuck(false);
-      return;
-    }
+    if (!enabled) return;
 
     const sentinel = sentinelRef.current;
     const root = scrollRootRef.current;
@@ -31,9 +28,8 @@ export function useStickyStuck(
 
     return () => {
       observer.disconnect();
-      setStuck(false);
     };
   }, [enabled, scrollRootRef, sentinelRef]);
 
-  return stuck;
+  return enabled ? stuck : false;
 }

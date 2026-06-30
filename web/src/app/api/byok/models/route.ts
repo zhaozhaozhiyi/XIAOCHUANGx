@@ -1,5 +1,9 @@
 import { listApiProviderModels } from "@/lib/byok/server";
-import type { ApiProviderConfig } from "@/lib/byok/shared";
+import {
+  redactSensitiveText,
+  toUserFacingProviderError,
+  type ApiProviderConfig,
+} from "@/lib/byok/shared";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,7 +53,12 @@ export async function POST(request: Request) {
     return Response.json(
       {
         ok: false,
-        error: error instanceof Error ? error.message : "models_failed",
+        error: toUserFacingProviderError({
+          detail: redactSensitiveText(
+            error instanceof Error ? error.message : "models_failed",
+          ),
+          fallback: "模型拉取失败，请检查 Provider 地址、API Key 与模型权限。",
+        }),
       },
       { status: 502 },
     );

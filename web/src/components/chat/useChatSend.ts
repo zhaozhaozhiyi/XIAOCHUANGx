@@ -59,6 +59,7 @@ import {
   type AssistantStateUpdater,
 } from "@/components/chat/useChatRunController";
 import { workspaceErrorMessage } from "@/lib/workspace-errors";
+import { toUserFacingProviderError } from "@/lib/byok/shared";
 
 function inferNextStreamSeq(parts: ChatPart[] | undefined): number {
   if (!parts?.length) return 0;
@@ -357,7 +358,6 @@ export function useChatSend(
         surfaceModuleId,
         writingTemplateId: context.writingTemplateId,
         pptTemplateId: context.pptTemplateId,
-        translateTemplateId: context.translateTemplateId,
         attachments: uploadedAttachments,
       };
 
@@ -627,7 +627,12 @@ function accumulatedErrorMessage(
 ) {
   const readable = workspaceErrorMessage(error) ?? error;
   if (executionSource === "api") {
-    return `无法通过模型 API 完成请求：${readable}\n\n请检查 Provider 地址、API Key、模型 ID 与网络连通性；若是企业网关，也请确认该地址未被安全策略拦截。`;
+    const friendly = toUserFacingProviderError({
+      detail: readable,
+      fallback:
+        "Provider 请求失败，请检查 Provider 地址、API Key、模型 ID 与网络连通性。",
+    });
+    return `无法通过模型 API 完成请求：${friendly}\n\n建议优先检查 Provider 地址、API Key、模型 ID 是否匹配；若使用企业网关，也请确认该地址未被安全策略拦截。`;
   }
   return `无法通过 ${agentLabel(agentId)} 完成请求：${readable}\n\n请检查本机 Companion、对应 CLI 登录/权限与网络状态；若使用 Hermes 捷径，请确认 gateway 已启动且 HERMES_API_URL 可访问。`;
 }

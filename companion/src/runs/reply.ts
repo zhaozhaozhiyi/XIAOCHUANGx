@@ -27,8 +27,10 @@ export function buildSimulatedReply(
     return `${tag}】\n\n已生成螺纹钢周报大纲（演示）：\n1. 价格与基差\n2. 供给\n3. 需求\n4. 库存\n5. 展望`;
   }
 
+  const effectiveMode =
+    mode === "auto" ? (isComplexDeepQuestion(userText) ? "deep" : "fast") : mode;
   const modeNote =
-    mode === "deep"
+    effectiveMode === "deep"
       ? isComplexDeepQuestion(userText)
         ? "【深度 · 完整研究】将展示研究导图与可导出摘要（演示）。"
         : "【深度 · 分步推理】如下（演示）："

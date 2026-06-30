@@ -4,6 +4,7 @@ import {
   saveSessionMessages,
   type StoredChatMessage,
 } from "../sessions/store.js";
+import { loadSessionRuntime } from "../sessions/runtime.js";
 import { getSessionQueueState } from "../runs/queue-runner.js";
 import { listSessionRunRecords } from "../runs/store.js";
 
@@ -64,9 +65,20 @@ export async function sessionRoutes(app: FastifyInstance): Promise<void> {
       if (!record) {
         return reply.send({ sessionId, messages: [], updatedAt: null });
       }
+      const runtime = await loadSessionRuntime(sessionId);
+      const projectId =
+        record.projectId && record.projectId !== "none"
+          ? record.projectId
+          : runtime?.projectId && runtime.projectId !== "none"
+            ? runtime.projectId
+            : runtime?.workspaceProjectId &&
+                runtime.workspaceProjectId !== "none" &&
+                runtime.workspaceProjectId !== "__lazy_default__"
+              ? runtime.workspaceProjectId
+              : (record.projectId ?? null);
       return reply.send({
         sessionId: record.sessionId,
-        projectId: record.projectId ?? null,
+        projectId,
         messages: record.messages,
         updatedAt: record.updatedAt,
       });

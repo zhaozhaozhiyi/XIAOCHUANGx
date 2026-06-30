@@ -19,28 +19,33 @@ function formatLogTime(ms?: number): string {
 export function ActivityLogPane() {
   const { sessionKey } = useWorkspace();
   const chatSession = useChatSessionOptional();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
 
   const liveMessages =
     chatSession?.snapshot?.sessionId === sessionKey
       ? chatSession.snapshot.messages
       : null;
 
+  const [messages, setMessages] = useState<ChatMessage[]>(() => liveMessages ?? []);
+
   useEffect(() => {
     if (liveMessages && liveMessages.length > 0) {
-      setMessages((prev) => (prev === liveMessages ? prev : liveMessages));
       return;
     }
     let cancelled = false;
     void loadSessionMessagesHybrid(sessionKey).then((loaded) => {
-      if (!cancelled) setMessages(loaded);
+      if (!cancelled) setMessages(loaded.messages);
     });
     return () => {
       cancelled = true;
     };
   }, [sessionKey, liveMessages]);
 
-  const groups = useMemo(() => buildActivityLogGroups(messages), [messages]);
+  const effectiveMessages = liveMessages && liveMessages.length > 0 ? liveMessages : messages;
+
+  const groups = useMemo(
+    () => buildActivityLogGroups(effectiveMessages),
+    [effectiveMessages],
+  );
 
   if (groups.length === 0) {
     return (

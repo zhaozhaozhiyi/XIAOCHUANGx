@@ -13,8 +13,6 @@ import type {
   RunAgentUserInputResponse,
 } from "./types.js";
 
-const DEFAULT_TIMEOUT_MS = 300_000;
-
 function humanizeCliFailure(bin: string, text: string): string {
   const detail = text.trim();
   if (!detail) return detail;
@@ -40,6 +38,15 @@ export async function runAgent(
   },
 ): Promise<RunAgentResult> {
   const composed = input.composedPrompt?.trim() ?? "";
+  if (options?.signal?.aborted) {
+    return {
+      exitCode: null,
+      signal: "SIGTERM",
+      cancelled: true,
+      emptyOutput: true,
+    };
+  }
+
   if (!composed) {
     callbacks.onError?.("composedPrompt 为空", "prompt_empty");
     return {
@@ -160,6 +167,7 @@ export async function runAgent(
     };
 
     let idleTimer: NodeJS.Timeout | null = null;
+    let timer: NodeJS.Timeout | null = null;
     const clearIdleTimer = () => {
       if (idleTimer) {
         clearTimeout(idleTimer);
@@ -199,7 +207,7 @@ export async function runAgent(
     ) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
       clearIdleTimer();
       options?.signal?.removeEventListener("abort", onAbort);
       parser.flush();
@@ -237,12 +245,19 @@ export async function runAgent(
       cancelled = true;
       stopChild();
     };
-    options?.signal?.addEventListener("abort", onAbort, { once: true });
+    if (options?.signal?.aborted) {
+      onAbort();
+    } else {
+      options?.signal?.addEventListener("abort", onAbort, { once: true });
+    }
 
-    const timer = setTimeout(() => {
-      callbacks.onError?.("Agent 执行超时", "timeout");
-      stopChild();
-    }, options?.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+    const timeoutMs = options?.timeoutMs;
+    if (typeof timeoutMs === "number" && timeoutMs > 0) {
+      timer = setTimeout(() => {
+        callbacks.onError?.("Agent 执行超时", "timeout");
+        stopChild();
+      }, timeoutMs);
+    }
     touchIdleTimer();
 
     child.stdout?.on("data", (d) => {

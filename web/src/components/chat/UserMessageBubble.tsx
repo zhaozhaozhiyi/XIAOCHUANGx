@@ -1,11 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useParams } from "next/navigation";
-import { FileText } from "lucide-react";
+import { FileText, ChevronDown, ChevronUp } from "lucide-react";
 import type { ChatAttachment, ChatMessage } from "@/lib/chat";
 import { formatAttachmentSize } from "@/lib/chat-attachments";
+
+/** 折叠态最大高度（与 globals.css 的 --chat-user-collapsed-max: 12rem 保持一致） */
+const COLLAPSED_MAX_PX = 192;
 
 
 
@@ -100,11 +103,7 @@ function ImageAttachmentPreview({
 }) {
   const [failed, setFailed] = useState(false);
   const [showLightbox, setShowLightbox] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = typeof window !== "undefined";
 
   useEffect(() => {
     if (!showLightbox) return;
@@ -173,6 +172,58 @@ function ImageAttachmentPreview({
   );
 }
 
+function CollapsibleUserText({ content }: { content: string }) {
+  const textRef = useRef<HTMLDivElement | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [overflowing, setOverflowing] = useState(false);
+
+  useEffect(() => {
+    const el = textRef.current;
+    if (!el) return;
+    const check = () => {
+      setOverflowing(el.scrollHeight > COLLAPSED_MAX_PX + 8);
+    };
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [content]);
+
+  const collapsed = overflowing && !expanded;
+
+  return (
+    <div
+      className={`bubble-user whitespace-pre-wrap ${
+        collapsed ? "bubble-user--collapsed" : ""
+      }`}
+    >
+      <div ref={textRef} className="bubble-user__text">
+        {content}
+      </div>
+      {overflowing ? (
+        <button
+          type="button"
+          className="bubble-user__toggle"
+          onClick={() => setExpanded((value) => !value)}
+          aria-expanded={expanded}
+        >
+          {expanded ? (
+            <>
+              收起
+              <ChevronUp className="h-3.5 w-3.5" strokeWidth={2} />
+            </>
+          ) : (
+            <>
+              展开
+              <ChevronDown className="h-3.5 w-3.5" strokeWidth={2} />
+            </>
+          )}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 export function UserMessageBubble({ message }: { message: ChatMessage }) {
   const attachments = message.attachments ?? [];
   const params = useParams();
@@ -206,7 +257,7 @@ export function UserMessageBubble({ message }: { message: ChatMessage }) {
         </div>
       ) : null}
       {message.content.trim() ? (
-        <div className="bubble-user whitespace-pre-wrap">{message.content}</div>
+        <CollapsibleUserText content={message.content} />
       ) : null}
     </div>
   );
