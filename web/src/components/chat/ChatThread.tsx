@@ -26,7 +26,9 @@ import {
   getChatSession,
   isSessionStarted,
   markSessionRead,
+  PLATFORM_DEFAULT_GROUP_ID,
   setSessionRunStatus,
+  upsertChatSession,
 } from "@/lib/chat-history";
 import { useSidebarCollapsed } from "@/components/layout/SidebarLayoutContext";
 import { useWorkspaceProject } from "@/components/workspace/WorkspaceProjectContext";
@@ -38,6 +40,7 @@ import {
   isUsingLocalProject,
   NO_PROJECT_ID,
   projectWorkLabel,
+  setSessionProjectId,
 } from "@/lib/research-projects";
 import {
   MODULE_CHAT_SURFACES,
@@ -53,6 +56,17 @@ import { ChevronDown } from "lucide-react";
 import type { OutlineCommitPayload } from "@/lib/chat-parts";
 import type { ChatComposerSendPayload } from "@/components/chat/ChatComposer";
 import { selectionToApiConfig } from "@/lib/byok/model-providers";
+
+function normalizeThreadProjectId(projectId?: string | null): string {
+  if (!projectId || projectId === PLATFORM_DEFAULT_GROUP_ID) return NO_PROJECT_ID;
+  return projectId;
+}
+
+function resolveThreadProjectId(sessionId: string): string {
+  const persistedProjectId = normalizeThreadProjectId(getSessionProjectId(sessionId));
+  if (persistedProjectId !== NO_PROJECT_ID) return persistedProjectId;
+  return normalizeThreadProjectId(getChatSession(sessionId)?.projectId);
+}
 
 export function ChatThread({
   id,
@@ -115,7 +129,7 @@ export function ChatThread({
   );
 
   const [sessionProjectId, setSessionProjectIdLocal] = useState(() =>
-    getSessionProjectId(id),
+    resolveThreadProjectId(id),
   );
 
   useEffect(() => {
@@ -146,16 +160,38 @@ export function ChatThread({
 
   useEffect(() => {
     let cancelled = false;
-    void loadSessionMessagesHybrid(id).then((msgs) => {
+    const indexedProjectId = resolveThreadProjectId(id);
+    setSessionProjectIdLocal(indexedProjectId);
+    void loadSessionMessagesHybrid(id).then((loaded) => {
       if (cancelled) return;
-      if (msgs.length > 0) setMessages(msgs);
+      const loadedProjectId = normalizeThreadProjectId(loaded.projectId);
+      const nextProjectId =
+        loadedProjectId !== NO_PROJECT_ID
+          ? loadedProjectId
+          : resolveThreadProjectId(id);
+      if (nextProjectId !== NO_PROJECT_ID) {
+        setSessionProjectId(id, nextProjectId);
+        setSessionProjectIdLocal(nextProjectId);
+        const existingSession = getChatSession(id);
+        upsertChatSession({
+          id,
+          projectId: nextProjectId,
+          surfaceModuleId,
+          title: existingSession?.title,
+          createdAt: existingSession?.createdAt,
+          updatedAt: existingSession?.updatedAt,
+          runStatus: existingSession?.runStatus,
+          lastReadAt: existingSession?.lastReadAt,
+        });
+      }
+      if (loaded.messages.length > 0) setMessages(loaded.messages);
       initialMessagesLoaded.current = true;
       setHydrated(true);
     });
     return () => {
       cancelled = true;
     };
-  }, [id, setMessages]);
+  }, [id, setMessages, surfaceModuleId]);
 
   useEffect(() => {
     const p = getResearchProject(sessionProjectId);
