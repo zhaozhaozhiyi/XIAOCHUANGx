@@ -36,12 +36,16 @@ yarn-error.log*
 tmp/
 $TMPDIR/
 
+# local-only documentation/reference material
+docs/
+参考项目/
+
 # OS & IDE
 .DS_Store
 .vercel
 coverage/
 
-# 参考项目（提交源码，排除嵌套仓库、依赖、构建产物和大文件）
+# 参考项目内部规则保留给本地使用；顶层目录默认不提交
 参考项目/**/.git/
 参考项目/**/node_modules/
 参考项目/**/.venv/
