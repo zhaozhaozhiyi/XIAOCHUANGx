@@ -44,6 +44,7 @@ export function parseRunStartedPayload(
 }
 
 const PROCESS_SKILL_LABELS: Record<string, string> = {
+  "skill-qa": "自动问答",
   "skill-qa-fast": "快速问答",
   "skill-qa-deep": "深度问答",
 };

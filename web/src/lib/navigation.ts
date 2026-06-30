@@ -1,11 +1,11 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Languages,
-  Library,
+  Clapperboard,
   MessageSquare,
-  Mic,
   PenLine,
   Presentation,
+  Box,
+  GitBranch,
 } from "lucide-react";
 
 export type SubNavItem = {
@@ -19,6 +19,7 @@ export type NavModule = {
   label: string;
   href: string;
   icon: LucideIcon;
+  badge?: string;
   subNav: SubNavItem[];
 };
 
@@ -60,37 +61,44 @@ export const NAV_MODULES: NavModule[] = [
     ],
   },
   {
-    id: "translate",
-    label: "翻译",
-    href: "/translate",
-    icon: Languages,
+    id: "3d",
+    label: "3D绘图",
+    href: "/3d",
+    icon: Box,
     subNav: [
       {
-        label: "翻译",
-        href: "/translate/new",
-        description: "对话式翻译，文档/文本/润色统一入口",
+        label: "3D绘图",
+        href: "/3d/new",
+        description: "参数化工业几何生成、预览与导出",
       },
     ],
   },
   {
-    id: "meeting",
-    label: "会议",
-    href: "/meeting",
-    icon: Mic,
+    id: "video",
+    label: "视频",
+    href: "/video",
+    icon: Clapperboard,
+    badge: "0.x",
     subNav: [
-      { label: "新建纪要", href: "/meeting/new" },
-      { label: "纪要历史", href: "/meeting/history" },
+      {
+        label: "视频",
+        href: "/video/new",
+        description: "对话式生成 Remotion 视频项目与 MP4",
+      },
     ],
   },
   {
-    id: "knowledge",
-    label: "知识库",
-    href: "/knowledge",
-    icon: Library,
+    id: "simulation",
+    label: "推演",
+    href: "/simulation",
+    icon: GitBranch,
+    badge: "Beta",
     subNav: [
-      { label: "我的文档", href: "/knowledge/documents" },
-      { label: "知识库问答", href: "/knowledge/qa" },
-      { label: "多信源分析", href: "/knowledge/sources" },
+      {
+        label: "推演",
+        href: "/simulation/new",
+        description: "多智能体沙盘推演与决策报告",
+      },
     ],
   },
 ];
@@ -103,11 +111,12 @@ import {
 export { type ChatModeId };
 
 export const CHAT_MODES = [
+  { id: "auto", label: "自动", description: "由助手按问题复杂度判断回答深度" },
   { id: "fast", label: "快速", description: "优先响应速度" },
   { id: "deep", label: "深度", description: "分步推理或完整研究，由助手按问题复杂度决策" },
 ] as const satisfies ReadonlyArray<{ id: ChatModeId; label: string; description: string }>;
 
-/** API / 历史会话：`research` → `deep`（PRD v3.2） */
+/** API / 历史会话：`research` → `deep`；主路径默认 `auto` */
 export function normalizeChatMode(mode: string): ChatModeId | null {
   return normalizeChatModeCore(mode);
 }

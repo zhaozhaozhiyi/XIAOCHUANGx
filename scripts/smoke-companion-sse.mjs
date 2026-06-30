@@ -6,8 +6,8 @@
  *   --base <url>       Companion 基址，默认 http://127.0.0.1:9477
  *   --timeout <sec>    单 Run 超时秒数，默认 120
  *   --agent <id>       目标 CLI（codex / claude / ...），默认 codex
- *   --skill <slug>     processSkill，默认 skill-qa-fast
- *   --mode <fast|deep> 对话模式，默认 fast
+ *   --skill <slug>     processSkill，默认 skill-qa
+ *   --mode <auto|fast|deep> 对话策略，默认 auto
  *   --soft             指定 agent 在 /v1/agents 中不可用时退出码 0（仅打印 SKIP，不 fail）
  *
  * 设计要点：
@@ -29,14 +29,25 @@ function hasFlag(name) {
 const base = readFlag("base", process.env.COMPANION_BASE_URL ?? "http://127.0.0.1:9477");
 const timeoutSec = Number(readFlag("timeout", "120"));
 const agentId = readFlag("agent", "codex");
-const processSkill = readFlag("skill", "skill-qa-fast");
-const mode = readFlag("mode", "fast");
+const processSkill = readFlag("skill", "skill-qa");
+const mode = readFlag("mode", "auto");
 const soft = hasFlag("soft");
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 async function getJson(path) {
-  const res = await fetch(`${base}${path}`);
-  const body = await res.json().catch(() => ({}));
-  return { ok: res.ok, status: res.status, body };
+  let lastError = null;
+  for (let attempt = 1; attempt <= 20; attempt += 1) {
+    try {
+      const res = await fetch(`${base}${path}`);
+      const body = await res.json().catch(() => ({}));
+      return { ok: res.ok, status: res.status, body };
+    } catch (error) {
+      lastError = error;
+      await sleep(500);
+    }
+  }
+  throw lastError;
 }
 
 function parseSseEvents(text) {

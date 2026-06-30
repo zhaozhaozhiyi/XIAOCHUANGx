@@ -5,7 +5,7 @@ import {
 } from "@/lib/companion/config";
 import { mockCompanionAgents } from "@/lib/companion/mock";
 import type { AgentTestResponse } from "@/lib/companion/types";
-import { isAgentId, type AgentId } from "@jlc/runtime-core/agent-catalog";
+import { isAgentId } from "@jlc/runtime-core/agent-catalog";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

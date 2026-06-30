@@ -13,7 +13,7 @@ export type SessionRuntimeRecord = {
   projectId?: string;
   workspaceProjectId?: string;
   resolvedCwd?: string;
-  resolvedCwdSource?: "session_runtime" | "workspace_project";
+  resolvedCwdSource?: "session_runtime" | "workspace_project" | "lazy_default_workspace";
   agentId?: string;
   agentModel?: string;
   moduleId?: ModuleId;

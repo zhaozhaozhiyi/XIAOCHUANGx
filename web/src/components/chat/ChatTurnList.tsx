@@ -2,9 +2,11 @@
 
 import { useMemo } from "react";
 import type { ChatMessage } from "@/lib/chat";
+import type { OutlineCommitPayload } from "@/lib/chat-parts";
 import { groupMessagesIntoTurns } from "@/lib/chat-turns";
 import { AssistantMessageBubble } from "@/components/chat/parts/AssistantMessageBubble";
 import { UserMessageBubble } from "@/components/chat/UserMessageBubble";
+import { useActiveTurn } from "./useActiveTurn";
 
 type Props = {
   messages: ChatMessage[];
@@ -21,6 +23,16 @@ type Props = {
       draft?: string;
     },
   ) => void;
+  onRequirementsSubmitted?: (partId: string, answer: string) => void;
+  onRequirementsContinue?: (answer: string) => void;
+  onRequirementsDraftChange?: (
+    partId: string,
+    patch: {
+      selectedOptions?: Record<string, string[]>;
+      answers?: Record<string, string>;
+    },
+  ) => void;
+  onOutlineCommitted?: (partId: string, patch: OutlineCommitPayload) => void;
 };
 
 export function ChatTurnList({
@@ -31,18 +43,25 @@ export function ChatTurnList({
   onClarificationSubmitted,
   onClarificationContinue,
   onClarificationDraftChange,
+  onRequirementsSubmitted,
+  onRequirementsContinue,
+  onRequirementsDraftChange,
+  onOutlineCommitted,
 }: Props) {
-  void scrollRootRef;
   const turns = useMemo(() => groupMessagesIntoTurns(messages), [messages]);
+  const turnIds = useMemo(() => turns.map((turn) => turn.id), [turns]);
+  const activeTurnId = useActiveTurn(turnIds, scrollRootRef);
 
   return (
     <div className="chat-scroll-content mx-auto w-full max-w-[var(--chat-message-max)]">
       {turns.map((turn) => {
+        const active = activeTurnId === turn.id;
         return (
           <section
             key={turn.id}
             data-turn-id={turn.id}
-            className="chat-turn"
+            data-active-turn={active ? "true" : undefined}
+            className={`chat-turn ${active ? "chat-turn--active" : ""}`}
           >
             {turn.user.content.trim() || turn.user.attachments?.length ? (
               <div className="chat-turn-user-panel" data-role="user">
@@ -64,6 +83,10 @@ export function ChatTurnList({
                         onClarificationDraftChange={
                           onClarificationDraftChange
                         }
+                        onRequirementsSubmitted={onRequirementsSubmitted}
+                        onRequirementsContinue={onRequirementsContinue}
+                        onRequirementsDraftChange={onRequirementsDraftChange}
+                        onOutlineCommitted={onOutlineCommitted}
                       />
                     ))}
                   </div>

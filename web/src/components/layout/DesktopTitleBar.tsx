@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
+import { useEffect, useRef, type CSSProperties, type MouseEvent } from "react";
 
 type ElectronAPI = {
   isDesktop?: boolean;
@@ -29,27 +29,33 @@ const TOP_MENUS: { id: TopMenuId; label: string }[] = [
  * 菜单交互：按钮点击 → 通过 IPC 让主进程在按钮位置弹原生 Menu（菜单内容由
  * apps/desktop/src/main/shortcuts.ts 的 buildTopMenuSubmenus 提供）。
  *
- * 设计文档：web/docs/desktop-titlebar-design.md
+ * 设计文档：docs/design/desktop-titlebar-design.md
  */
 export function DesktopTitleBar() {
-  const [shouldRender, setShouldRender] = useState(false);
   const apiRef = useRef<ElectronAPI | null>(null);
+  const electronApi =
+    typeof window !== "undefined"
+      ? (window as unknown as { electronAPI?: ElectronAPI }).electronAPI
+      : undefined;
+  const shouldRender = !!(
+    electronApi?.isDesktop &&
+    electronApi.platform &&
+    electronApi.platform !== "darwin"
+  );
 
   useEffect(() => {
-    const api = (window as unknown as { electronAPI?: ElectronAPI }).electronAPI;
-    if (api?.isDesktop && api.platform && api.platform !== "darwin") {
-      apiRef.current = api;
-      setShouldRender(true);
-      // 让 fixed 定位的右上角按钮组（WorkspaceTopRightControls 等）让位 36px 标题栏
-      document.documentElement.style.setProperty("--titlebar-offset", "var(--titlebar-h, 36px)");
-      // 把平台打到 <html> 上，CSS 用 html[data-platform="win32"|"linux"] 给桌面壳全局滚动条挂样式
-      document.documentElement.dataset.platform = api.platform;
-      return () => {
-        document.documentElement.style.removeProperty("--titlebar-offset");
-        delete document.documentElement.dataset.platform;
-      };
-    }
-  }, []);
+    apiRef.current = shouldRender ? electronApi ?? null : null;
+    if (!shouldRender || !electronApi?.platform) return;
+
+    // 让 fixed 定位的右上角按钮组（WorkspaceTopRightControls 等）让位 36px 标题栏
+    document.documentElement.style.setProperty("--titlebar-offset", "var(--titlebar-h, 36px)");
+    // 把平台打到 <html> 上，CSS 用 html[data-platform="win32"|"linux"] 给桌面壳全局滚动条挂样式
+    document.documentElement.dataset.platform = electronApi.platform;
+    return () => {
+      document.documentElement.style.removeProperty("--titlebar-offset");
+      delete document.documentElement.dataset.platform;
+    };
+  }, [electronApi, shouldRender]);
 
   if (!shouldRender) return null;
 

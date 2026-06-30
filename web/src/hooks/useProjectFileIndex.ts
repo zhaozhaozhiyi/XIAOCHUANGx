@@ -13,16 +13,16 @@ export function useProjectFileIndex(
   loading: boolean;
   error: string | null;
 } {
-  const [files, setFiles] = useState<WorkspaceFileNode[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [files, setFiles] = useState<WorkspaceFileNode[]>(() =>
+    workspaceProjectId ? [] : [],
+  );
+  const [loading, setLoading] = useState(Boolean(workspaceProjectId));
   const [error, setError] = useState<string | null>(null);
   const reqRef = useRef(0);
 
   useEffect(() => {
     if (!workspaceProjectId) {
-      setFiles([]);
-      setLoading(false);
-      setError(null);
+      reqRef.current += 1;
       return;
     }
 

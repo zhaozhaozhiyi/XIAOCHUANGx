@@ -19,7 +19,7 @@ export function ChatTopBar({
 }: ChatTopBarProps) {
   return (
     <header
-      className={`grid ${MAIN_TOP_BAR_CLASS} shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] pr-6 ${
+      className={`grid ${MAIN_TOP_BAR_CLASS} shrink-0 grid-cols-[minmax(9.5rem,1fr)_auto_minmax(6rem,1fr)] items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] pr-6 ${
         sidebarCollapsed ? "pl-14" : "pl-4"
       }`}
     >

@@ -12,6 +12,7 @@ const cases = [
   ["ppt", MODULE_CHAT_SURFACES.ppt.newSessionHref, "/ppt/123"],
   ["3d", MODULE_CHAT_SURFACES["3d"].newSessionHref, "/3d/123"],
   ["video", MODULE_CHAT_SURFACES.video.newSessionHref, "/video/123"],
+  ["simulation", MODULE_CHAT_SURFACES.simulation.newSessionHref, "/simulation/123"],
 ] as const;
 
 async function main() {
@@ -24,79 +25,62 @@ async function main() {
     }
   }
 
-  const lazyRun = await buildCreateRunRequest({
-    sessionId: "3d-lazy-smoke",
-    projectId: NO_PROJECT_ID,
-    surfaceModuleId: "3d",
-    mode: "deep",
-    agentId: "codex",
-    agentModel: "default",
-    messages: [
-      {
-        role: "user",
-        content: "画一个可参数化安装支架",
-      },
-    ],
-  });
+  const lazyByModule: Record<string, unknown> = {};
+  for (const [moduleId] of cases) {
+    const run = await buildCreateRunRequest({
+      sessionId: `${moduleId}-lazy-smoke`,
+      projectId: NO_PROJECT_ID,
+      surfaceModuleId: moduleId,
+      mode: moduleId === "chat" ? "deep" : "auto",
+      agentId: "codex",
+      agentModel: "default",
+      messages: [
+        {
+          role: "user",
+          content:
+            moduleId === "video"
+              ? "做一个 60s 小窗产品介绍视频，面向客户高层"
+              : `${moduleId} 未选项目默认工作区烟测`,
+        },
+      ],
+    });
 
-  if (lazyRun.request.workspaceProjectId !== "__lazy_default__") {
-    throw new Error(
-      `3D default workspace should be lazy, got ${lazyRun.request.workspaceProjectId}`,
-    );
-  }
-  if (lazyRun.request.lazyDefaultWorkspace?.moduleId !== "3d") {
-    throw new Error("3D lazyDefaultWorkspace metadata was not preserved");
-  }
-  if (lazyRun.ensuredProject) {
-    throw new Error(
-      "3D lazy run should not ensure a formal project before files exist",
-    );
-  }
-
-  const parsedLazyRun = parseCreateRun(lazyRun.request);
-  if (!parsedLazyRun) {
-    throw new Error("Companion failed to parse 3D lazy run request");
-  }
-  if (parsedLazyRun.workspaceProjectId !== "__lazy_default__") {
-    throw new Error(
-      `Companion parsed workspaceProjectId incorrectly: ${parsedLazyRun.workspaceProjectId}`,
-    );
-  }
-  if (parsedLazyRun.lazyDefaultWorkspace?.moduleId !== "3d") {
-    throw new Error("Companion dropped lazyDefaultWorkspace metadata");
-  }
-
-  const videoRun = await buildCreateRunRequest({
-    sessionId: "video-lazy-smoke",
-    projectId: NO_PROJECT_ID,
-    surfaceModuleId: "video",
-    mode: "auto",
-    agentId: "codex",
-    agentModel: "default",
-    messages: [
-      {
-        role: "user",
-        content: "做一个 60s 小窗产品介绍视频，面向客户高层",
-      },
-    ],
-  });
-
-  if (videoRun.request.processSkill !== "skill-vp-base") {
-    throw new Error(
-      `Video default process skill should be skill-vp-base, got ${videoRun.request.processSkill}`,
-    );
-  }
-  if (videoRun.request.workspaceProjectId !== "__lazy_default__") {
-    throw new Error(
-      `Video default workspace should be lazy, got ${videoRun.request.workspaceProjectId}`,
-    );
-  }
-  if (videoRun.request.lazyDefaultWorkspace?.moduleId !== "video") {
-    throw new Error("Video lazyDefaultWorkspace metadata was not preserved");
-  }
-  const parsedVideoRun = parseCreateRun(videoRun.request);
-  if (!parsedVideoRun || parsedVideoRun.binding.moduleId !== "video") {
-    throw new Error("Companion failed to parse video lazy run request");
+    if (run.request.workspaceProjectId !== "__lazy_default__") {
+      throw new Error(
+        `${moduleId} default workspace should be lazy, got ${run.request.workspaceProjectId}`,
+      );
+    }
+    if (run.request.lazyDefaultWorkspace?.moduleId !== moduleId) {
+      throw new Error(
+        `${moduleId} lazyDefaultWorkspace metadata was not preserved`,
+      );
+    }
+    if (run.ensuredProject) {
+      throw new Error(
+        `${moduleId} lazy run should not ensure a formal project before files exist`,
+      );
+    }
+    const parsedRun = parseCreateRun(run.request);
+    if (!parsedRun || parsedRun.binding.moduleId !== moduleId) {
+      throw new Error(`Companion failed to parse ${moduleId} lazy run request`);
+    }
+    if (parsedRun.workspaceProjectId !== "__lazy_default__") {
+      throw new Error(
+        `${moduleId} parsed workspaceProjectId incorrectly: ${parsedRun.workspaceProjectId}`,
+      );
+    }
+    if (parsedRun.lazyDefaultWorkspace?.moduleId !== moduleId) {
+      throw new Error(
+        `${moduleId} companion dropped lazyDefaultWorkspace metadata`,
+      );
+    }
+    lazyByModule[moduleId] = {
+      workspaceProjectId: run.request.workspaceProjectId,
+      lazyDefaultWorkspace: run.request.lazyDefaultWorkspace,
+      processSkill: run.request.processSkill,
+      timeoutProfile: run.request.timeoutProfile,
+      companionParsed: true,
+    };
   }
 
   console.log(
@@ -104,18 +88,7 @@ async function main() {
       {
         ok: true,
         cases,
-        lazy3d: {
-          workspaceProjectId: lazyRun.request.workspaceProjectId,
-          lazyDefaultWorkspace: lazyRun.request.lazyDefaultWorkspace,
-          ensuredProject: Boolean(lazyRun.ensuredProject),
-          companionParsed: true,
-        },
-        lazyVideo: {
-          workspaceProjectId: videoRun.request.workspaceProjectId,
-          lazyDefaultWorkspace: videoRun.request.lazyDefaultWorkspace,
-          processSkill: videoRun.request.processSkill,
-          companionParsed: true,
-        },
+        lazyByModule,
       },
       null,
       2,

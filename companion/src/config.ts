@@ -15,13 +15,20 @@ function envInt(name: string, defaultValue: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : defaultValue;
 }
 
+function envOptionalInt(name: string): number | undefined {
+  const raw = process.env[name];
+  if (raw === undefined || raw === "") return undefined;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : undefined;
+}
+
 export type RunTimeoutProfile =
   | "default"
   | "fast"
   | "deep"
   | "writing"
   | "ppt"
-  | "translate";
+  | "video";
 
 export const PACKAGE_VERSION = "0.1.0";
 
@@ -61,20 +68,19 @@ export const config = {
   hermesApiKey: process.env.HERMES_API_KEY ?? "",
   hermesModel: process.env.HERMES_MODEL ?? "hermes-agent",
   hermesGatewayPreferred: envBool("COMPANION_HERMES_GATEWAY", true),
-  runTimeoutMs: envInt("COMPANION_RUN_TIMEOUT_MS", 300_000),
-  runTimeoutFastMs: envInt("COMPANION_RUN_TIMEOUT_FAST_MS", 300_000),
-  runTimeoutDeepMs: envInt("COMPANION_RUN_TIMEOUT_DEEP_MS", 1_800_000),
-  runTimeoutWritingMs: envInt("COMPANION_RUN_TIMEOUT_WRITING_MS", 2_700_000),
-  runTimeoutPptMs: envInt("COMPANION_RUN_TIMEOUT_PPT_MS", 3_600_000),
-  // V1.1 收口（2026-06-08）：翻译模块同 deep 档（30 min），长篇文档翻译可承受
-  runTimeoutTranslateMs: envInt("COMPANION_RUN_TIMEOUT_TRANSLATE_MS", 1_800_000),
+  runTimeoutMs: envOptionalInt("COMPANION_RUN_TIMEOUT_MS"),
+  runTimeoutFastMs: envOptionalInt("COMPANION_RUN_TIMEOUT_FAST_MS"),
+  runTimeoutDeepMs: envOptionalInt("COMPANION_RUN_TIMEOUT_DEEP_MS"),
+  runTimeoutWritingMs: envOptionalInt("COMPANION_RUN_TIMEOUT_WRITING_MS"),
+  runTimeoutPptMs: envOptionalInt("COMPANION_RUN_TIMEOUT_PPT_MS"),
+  runTimeoutVideoMs: envOptionalInt("COMPANION_RUN_TIMEOUT_VIDEO_MS"),
   runIdleTimeoutMs: envInt("COMPANION_RUN_IDLE_TIMEOUT_MS", 900_000),
 } as const;
 
 export function resolveRunTimeoutMs(
   profile: RunTimeoutProfile,
   explicitTimeoutMs?: number,
-): number {
+): number | undefined {
   if (typeof explicitTimeoutMs === "number" && explicitTimeoutMs > 0) {
     return explicitTimeoutMs;
   }
@@ -87,8 +93,8 @@ export function resolveRunTimeoutMs(
       return config.runTimeoutWritingMs;
     case "ppt":
       return config.runTimeoutPptMs;
-    case "translate":
-      return config.runTimeoutTranslateMs;
+    case "video":
+      return config.runTimeoutVideoMs;
     default:
       return config.runTimeoutMs;
   }

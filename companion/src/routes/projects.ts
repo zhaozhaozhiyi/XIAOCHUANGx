@@ -11,9 +11,11 @@ import {
   writeProjectUpload,
 } from "../projects/store.js";
 import {
+  createProjectEntry,
   getProjectTree,
   getProjectTreeChildren,
   readProjectFile,
+  writeProjectFile,
 } from "../projects/tree.js";
 import { listProjectFilePaths } from "../projects/files-index.js";
 import type { WorkspaceKind } from "../types.js";
@@ -216,6 +218,78 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       const root = await resolveWorkspaceRoot(project.projectId);
       const file = await readProjectFile(root, rel);
       return file;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return reply.code(400).send({ error: msg });
+    }
+  });
+
+  app.put<{
+    Params: { projectId: string };
+    Body: {
+      path?: string;
+      content?: string;
+      encoding?: "utf8" | "base64";
+    };
+  }>("/v1/projects/:projectId/files", async (request, reply) => {
+    const { path, content, encoding } = request.body ?? {};
+    if (!path?.trim()) return reply.code(400).send({ error: "path_required" });
+    if (typeof content !== "string") {
+      return reply.code(400).send({ error: "content_required" });
+    }
+    const project = await getProject(request.params.projectId);
+    if (!project) {
+      return reply.code(404).send({ error: "project_not_found" });
+    }
+    try {
+      const root = await resolveWorkspaceRoot(project.projectId);
+      const written = await writeProjectFile({
+        projectRoot: root,
+        relPath: path.trim(),
+        content,
+        encoding: encoding === "base64" ? "base64" : "utf8",
+      });
+      return {
+        projectId: project.projectId,
+        path: written.path,
+        mime: written.mime,
+        size: written.size,
+      };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return reply.code(400).send({ error: msg });
+    }
+  });
+
+  app.post<{
+    Params: { projectId: string };
+    Body: {
+      type?: "file" | "folder";
+      path?: string;
+      content?: string;
+    };
+  }>("/v1/projects/:projectId/entries", async (request, reply) => {
+    const { type, path, content } = request.body ?? {};
+    if (type !== "file" && type !== "folder") {
+      return reply.code(400).send({ error: "invalid_entry_type" });
+    }
+    if (!path?.trim()) return reply.code(400).send({ error: "path_required" });
+    const project = await getProject(request.params.projectId);
+    if (!project) {
+      return reply.code(404).send({ error: "project_not_found" });
+    }
+    try {
+      const root = await resolveWorkspaceRoot(project.projectId);
+      const entry = await createProjectEntry({
+        projectRoot: root,
+        relPath: path.trim(),
+        type,
+        content,
+      });
+      return {
+        projectId: project.projectId,
+        ...entry,
+      };
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       return reply.code(400).send({ error: msg });

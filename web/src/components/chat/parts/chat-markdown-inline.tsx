@@ -1,6 +1,5 @@
 import type { MouseEvent, ReactNode } from "react";
 import { InlinePathText } from "@/components/chat/parts/InlinePathText";
-import { useOpenFileAt } from "@/hooks/useOpenFileAt";
 import { parseFileRef } from "@/lib/file-path-resolve";
 
 type InlineToken =
@@ -92,14 +91,16 @@ function WorkspaceAwareLink({
   href: string;
   children: ReactNode;
 }) {
-  const { openFileAt, workspaceReady } = useOpenFileAt();
   const workspaceFile = isWorkspaceFileHref(href);
 
   const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
     if (!workspaceFile) return;
     event.preventDefault();
-    if (!workspaceReady) return;
-    void openFileAt(href);
+    window.dispatchEvent(
+      new CustomEvent("jlc-open-workspace-file", {
+        detail: { path: href },
+      }),
+    );
   };
 
   if (workspaceFile) {

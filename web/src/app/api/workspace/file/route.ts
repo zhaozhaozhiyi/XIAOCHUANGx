@@ -1,23 +1,16 @@
 import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { inferMimeFromPath, isBinaryWorkspacePath } from "@/lib/workspace-binary";
 import { chatExecutionMode, companionConfig } from "@/lib/companion/config";
-import { fetchCompanionProjectFile } from "@/lib/companion/client";
+import {
+  fetchCompanionProjectFile,
+  writeCompanionProjectFile,
+} from "@/lib/companion/client";
 import { resolveCompanionWorkspaceProjectId } from "@/lib/research-projects-server";
 import { NO_PROJECT_ID, SANDBOX_PROJECT_ID } from "@/lib/research-projects";
+import { resolveLegacySafePath } from "@/lib/legacy-workspace-path";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const LEGACY_PROJECT_ROOT = path.resolve(process.cwd(), "..");
-
-function resolveLegacySafePath(relativePath: string): string | null {
-  const normalized = path.normalize(relativePath).replace(/^(\.\.(\/|\\|$))+/, "");
-  if (normalized.startsWith("..") || path.isAbsolute(normalized)) return null;
-  const full = path.join(LEGACY_PROJECT_ROOT, normalized);
-  if (!full.startsWith(LEGACY_PROJECT_ROOT)) return null;
-  return full;
-}
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -89,5 +82,61 @@ export async function GET(request: Request) {
       return Response.json({ error: "file not found" }, { status: 404 });
     }
     return Response.json({ error: "read failed" }, { status: 500 });
+  }
+}
+
+export async function PUT(request: Request) {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "invalid json" }, { status: 400 });
+  }
+
+  const payload = body && typeof body === "object"
+    ? (body as Record<string, unknown>)
+    : {};
+  const rel = typeof payload.path === "string" ? payload.path.trim() : "";
+  const projectId =
+    typeof payload.projectId === "string" && payload.projectId.trim()
+      ? payload.projectId.trim()
+      : SANDBOX_PROJECT_ID;
+  const content = typeof payload.content === "string" ? payload.content : null;
+  const encoding = payload.encoding === "base64" ? "base64" : "utf8";
+
+  if (!rel) {
+    return Response.json({ error: "path is required" }, { status: 400 });
+  }
+  if (content == null) {
+    return Response.json({ error: "content is required" }, { status: 400 });
+  }
+  if (projectId === NO_PROJECT_ID) {
+    return Response.json({ error: "workspace_not_ready" }, { status: 409 });
+  }
+  if (
+    chatExecutionMode() !== "companion" ||
+    companionConfig.useMock
+  ) {
+    return Response.json({ error: "workspace_write_unavailable" }, { status: 409 });
+  }
+
+  try {
+    const { workspaceProjectId } =
+      await resolveCompanionWorkspaceProjectId(projectId);
+    const written = await writeCompanionProjectFile({
+      projectId: workspaceProjectId,
+      path: rel,
+      content,
+      encoding,
+    });
+    return Response.json({
+      ...written,
+      requestedProjectId: projectId,
+      encoding,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "write failed";
+    const status = message.includes("not_found") ? 404 : 400;
+    return Response.json({ error: message }, { status });
   }
 }

@@ -434,9 +434,11 @@ export type DeliverableItem = {
   label?: string;
   mime?: string;
   kind?: "primary" | "attachment" | "directory";
+  workspaceProjectId?: string;
   previewUrl?: string;
   recordingUrl?: string;
   devCommand?: string;
+  devServerStatus?: "running" | "unknown";
 };
 
 export type DeliverablesPart = ChatPartBase & {
@@ -444,6 +446,7 @@ export type DeliverablesPart = ChatPartBase & {
   zone: "summary";
   headline?: string;
   primaryPath?: string;
+  workspaceProjectId?: string;
   items: DeliverableItem[];
 };
 
@@ -564,6 +567,7 @@ export type ChatMessagePartsEnvelope = {
 export const companionRunSseEventSchema = z.enum([
   "run.accepted",
   "run.started",
+  "project.ensured",
   "message.delta",
   "interim_assistant",
   "tool.progress",

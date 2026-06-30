@@ -88,8 +88,7 @@ async function fetchAgentsPayload(detect: boolean): Promise<{
 }
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
-  const [hydrated, setHydrated] = useState(false);
+  const [settings, setSettings] = useState<UserSettings>(() => loadSettings());
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerSection, setDrawerSection] = useState<SettingsSectionId | null>(
     null,
@@ -105,11 +104,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [agentTest, setAgentTest] = useState<AgentTestState>({
     status: "idle",
   });
-
-  useEffect(() => {
-    setSettings(loadSettings());
-    setHydrated(true);
-  }, []);
 
   const refreshAgents = useCallback(async (options?: { detect?: boolean }) => {
     setAgentsRuntime((prev) => ({ ...prev, loading: true, error: null }));
@@ -170,13 +164,18 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!hydrated) return;
-    void refreshAgents();
-  }, [hydrated, refreshAgents]);
+    const timer = window.setTimeout(() => {
+      void refreshAgents();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [refreshAgents]);
 
   useEffect(() => {
     if (!drawerOpen || drawerSection !== "agent") return;
-    void refreshAgents();
+    const timer = window.setTimeout(() => {
+      void refreshAgents();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [drawerOpen, drawerSection, refreshAgents]);
 
   const updateSettings = useCallback(
@@ -199,9 +198,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           ),
         };
         saveSettings(next);
-        setSaveStatus("saving");
-        window.setTimeout(() => setSaveStatus("saved"), 400);
-        window.setTimeout(() => setSaveStatus("idle"), 2200);
+      setSaveStatus("saving");
+      window.setTimeout(() => setSaveStatus("saved"), 400);
+      window.setTimeout(() => setSaveStatus("idle"), 2200);
         return next;
       });
     },
@@ -269,7 +268,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({
-      settings: hydrated ? settings : DEFAULT_SETTINGS,
+      settings,
       updateSettings,
       drawerOpen,
       drawerSection,
@@ -286,7 +285,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       runAgentTest,
     }),
     [
-      hydrated,
       settings,
       updateSettings,
       drawerOpen,

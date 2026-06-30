@@ -72,7 +72,7 @@ export function installDesktopBranding(): void {
     Menu.setApplicationMenu(Menu.buildFromTemplate(buildMacMenu()));
   } else {
     // Windows / Linux：用 visible:false 菜单保留快捷键，菜单栏不可见
-    // 见 web/docs/desktop-titlebar-design.md §6.1 改动 2
+    // 见 docs/design/desktop-titlebar-design.md §6.1 改动 2
     registerHiddenAccelerators();
   }
 }

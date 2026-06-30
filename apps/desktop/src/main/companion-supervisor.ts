@@ -23,6 +23,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { app, BrowserWindow } from "electron";
 import { getCompanionHealth } from "./companion-health.js";
+import { writeToStdio } from "./stdio.js";
 
 // -----------------------------------------------------------------------------
 // 类型
@@ -69,7 +70,7 @@ const SPAWN_GRACE_MS = 8_000; // spawn 后给 8s 让 Companion 监听端口
  *  - 运行时由 supervisor 用 `spawn(process.execPath, [bundlePath], { ELECTRON_RUN_AS_NODE: "1" })`
  *    跑成纯 Node 进程（Electron binary 内嵌 Node runtime）
  *
- * 偏离 roadmap §6.3 写的 pkg/nexe 路线 —— 见 web/docs/desktop-d1.4-bundle-status.md
+ * 偏离 roadmap §6.3 写的 pkg/nexe 路线 —— 见 docs/plans/desktop-d1.4-bundle-status.md
  * 的"决策"小节。
  */
 export type SidecarLayout = {
@@ -327,10 +328,10 @@ export class CompanionSupervisor {
 
       child.stdout?.on("data", (chunk: Buffer) => {
         // 透传 Companion 日志，方便用户在 desktop 终端排错
-        process.stdout.write(`[companion] ${chunk.toString("utf8")}`);
+        writeToStdio(process.stdout, `[companion] ${chunk.toString("utf8")}`);
       });
       child.stderr?.on("data", (chunk: Buffer) => {
-        process.stderr.write(`[companion] ${chunk.toString("utf8")}`);
+        writeToStdio(process.stderr, `[companion] ${chunk.toString("utf8")}`);
       });
       child.on("error", (err) => {
         console.error("[desktop] companion sidecar spawn error:", err);

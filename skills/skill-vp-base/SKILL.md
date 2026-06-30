@@ -63,6 +63,15 @@ P0 默认交付：
 告诉用户对应文件已经生成。不要把 `?reel=1` 说成最终导出的 MP4；
 它是预览与验收入口。最终 P0 成片来自系统录屏 / OBS / 浏览器录制。
 
+输出前必须做最小文件审计：
+
+1. 确认 `script.md` 存在且非空；
+2. 确认 `outline.md` 存在且非空；
+3. 确认 `presentation/package.json` 存在；
+4. 确认至少一个章节目录含 `narrations.ts`；
+5. 若已启动 dev server，回传真实 localhost URL；若未启动，明确给出
+   `cd presentation && npm run dev`，不要虚构“已经启动”。
+
 ## P0 路由规则
 
 需求确认后，默认交接到 `skill-vp-web-video-presentation`。交接内容应包含：
@@ -72,6 +81,8 @@ P0 默认交付：
 3. 风格约束：正式、科技、发布会、研究解读、产品演示等
 4. 是否需要口播音频；若未明确，先按无音频网页预览推进
 5. 工作区目标结构：`article.md`、`script.md`、`outline.md`、`presentation/`
+6. 交付前审计要求：必须检查文件真实存在，预览 URL 必须来自实际 dev
+   server 地址；无法确认端口时使用脚手架默认 `localhost:5174`
 
 当用户明确要求“自动生成 MP4 / Remotion / 可编程渲染”时：
 

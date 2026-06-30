@@ -102,6 +102,7 @@ const activeRunUserInputHandlers = new Map<
   string,
   (response: RunAgentUserInputResponse) => boolean
 >();
+const LAZY_DEFAULT_WORKSPACE_ID = "__lazy_default__";
 const pendingRunClarifications = new Map<
   string,
   {
@@ -350,6 +351,8 @@ function buildPromptContextNotes(
       req.lazyDefaultWorkspace
         ? "当前 cwd 是本轮视频任务的临时工作区根；请直接写入 `script.md`、`outline.md`，并用 `skills/skill-vp-web-video-presentation/scripts/scaffold.sh ./presentation` 生成 `presentation/`。平台会在检测到真实文件后再登记为正式工作区。"
         : "默认在当前工作区根目录写入 `script.md`、`outline.md` 和 `presentation/`；`presentation/` 必须可独立 `npm run dev`，预览入口为 `?reel=1`，录屏入口为 `?auto=1`。",
+      "视频 P0 交付前必须审计真实文件：`script.md`、`outline.md`、`presentation/package.json`、至少一个 `presentation/src/chapters/**/narrations.ts`。缺任一项就继续落盘，不要把计划描述成已生成。",
+      "默认尝试在 `presentation/` 下启动 `npm run dev` 并读取真实 localhost URL；若无法启动或无法确认端口，只给出启动命令 `cd presentation && npm run dev`。脚手架默认端口是 5174，不要硬写 5173。",
       "P0 不调用 Remotion，不承诺自动 MP4，不做 text-to-video；如果用户要求 MP4，说明当前交付为网页视频项目 + 录屏路径，自动 MP4 属于 P1。",
     ];
     if (isRequirementFollowup) {
@@ -375,6 +378,7 @@ function resolveTimeoutProfile(req: CreateRunRequest): RunTimeoutProfile {
   if (req.timeoutProfile) return req.timeoutProfile;
   if (req.moduleId === "writing") return "writing";
   if (req.moduleId === "ppt") return "ppt";
+  if (req.moduleId === "video") return "video";
   if (
     req.binding.moduleId === "chat" &&
     normalizeChatMode(req.binding.mode) === "deep"
@@ -598,9 +602,17 @@ async function executeRunLifecycle(
 
   const priorRuntime = await loadSessionRuntime(req.sessionId);
   const isLazyDefaultWorkspace =
-    req.moduleId === "3d" &&
-    req.workspaceProjectId === "__lazy_default__" &&
-    req.lazyDefaultWorkspace?.moduleId === "3d";
+    req.workspaceProjectId === LAZY_DEFAULT_WORKSPACE_ID;
+  if (
+    isLazyDefaultWorkspace &&
+    req.lazyDefaultWorkspace?.moduleId !== req.moduleId
+  ) {
+    req.lazyDefaultWorkspace = {
+      moduleId: req.moduleId,
+      taskId: req.lazyDefaultWorkspace?.taskId ?? req.sessionId,
+      taskTitle: req.lazyDefaultWorkspace?.taskTitle,
+    };
+  }
 
   let cwd: string;
   const reusedRuntimeCwd =
@@ -613,7 +625,7 @@ async function executeRunLifecycle(
     if (reusedRuntimeCwd) {
       cwd = priorRuntime.resolvedCwd!.trim();
     } else if (isLazyDefaultWorkspace) {
-      cwd = await mkdtemp(join(tmpdir(), "jlc-3d-lazy-"));
+      cwd = await mkdtemp(join(tmpdir(), `jlc-${req.moduleId}-lazy-`));
       lazyTempCwd = cwd;
     } else {
       cwd = await resolveWorkspaceRoot(req.workspaceProjectId);
@@ -639,10 +651,11 @@ async function executeRunLifecycle(
     : ("workspace_project" as const);
   const timeoutProfile = resolveTimeoutProfile(req);
   const timeoutMs = resolveRunTimeoutMs(timeoutProfile, req.timeoutMs);
-  const idleTimeoutMs = Math.min(
-    resolveRunIdleTimeoutMs(req.idleTimeoutMs),
-    timeoutMs,
-  );
+  const resolvedIdleTimeoutMs = resolveRunIdleTimeoutMs(req.idleTimeoutMs);
+  const idleTimeoutMs =
+    typeof timeoutMs === "number"
+      ? Math.min(resolvedIdleTimeoutMs, timeoutMs)
+      : resolvedIdleTimeoutMs;
 
   const startedAtMs = Date.now();
   let assistantText = "";
@@ -1320,7 +1333,7 @@ async function executeRunLifecycle(
         if (!payload || payload.items.length === 0) return;
         if (isLazyDefaultWorkspace && !materializedLazyProject) {
           const project = await createDefaultTaskProjectFromSource({
-            moduleId: "3d",
+            moduleId: req.lazyDefaultWorkspace?.moduleId ?? req.moduleId,
             taskId: req.lazyDefaultWorkspace?.taskId ?? req.sessionId,
             taskTitle: req.lazyDefaultWorkspace?.taskTitle ?? userText.slice(0, 48),
             sourceDir: cwd,
@@ -1392,7 +1405,7 @@ async function executeRunLifecycle(
             timestamp,
           });
         }
-        emitDeliverablesPart(writer, finalPayload);
+        emitDeliverablesPart(writer, finalPayload, req.workspaceProjectId);
         deliverablesEmitted = true;
       };
 

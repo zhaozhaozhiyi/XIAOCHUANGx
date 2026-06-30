@@ -154,7 +154,7 @@ export function VoiceSettingsSection() {
     <div className="space-y-6">
       <div>
         <p className="text-sm text-[var(--fg-secondary)]">
-          配置语音识别（STT）与语音合成（TTS）Provider，用于会议纪要转写、对话朗读等能力。与文本模型 API
+          配置语音识别（STT）与语音合成（TTS）Provider，用于后续会议音频处理、对话朗读等能力。与文本模型 API
           独立管理，后续可在各业务模块中选用默认语音模型。
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-xs">
@@ -194,7 +194,7 @@ export function VoiceSettingsSection() {
       <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
         <p className="text-sm font-medium text-[var(--fg)]">默认语音模型</p>
         <p className="mt-0.5 text-xs text-[var(--fg-tertiary)]">
-          全局默认选型，可在会议纪要、对话朗读等场景中覆盖
+          全局默认选型，可在后续会议音频处理、对话朗读等场景中覆盖
         </p>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           <DefaultVoiceSelector
@@ -255,7 +255,7 @@ export function VoiceSettingsSection() {
 
       <div className="rounded-lg border border-dashed border-[var(--border)] p-3 text-xs leading-6 text-[var(--fg-tertiary)]">
         当前为前端原型：连接测试为 Mock，尚未接入真实语音 API。TTS 模型可额外配置 voice-id
-        与语言；后续将与会议纪要转写、对话朗读等模块打通。
+        与语言；后续将与会议音频处理、对话朗读等能力打通。
       </div>
     </div>
   );

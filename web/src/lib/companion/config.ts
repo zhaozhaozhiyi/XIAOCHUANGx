@@ -106,6 +106,14 @@ export function companionProjectFileUrl(
   );
 }
 
+export function companionProjectFilesUrl(projectId: string): string {
+  return companionUrl(`/v1/projects/${encodeURIComponent(projectId)}/files`);
+}
+
+export function companionProjectEntriesUrl(projectId: string): string {
+  return companionUrl(`/v1/projects/${encodeURIComponent(projectId)}/entries`);
+}
+
 export function companionProjectUploadUrl(projectId: string): string {
   return companionUrl(`/v1/projects/${encodeURIComponent(projectId)}/uploads`);
 }

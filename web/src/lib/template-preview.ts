@@ -132,16 +132,9 @@ const PPT_PREVIEWS: TemplatePreviewConfig[] = [
   }),
 ];
 
-/**
- * 翻译模块暂不展示版式预览（场景由 SKILL.md 定义而非视觉模板）。
- * 留空数组：TemplateSkillGallery 在卡片为 0 时降级为下拉式 Skill 选择。
- */
-const TRANSLATE_PREVIEWS: TemplatePreviewConfig[] = [];
-
 const BY_MODULE: Record<ModuleSkillPickerKind, TemplatePreviewConfig[]> = {
   writing: WRITING_PREVIEWS,
   ppt: PPT_PREVIEWS,
-  translate: TRANSLATE_PREVIEWS,
 };
 
 export function getTemplatePreview(

@@ -2,8 +2,10 @@ import type { RunEvent, RunRecord } from "@jlc/contracts";
 import {
   applyPartsStateToMessage,
   initAssistantPartsState,
+  reduceAppendPart,
   reduceClarificationRequired,
   reduceInterimAssistant,
+  reducePartPatch,
   reduceRunStarted,
   reduceStatusLabel,
   reduceStreamCancelled,
@@ -76,6 +78,13 @@ function applyRunEvent(
                   : "pending",
         })),
       );
+    case "part.append":
+      return reduceAppendPart(state, event.part);
+    case "part.patch":
+      return reducePartPatch(state, {
+        id: event.id,
+        merge: event.merge,
+      });
     case "clarification.required":
       return reduceClarificationRequired(state, {
         runId: event.runId,

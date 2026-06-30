@@ -98,10 +98,22 @@ export type WorkspaceFileNode = {
     | "text"
     | "pptx"
     | "html"
-    | "python";
+    | "python"
+    | "scad"
+    | "stl"
+    | "dxf";
   content?: string;
   children?: WorkspaceFileNode[];
 };
+
+export function createEmptyWorkspaceRoot(name = "默认工作文件夹（XIAOCHUANG）"): WorkspaceFileNode {
+  return {
+    id: "root",
+    name,
+    type: "folder",
+    children: [],
+  };
+}
 
 /** 原型仓库目录树（左树右预览） */
 export const WORKSPACE_ROOT: WorkspaceFileNode = {
@@ -122,7 +134,7 @@ export const WORKSPACE_ROOT: WorkspaceFileNode = {
           name: "hermes-client.md",
           type: "file",
           language: "markdown",
-          relativePath: "web/docs/hermes-client.md",
+          relativePath: "docs/technical/hermes-client.md",
         },
       ],
     },
@@ -131,21 +143,21 @@ export const WORKSPACE_ROOT: WorkspaceFileNode = {
       name: "功能清单.md",
       type: "file",
       language: "markdown",
-      relativePath: "功能清单.md",
+      relativePath: "docs/product/功能清单.md",
     },
     {
       id: "file-requirements",
       name: "需求整理.md",
       type: "file",
       language: "markdown",
-      relativePath: "需求整理.md",
+      relativePath: "docs/product/需求整理.md",
     },
     {
       id: "file-prd",
       name: "PRD-小窗.md",
       type: "file",
       language: "markdown",
-      relativePath: "PRD-小窗.md",
+      relativePath: "docs/product/PRD-小窗.md",
     },
   ],
 };

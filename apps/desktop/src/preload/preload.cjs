@@ -10,6 +10,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getCompanionHealth: () => ipcRenderer.invoke("desktop:companion-health"),
   showItemInFolder: (input) =>
     ipcRenderer.invoke("desktop:show-item-in-folder", input),
+  openPath: (input) => ipcRenderer.invoke("desktop:open-path", input),
+  openProjectFolder: (input) =>
+    ipcRenderer.invoke("desktop:open-project-folder", input),
   /** 标题栏内嵌菜单按钮点击时，请求主进程在按钮位置弹原生菜单 */
   popupTitlebarMenu: (id, x, y) =>
     ipcRenderer.invoke("desktop:popup-menu", { id, x, y }),

@@ -13,7 +13,9 @@ function partScrollSignature(part: ChatPart): string {
   if (part.kind === "tool") sig += `:${part.status}`;
   if (part.kind === "command") sig += part.streaming ? ":r" : ":d";
   if (part.kind === "tool_batch") sig += part.streaming ? ":b" : "";
-  if (part.kind === "deliverables") sig += `:${part.items.length}`;
+  if (part.kind === "deliverables") {
+    sig += `:${part.workspaceProjectId ?? ""}:${part.items.length}`;
+  }
   return sig;
 }
 

@@ -14,7 +14,7 @@ const APP_DISPLAY_NAME = "小窗";
  * Ctrl+Shift+I / F11 / Ctrl+± / Ctrl+Q / Ctrl+C/V/X/A 等快捷键独立于菜单显隐
  * 仍然全部可用。
  *
- * 详细设计：web/docs/desktop-titlebar-design.md §6.2
+ * 详细设计：docs/design/desktop-titlebar-design.md §6.2
  */
 
 export type TopMenuId = "file" | "edit" | "view" | "window" | "help";

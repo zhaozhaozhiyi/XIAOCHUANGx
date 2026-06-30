@@ -12,7 +12,7 @@ import {
   canonicalOutputDebugSchema,
   chatTodoItemSchema,
 } from "./chat";
-import type { CanonicalTurnOutput } from "./chat";
+import type { CanonicalTurnOutput, ChatPart } from "./chat";
 import { workspaceKindSchema } from "./common";
 
 export const agentIdSchema = z.string().min(1);
@@ -77,6 +77,8 @@ export const todoItemSchema = z.object({
   status: z.enum(["pending", "in_progress", "completed", "cancelled"]),
 });
 export type RuntimeTodoItem = z.infer<typeof todoItemSchema>;
+
+const chatPartPayloadSchema = z.custom<ChatPart>(() => true);
 
 export const artifactSchema = z.discriminatedUnion("kind", [
   z.object({
@@ -203,7 +205,7 @@ export const createRunRequestSchema = z.object({
   turnId: z.string(),
   agentId: agentIdSchema,
   agentModel: z.string(),
-  mode: z.enum(["fast", "deep"]),
+  mode: z.enum(["auto", "fast", "deep"]),
   queuePolicy: runQueuePolicySchema,
   userMessage: z.object({
     text: z.string(),
@@ -355,6 +357,13 @@ export const runEventSchema = z.discriminatedUnion("type", [
     label: z.string(),
   }),
   z.object({
+    type: z.literal("project.ensured"),
+    runId: z.string(),
+    id: z.string(),
+    name: z.string(),
+    pathSummary: z.string(),
+  }),
+  z.object({
     type: z.literal("message.delta"),
     runId: z.string(),
     turnId: z.string(),
@@ -390,6 +399,17 @@ export const runEventSchema = z.discriminatedUnion("type", [
     type: z.literal("todo.update"),
     runId: z.string(),
     items: z.array(todoItemSchema),
+  }),
+  z.object({
+    type: z.literal("part.append"),
+    runId: z.string(),
+    part: chatPartPayloadSchema,
+  }),
+  z.object({
+    type: z.literal("part.patch"),
+    runId: z.string(),
+    id: z.string(),
+    merge: z.record(z.string(), z.unknown()),
   }),
   z.object({
     type: z.literal("approval.required"),

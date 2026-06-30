@@ -11,6 +11,7 @@ import {
 } from "react";
 import {
   MOCK_RESEARCH_PROJECTS,
+  isResearchProjectHidden,
   type ResearchProject,
 } from "@/lib/research-projects";
 import { RESEARCH_PROJECTS_UPDATED } from "@/lib/research-projects-events";
@@ -74,6 +75,7 @@ function mergeLocalBound(
   const seen = new Set<string>();
   const merged: ResearchProject[] = [];
   for (const p of [...custom, ...fromApi]) {
+    if (isResearchProjectHidden(p.id)) continue;
     if (seen.has(p.id)) continue;
     seen.add(p.id);
     merged.push(p);
@@ -120,18 +122,29 @@ export function ResearchProjectsProvider({ children }: { children: ReactNode }) 
   }, []);
 
   useEffect(() => {
-    void refresh();
-    const onUpdate = () => void refresh();
+    const timer = window.setTimeout(() => {
+      void refresh();
+    }, 0);
+    const onUpdate = () => {
+      void refresh();
+    };
     window.addEventListener(RESEARCH_PROJECTS_UPDATED, onUpdate);
-    return () => window.removeEventListener(RESEARCH_PROJECTS_UPDATED, onUpdate);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener(RESEARCH_PROJECTS_UPDATED, onUpdate);
+    };
   }, [refresh]);
 
   const getProject = useCallback(
     (id: string): ResearchProject | undefined => {
       return (
         localBoundProjects.find((p) => p.id === id) ??
-        readCustomProjects().find((p) => p.id === id) ??
-        MOCK_RESEARCH_PROJECTS.find((p) => p.id === id)
+        readCustomProjects().find(
+          (p) => p.id === id && !isResearchProjectHidden(p.id),
+        ) ??
+        MOCK_RESEARCH_PROJECTS.find(
+          (p) => p.id === id && !isResearchProjectHidden(p.id),
+        )
       );
     },
     [localBoundProjects],

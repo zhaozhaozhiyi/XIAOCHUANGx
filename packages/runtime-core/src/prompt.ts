@@ -32,6 +32,8 @@ export type ComposeRunPromptsOptions = {
   agentKit?: AgentKitStageResult | null;
   /** 对话混合编排：仅注入 Catalog 摘要（F-RT-008） */
   chatCatalog?: LoadedChatCatalog | null;
+  /** 模块绑定、模板偏好等附加上下文 */
+  contextNotes?: string[];
 };
 
 export type ComposedRunPromptsMeta = {
@@ -87,7 +89,21 @@ export function composeRunPrompts(
     );
   }
 
-  parts.push("", `当前问答模式（binding.mode）：**${options.mode}**`);
+  parts.push(
+    "",
+    `当前问答策略（binding.mode）：**${options.mode}**`,
+    options.mode === "auto"
+      ? "默认由基座 QA Skill 根据问题复杂度与用户表达自行选择轻量回答或深度研究路径；不要要求用户选择模式。"
+      : "这是兼容旧会话或调试入口的显式策略。主产品路径默认使用 auto。",
+  );
+
+  if (options.contextNotes && options.contextNotes.length > 0) {
+    parts.push(
+      "",
+      "## 当前模块上下文",
+      ...options.contextNotes.map((note) => `- ${note}`),
+    );
+  }
 
   parts.push(
     "",

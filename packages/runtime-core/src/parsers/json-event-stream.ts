@@ -29,11 +29,27 @@ function extractCursorText(message: unknown): string {
     .join("");
 }
 
+function getCursorMessageId(obj: JsonValue): string | undefined {
+  const message = isRecord(obj.message) ? obj.message : undefined;
+  const id =
+    typeof obj.message_id === "string"
+      ? obj.message_id
+      : typeof message?.id === "string"
+          ? message.id
+          : undefined;
+  return id || undefined;
+}
+
 function emitCursorDelta(
   text: string,
-  state: { cursorTextSoFar: string },
+  messageId: string | undefined,
+  state: { cursorTextSoFar: string; cursorMessageId?: string },
   onEvent: (ev: AgentStreamEvent) => void,
 ): void {
+  if (messageId && messageId !== state.cursorMessageId) {
+    state.cursorMessageId = messageId;
+    state.cursorTextSoFar = "";
+  }
   if (!state.cursorTextSoFar) {
     state.cursorTextSoFar = text;
     onEvent({ type: "text_delta", delta: text });
@@ -46,7 +62,8 @@ function emitCursorDelta(
     if (delta) onEvent({ type: "text_delta", delta });
     return;
   }
-  state.cursorTextSoFar = text;
+  if (state.cursorTextSoFar.endsWith(text)) return;
+  state.cursorTextSoFar += text;
   onEvent({ type: "text_delta", delta: text });
 }
 
@@ -57,6 +74,7 @@ export function createJsonEventStreamParser(
   let buffer = "";
   const state = {
     cursorTextSoFar: "",
+    cursorMessageId: undefined as string | undefined,
   };
 
   function handleGemini(obj: JsonValue): boolean {
@@ -160,7 +178,7 @@ export function createJsonEventStreamParser(
     if (obj.type === "assistant" && obj.message) {
       const text = extractCursorText(obj.message);
       if (!text) return false;
-      emitCursorDelta(text, state, onEvent);
+      emitCursorDelta(text, getCursorMessageId(obj), state, onEvent);
       return true;
     }
     if (obj.type === "error") {

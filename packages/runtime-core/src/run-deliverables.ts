@@ -29,6 +29,9 @@ const DELIVERABLE_EXT = new Set([
 
 const MAX_SCAN_FILES = 500;
 const MAX_DEPTH = 6;
+const VIDEO_PRESENTATION_DEV_URL =
+  process.env.XIAOCHUANG_VIDEO_PRESENTATION_URL?.replace(/\/$/, "") ??
+  "http://localhost:5174";
 
 function isDeliverablePath(rel: string): boolean {
   if (rel === "presentation/package.json" || rel.endsWith("/presentation/package.json")) {
@@ -180,9 +183,10 @@ export function buildDeliverablesFromDiff(
           : ("attachment" as const),
       ...(isPresentationDir
         ? {
-            previewUrl: "http://localhost:5173/?reel=1",
-            recordingUrl: "http://localhost:5173/?auto=1",
+            previewUrl: `${VIDEO_PRESENTATION_DEV_URL}/?reel=1`,
+            recordingUrl: `${VIDEO_PRESENTATION_DEV_URL}/?auto=1`,
             devCommand: "cd presentation && npm run dev",
+            devServerStatus: "unknown" as const,
           }
         : {}),
     };

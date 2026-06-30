@@ -18,6 +18,9 @@ function inferLanguage(
   if (lower.endsWith(".sh") || lower.endsWith(".bash") || lower.endsWith(".zsh")) return "shell";
   if (lower.endsWith(".pptx")) return "pptx";
   if (lower.endsWith(".html") || lower.endsWith(".htm")) return "html";
+  if (lower.endsWith(".scad")) return "scad";
+  if (lower.endsWith(".stl")) return "stl";
+  if (lower.endsWith(".dxf")) return "dxf";
   return "text";
 }
 
@@ -143,4 +146,44 @@ export async function fetchWorkspaceFileContent(
     throw new Error(json.error ?? `file_http_${res.status}`);
   }
   return json.content ?? "";
+}
+
+export async function createWorkspaceEntry(input: {
+  projectId: string;
+  type: "file" | "folder";
+  path: string;
+  content?: string;
+}): Promise<{
+  projectId: string;
+  requestedProjectId?: string;
+  type: "file" | "folder";
+  path: string;
+  mime?: string;
+  size?: number;
+}> {
+  const res = await fetch("/api/workspace/entry", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const json = (await res.json()) as {
+    projectId?: string;
+    requestedProjectId?: string;
+    type?: "file" | "folder";
+    path?: string;
+    mime?: string;
+    size?: number;
+    error?: string;
+  };
+  if (!res.ok) {
+    throw new Error(json.error ?? `entry_create_http_${res.status}`);
+  }
+  return {
+    projectId: json.projectId ?? input.projectId,
+    requestedProjectId: json.requestedProjectId,
+    type: json.type ?? input.type,
+    path: json.path ?? input.path,
+    mime: json.mime,
+    size: json.size,
+  };
 }
