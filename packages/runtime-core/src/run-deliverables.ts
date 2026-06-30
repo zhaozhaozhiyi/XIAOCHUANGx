@@ -16,24 +16,15 @@ const DELIVERABLE_EXT = new Set([
   ".jpg",
   ".jpeg",
   ".webp",
-  ".svg",
   ".csv",
   ".xlsx",
-  ".json",
   ".html",
-  ".scad",
-  ".stl",
-  ".dxf",
-  ".off",
 ]);
 
 const MAX_SCAN_FILES = 500;
 const MAX_DEPTH = 6;
 
 function isDeliverablePath(rel: string): boolean {
-  if (rel === "presentation/package.json" || rel.endsWith("/presentation/package.json")) {
-    return true;
-  }
   const ext = extname(rel).toLowerCase();
   if (DELIVERABLE_EXT.has(ext)) return true;
   if (rel.includes("research") && ext === ".md") return true;
@@ -41,27 +32,13 @@ function isDeliverablePath(rel: string): boolean {
 }
 
 function guessMime(rel: string): string | undefined {
-  if (rel.endsWith("/presentation") || rel === "presentation") return "inode/directory";
   const ext = extname(rel).toLowerCase();
   if (ext === ".md") return "text/markdown";
-  if (ext === ".html") return "text/html";
   if (ext === ".pdf") return "application/pdf";
   if (ext === ".pptx")
     return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-  if (ext === ".docx")
-    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-  if (ext === ".csv") return "text/csv";
-  if (ext === ".json") return "application/json";
-  if (ext === ".xlsx")
-    return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
   if (ext === ".png") return "image/png";
   if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
-  if (ext === ".webp") return "image/webp";
-  if (ext === ".svg") return "image/svg+xml";
-  if (ext === ".scad") return "text/x-openscad";
-  if (ext === ".stl") return "model/stl";
-  if (ext === ".dxf") return "image/vnd.dxf";
-  if (ext === ".off") return "model/vnd.off";
   return undefined;
 }
 
@@ -109,12 +86,6 @@ export async function snapshotWorkspace(cwd: string): Promise<WorkspaceSnapshot>
 }
 
 function pickPrimary(paths: string[]): string {
-  const presentation = paths.find((p) => p === "presentation" || p.endsWith("/presentation"));
-  if (presentation) return presentation;
-  const stl = paths.find((p) => p.endsWith(".stl"));
-  if (stl) return stl;
-  const scad = paths.find((p) => p.endsWith(".scad"));
-  if (scad) return scad;
   const md = paths.find((p) => p.endsWith(".md"));
   if (md) return md;
   return paths[0]!;
@@ -131,68 +102,28 @@ export function buildDeliverablesFromDiff(
   for (const [rel, mtime] of after) {
     if (!isDeliverablePath(rel)) continue;
     const prev = before.get(rel);
-    if (prev == null || mtime > prev) {
-      if (rel === "presentation/package.json") {
-        changed.add("presentation");
-      } else if (rel.endsWith("/presentation/package.json")) {
-        changed.add(rel.replace(/\/package\.json$/, ""));
-      } else {
-        changed.add(rel);
-      }
-    }
+    if (prev == null || mtime > prev) changed.add(rel);
   }
 
   for (const p of extraPaths) {
     const norm = p.replace(/\\/g, "/").replace(/^\.\//, "");
-    if (!norm) continue;
-    if (norm === "presentation/package.json") {
-      changed.add("presentation");
-    } else if (norm.endsWith("/presentation/package.json")) {
-      changed.add(norm.replace(/\/package\.json$/, ""));
-    } else if (
-      norm === "presentation" ||
-      norm.endsWith("/presentation") ||
-      isDeliverablePath(norm)
-    ) {
-      changed.add(norm);
-    }
+    if (norm && isDeliverablePath(norm)) changed.add(norm);
   }
 
   const paths = [...changed].sort();
   if (paths.length === 0) return null;
-  const itemForPath = (path: string) => {
-    const isPresentationDir =
-      path === "presentation" || path.endsWith("/presentation");
-    return {
-      path,
-      label: isPresentationDir
-        ? "presentation/ 网页视频项目"
-        : path.endsWith("script.md")
-          ? "script.md 口播稿"
-          : path.endsWith("outline.md")
-            ? "outline.md 章节计划"
-            : undefined,
-      mime: guessMime(path),
-      kind: isPresentationDir
-        ? ("directory" as const)
-        : path === pickPrimary(paths)
-          ? ("primary" as const)
-          : ("attachment" as const),
-      ...(isPresentationDir
-        ? {
-            previewUrl: "http://localhost:5173/?reel=1",
-            recordingUrl: "http://localhost:5173/?auto=1",
-            devCommand: "cd presentation && npm run dev",
-          }
-        : {}),
-    };
-  };
   if (paths.length === 1) {
     const path = paths[0]!;
     return {
       headline: "本轮产出文件：",
       primaryPath: path,
-      items: [itemForPath(path)],
+      items: [
+        {
+          path,
+          mime: guessMime(path),
+          kind: "primary",
+        },
+      ],
     };
   }
 
@@ -200,7 +131,11 @@ export function buildDeliverablesFromDiff(
   return {
     headline: "本轮交付文件如下：",
     primaryPath,
-    items: paths.map((path) => itemForPath(path)),
+    items: paths.map((path) => ({
+      path,
+      mime: guessMime(path),
+      kind: path === primaryPath ? "primary" : "attachment",
+    })),
   };
 }
 
@@ -220,13 +155,7 @@ export function extractPathFromToolMessage(
     return null;
   }
   const m = message.trim().match(
-    /(?:^|[\s"'`(])([\w./-]+(?:presentation|presentation\/package\.json|(?:\.(?:md|markdown|pdf|pptx|ppt|docx|png|jpe?g|webp|svg|csv|xlsx|json|html|scad|stl|dxf|off))))(?:[\s"'`),]|$)/i,
+    /(?:^|[\s"'`(])([\w./-]+\.(?:md|markdown|pdf|pptx|ppt|docx|png|jpe?g|webp|csv|xlsx|html))(?:[\s"'`),]|$)/i,
   );
-  const path = m?.[1]?.replace(/^\.\//, "") ?? null;
-  if (!path) return null;
-  return path.endsWith("/presentation/package.json")
-    ? path.replace(/\/package\.json$/, "")
-    : path === "presentation/package.json"
-      ? "presentation"
-      : path;
+  return m?.[1]?.replace(/^\.\//, "") ?? null;
 }

@@ -15,16 +15,8 @@
     "icons": "node ../../scripts/generate-brand-icons.mjs",
     "prepare:web": "node ../../scripts/prepare-desktop-web.mjs",
     "prepare:companion": "pnpm --filter @jlcresearch/companion bundle && node ../../scripts/prepare-companion-bundle.mjs",
-    "fetch:openscad": "node ../../scripts/fetch-openscad-runtime.mjs",
-    "prepare:openscad": "node ../../scripts/prepare-openscad-runtime.mjs",
-    "verify:openscad": "node ../../scripts/verify-openscad-runtime.mjs",
-    "verify:openscad-wasm:required": "node ../../scripts/prepare-openscad-wasm.mjs --check --required",
-    "verify:openscad:required": "node ../../scripts/verify-openscad-runtime.mjs --required",
-    "prepare:openscad:required": "node ../../scripts/prepare-openscad-runtime.mjs --required && pnpm verify:openscad:required",
-    "pack:dir": "pnpm icons && pnpm build && pnpm prepare:web && pnpm prepare:companion && pnpm prepare:openscad && electron-builder --dir",
-    "pack": "pnpm icons && pnpm build && pnpm prepare:web && pnpm prepare:companion && pnpm prepare:openscad && electron-builder",
-    "pack:ci": "pnpm icons && pnpm build && pnpm prepare:web && pnpm prepare:companion && pnpm prepare:openscad && electron-builder --publish never",
-    "pack:ci:release": "pnpm icons && pnpm build && pnpm verify:openscad-wasm:required && pnpm prepare:web && pnpm prepare:companion && pnpm verify:openscad:required && electron-builder --publish never"
+    "pack:dir": "pnpm icons && pnpm build && pnpm prepare:web && pnpm prepare:companion && electron-builder --dir",
+    "pack": "pnpm icons && pnpm build && pnpm prepare:web && pnpm prepare:companion && electron-builder"
   },
   "dependencies": {
     "electron-updater": "^6.6.2"

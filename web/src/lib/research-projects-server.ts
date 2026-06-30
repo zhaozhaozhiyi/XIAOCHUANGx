@@ -24,11 +24,6 @@ export type ResolveCompanionWorkspaceResult = {
   workspaceProjectId: string;
   /** 由 ensure-default-task-project 新解析出的 projectId */
   ensuredProject?: ResearchProject;
-  lazyDefaultWorkspace?: {
-    moduleId: ModuleId;
-    taskId?: string;
-    taskTitle?: string;
-  };
 };
 
 /**
@@ -41,7 +36,6 @@ export async function resolveCompanionWorkspaceProjectId(
     moduleId?: ModuleId;
     taskId?: string;
     taskTitle?: string;
-    requiresImmediateWorkspace?: boolean;
   },
 ): Promise<ResolveCompanionWorkspaceResult> {
   if (uiProjectId !== NO_PROJECT_ID) {
@@ -60,20 +54,6 @@ export async function resolveCompanionWorkspaceProjectId(
 
   if (!options?.moduleId) {
     throw new Error("module_id_required_for_default_workspace");
-  }
-
-  if (
-    (options.moduleId === "3d" || options.moduleId === "video") &&
-    !options.requiresImmediateWorkspace
-  ) {
-    return {
-      workspaceProjectId: "__lazy_default__",
-      lazyDefaultWorkspace: {
-        moduleId: options.moduleId,
-        taskId: options.taskId,
-        taskTitle: options.taskTitle,
-      },
-    };
   }
 
   const summary = await ensureCompanionDefaultTaskProject({

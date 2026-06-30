@@ -1,6 +1,6 @@
 "use client";
 
-import type { ChatPart, OutlineCommitPayload } from "@/lib/chat-parts";
+import type { ChatPart } from "@/lib/chat-parts";
 import { isRenderablePart, normalizeMarkdown } from "@/lib/chat-parts-utils";
 import { ArtifactRow } from "@/components/chat/parts/ArtifactRow";
 import { DeliverablesCard } from "@/components/chat/parts/DeliverablesCard";
@@ -17,8 +17,6 @@ import {
 } from "@/components/chat/parts/FileDiffRow";
 import { ChatMarkdown } from "@/components/chat/parts/ChatMarkdown";
 import { ClarificationCard } from "@/components/chat/parts/ClarificationCard";
-import { RequirementsCard } from "@/components/chat/parts/RequirementsCard";
-import { RequirementSummaryCard } from "@/components/chat/parts/RequirementSummaryCard";
 import { TodoBlock } from "@/components/chat/parts/TodoBlock";
 import { ToolBatchCard } from "@/components/chat/parts/ToolBatchCard";
 import { ToolCardRow } from "@/components/chat/parts/ToolCardRow";
@@ -190,10 +188,6 @@ export function PartRenderer({
   onClarificationSubmitted,
   onClarificationContinue,
   onClarificationDraftChange,
-  onRequirementsSubmitted,
-  onRequirementsContinue,
-  onRequirementsDraftChange,
-  onOutlineCommitted,
 }: {
   part: ChatPart;
   presentation?: PartPresentation;
@@ -206,16 +200,6 @@ export function PartRenderer({
       draft?: string;
     },
   ) => void;
-  onRequirementsSubmitted?: (partId: string, answer: string) => void;
-  onRequirementsContinue?: (answer: string) => void;
-  onRequirementsDraftChange?: (
-    partId: string,
-    patch: {
-      selectedOptions?: Record<string, string[]>;
-      answers?: Record<string, string>;
-    },
-  ) => void;
-  onOutlineCommitted?: (partId: string, patch: OutlineCommitPayload) => void;
 }) {
   if (!isRenderablePart(part)) return null;
   switch (part.kind) {
@@ -248,32 +232,6 @@ export function PartRenderer({
           onSubmitted={onClarificationSubmitted}
           onContinueAsMessage={onClarificationContinue}
           onDraftChange={onClarificationDraftChange}
-        />
-      );
-    case "writing_requirements":
-    case "ppt_requirements":
-    case "3d_requirements":
-    case "video_requirements":
-      return (
-        <RequirementsCard
-          part={part}
-          onSubmitted={onRequirementsSubmitted}
-          onContinueAsMessage={onRequirementsContinue}
-          onDraftChange={onRequirementsDraftChange}
-        />
-      );
-    case "writing_requirement_summary":
-    case "ppt_requirement_summary":
-    case "3d_requirement_summary":
-    case "video_requirement_summary":
-    case "writing_outline":
-    case "ppt_outline":
-    case "3d_outline":
-    case "video_outline":
-      return (
-        <RequirementSummaryCard
-          part={part}
-          onOutlineCommitted={onOutlineCommitted}
         />
       );
     case "file_read":

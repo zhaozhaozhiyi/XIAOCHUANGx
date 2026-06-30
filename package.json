@@ -16,13 +16,6 @@
     "smoke:companion": "node scripts/smoke-companion-sse.mjs --agent codex",
     "smoke:companion:codex": "node scripts/smoke-companion-sse.mjs --agent codex --soft",
     "smoke:companion:claude": "node scripts/smoke-companion-sse.mjs --agent claude --soft",
-    "smoke:video": "pnpm smoke:video:module-routes && pnpm smoke:video:ai-ui-parts && pnpm smoke:video:web-presentation",
-    "smoke:video:module-routes": "pnpm -C companion exec tsx --tsconfig ../web/tsconfig.json ../scripts/smoke-module-session-paths.ts",
-    "smoke:video:ai-ui-parts": "pnpm -C companion exec tsx --tsconfig ../web/tsconfig.json ../scripts/smoke-video-ai-ui-parts.ts",
-    "smoke:video:web-presentation": "node scripts/smoke-video-web-presentation.mjs",
-    "engines:fetch:openscad": "node scripts/fetch-openscad-runtime.mjs",
-    "engines:prepare:openscad-wasm": "node scripts/prepare-openscad-wasm.mjs",
-    "engines:verify:openscad:required": "node scripts/verify-openscad-runtime.mjs --required",
     "mvp:verify": "pnpm skills:verify && pnpm smoke:companion:codex && pnpm smoke:companion:claude && node scripts/smoke-companion-any.mjs",
     "skills:sync-ppt": "node scripts/sync-open-design-ppt-skills.mjs --force",
     "skills:verify-ppt": "pnpm skills:sync-ppt && pnpm runtime-core:build && node --input-type=module -e \"import { loadSkill, loadSkillBundle } from './packages/runtime-core/dist/index.js'; const b=loadSkillBundle({processSkill:'skill-ppt-pitch-deck',platformNormSkill:'skill-platform-research-norms'}); if(b.missing.length) throw new Error('missing: '+b.missing.join(',')); const deck=loadSkill('skill-ppt-deck'); const html=loadSkill('skill-ppt-html-studio'); if(!deck||!html) throw new Error('ppt skills not on disk'); console.log('ok ppt', b.process?.slug, 'refs', b.process?.referencePaths.length, 'html-studio', html.referencePaths.length);\"",
@@ -32,9 +25,7 @@
     "desktop:dev": "pnpm --filter @jlc/desktop dev",
     "desktop:build": "pnpm --filter @jlc/desktop build",
     "desktop:pack": "pnpm desktop:icons && pnpm --filter web build && pnpm --filter @jlc/desktop pack",
-    "desktop:pack:dir": "pnpm desktop:icons && pnpm --filter web build && pnpm --filter @jlc/desktop pack:dir",
-    "desktop:pack:ci": "pnpm desktop:icons && pnpm --filter web build && pnpm --filter @jlc/desktop pack:ci",
-    "desktop:pack:ci:release": "pnpm desktop:icons && pnpm --filter web build && pnpm --filter @jlc/desktop pack:ci:release"
+    "desktop:pack:dir": "pnpm desktop:icons && pnpm --filter web build && pnpm --filter @jlc/desktop pack:dir"
   },
   "engines": {
     "node": ">=20"

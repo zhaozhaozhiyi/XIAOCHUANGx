@@ -7,10 +7,7 @@ export type SimulatedDeliverablesPayload = {
     path: string;
     label?: string;
     mime?: string;
-    kind?: "primary" | "attachment" | "directory";
-    previewUrl?: string;
-    recordingUrl?: string;
-    devCommand?: string;
+    kind?: "primary" | "attachment";
   }>;
 };
 
@@ -19,12 +16,7 @@ export function getSimulatedDeliverables(
   mode: ChatModeId,
   text: string,
 ): SimulatedDeliverablesPayload | null {
-  if (
-    !isComplexDeepQuestion(text) ||
-    (mode !== "deep" && mode !== "auto")
-  ) {
-    return null;
-  }
+  if (mode !== "deep" || !isComplexDeepQuestion(text)) return null;
   return {
     headline: "本轮交付文件如下：",
     primaryPath: "research_summary.md",

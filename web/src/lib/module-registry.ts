@@ -8,26 +8,25 @@ import { normalizeChatMode } from "@jlc/runtime-core/chat-mode";
 export const PLATFORM_NORM_SKILL = "skill-platform-research-norms";
 
 export const WRITING_DEFAULT_SKILL = "skill-writing-general";
-export const WRITING_BASE_SKILL = "skill-writing-base";
+
+export const TRANSLATE_DEFAULT_SKILL = "skill-tr-text";
 
 export type ModuleId =
   | "chat"
+  | "meeting"
+  | "knowledge"
   | "writing"
   | "ppt"
-  | "3d"
-  | "video"
-  | "simulation";
+  | "translate";
 
 export type DomainService =
   | "choice-terminal"
   | "chart-engine"
+  | "asr"
+  | "rag"
   | "doc-storage"
   | "slide-engine"
-  | "cad-runtime"
-  | "openscad-toolchain"
-  | "workspace-deliverables"
-  | "remotion-renderer"
-  | "simulation-engine";
+  | "translate-engine";
 
 export type ModuleRegistryEntry = {
   moduleId: ModuleId;
@@ -50,6 +49,21 @@ export const MODULE_REGISTRY: Record<ModuleId, ModuleRegistryEntry> = {
     producesWorkspaceArtifacts: true,
     workspaceSegment: "会话",
   },
+  meeting: {
+    moduleId: "meeting",
+    label: "会议",
+    domainServices: ["asr"],
+    agentPrimaryPath: true,
+    producesWorkspaceArtifacts: true,
+    workspaceSegment: "会议",
+  },
+  knowledge: {
+    moduleId: "knowledge",
+    label: "知识库",
+    domainServices: ["doc-storage", "rag"],
+    agentPrimaryPath: false,
+    producesWorkspaceArtifacts: false,
+  },
   writing: {
     moduleId: "writing",
     label: "写作",
@@ -66,29 +80,13 @@ export const MODULE_REGISTRY: Record<ModuleId, ModuleRegistryEntry> = {
     producesWorkspaceArtifacts: true,
     workspaceSegment: "PPT",
   },
-  "3d": {
-    moduleId: "3d",
-    label: "3D",
-    domainServices: ["cad-runtime", "openscad-toolchain", "workspace-deliverables"],
+  translate: {
+    moduleId: "translate",
+    label: "翻译",
+    domainServices: ["translate-engine"],
     agentPrimaryPath: true,
     producesWorkspaceArtifacts: true,
-    workspaceSegment: "工业制图",
-  },
-  video: {
-    moduleId: "video",
-    label: "视频",
-    domainServices: ["workspace-deliverables"],
-    agentPrimaryPath: true,
-    producesWorkspaceArtifacts: true,
-    workspaceSegment: "视频",
-  },
-  simulation: {
-    moduleId: "simulation",
-    label: "推演",
-    domainServices: ["choice-terminal", "chart-engine", "simulation-engine", "doc-storage"],
-    agentPrimaryPath: true,
-    producesWorkspaceArtifacts: true,
-    workspaceSegment: "推演",
+    workspaceSegment: "翻译",
   },
 };
 
@@ -99,7 +97,6 @@ export function getModuleWorkspaceSegment(moduleId: ModuleId): string | undefine
 
 /** 对话页内模式 → 流程 Skill（`research` 为 API 别名，见 normalizeChatMode） */
 export const CHAT_MODE_SKILL: Record<string, string> = {
-  auto: "skill-qa",
   fast: "skill-qa-fast",
   deep: "skill-qa-deep",
   research: "skill-qa-deep",
@@ -120,6 +117,49 @@ export const WRITING_TEMPLATE_SKILL: Record<string, string> = {
 /**
  * PPT 路演 templateId → 流程 Skill（由 Open Design 批量同步，见 skills/ppt-sync-manifest.json）
  */
+/** 会议 templateId（可选）→ 流程 Skill；缺省见 resolveSkills meeting 分支 */
+export const MEETING_TEMPLATE_SKILL: Record<string, string> = {
+  default: "skill-mm-summary",
+  "daily-standup": "skill-mm-daily-standup",
+  "client-review": "skill-mm-client-review",
+  "internal-decision": "skill-mm-internal-decision",
+};
+
+export const MEETING_TEMPLATE_PACK: Record<string, string> = {
+  default: "tpl-mm-default",
+  "daily-standup": "tpl-mm-daily-standup",
+  "client-review": "tpl-mm-client-review",
+  "internal-decision": "tpl-mm-internal-decision",
+};
+
+/** 会议类型展示（新建纪要页；不选则走 default / skill-mm-summary） */
+export const MEETING_TEMPLATE_CATALOG: Array<{
+  templateId: string;
+  label: string;
+  description: string;
+}> = [
+  {
+    templateId: "default",
+    label: "通用会议纪要",
+    description: "概要、大纲、QA、待办与全文转写（默认）",
+  },
+  {
+    templateId: "daily-standup",
+    label: "站会 / 周会速记",
+    description: "昨日进展、今日计划、阻塞项",
+  },
+  {
+    templateId: "client-review",
+    label: "客户沟通纪要",
+    description: "客户诉求、我方回应、跟进事项",
+  },
+  {
+    templateId: "internal-decision",
+    label: "内部研讨 / 投决",
+    description: "议题、观点、结论与决策待办",
+  },
+];
+
 /** 与 skills/skill-ppt-* 及 skills/ppt-sync-manifest.json 对齐 */
 export const PPT_SKILL_CATALOG = [
   {
@@ -258,7 +298,7 @@ export const PPT_SKILL_CATALOG = [
 export type PptSkillCatalogEntry = (typeof PPT_SKILL_CATALOG)[number];
 
 export const PPT_TEMPLATE_SKILL: Record<string, string> = {
-  default: "skill-ppt-base",
+  default: "skill-ppt-pitch-deck",
   ...Object.fromEntries(
     PPT_SKILL_CATALOG.map((e) => [e.templateId, e.skill]),
   ),
@@ -283,13 +323,23 @@ export const PPT_TEMPLATE_CATALOG = PPT_SKILL_CATALOG.map(
   }),
 );
 
+/** 翻译 templateId（Composer 下拉值）→ 流程 Skill */
+export const TRANSLATE_TEMPLATE_SKILL: Record<string, string> = {
+  text: "skill-tr-text",
+  doc: "skill-tr-doc",
+  polish: "skill-tr-polish",
+};
+
 export type SkillResolveInput =
   | { moduleId: "chat"; binding: { mode: string } }
+  | { moduleId: "meeting"; binding: { task: "summary"; templateId?: string } }
+  | { moduleId: "knowledge"; binding: { task: "kb-qa" } }
   | { moduleId: "writing"; binding?: { templateId?: string } }
   | { moduleId: "ppt"; binding: { task: "deck"; templateId?: string } }
-  | { moduleId: "3d"; binding?: Record<string, never> }
-  | { moduleId: "video"; binding?: Record<string, never> }
-  | { moduleId: "simulation"; binding?: Record<string, never> };
+  | {
+      moduleId: "translate";
+      binding?: { task?: "translate"; templateId?: string };
+    };
 
 export type ResolvedSkills = {
   processSkill: string | null;
@@ -308,9 +358,20 @@ export function resolveSkills(input: SkillResolveInput): ResolvedSkills {
     case "chat": {
       const mode =
         normalizeChatMode(input.binding.mode) ?? input.binding.mode;
-      base.processSkill = CHAT_MODE_SKILL[mode] ?? "skill-qa";
+      base.processSkill = CHAT_MODE_SKILL[mode] ?? "skill-qa-fast";
       return base;
     }
+    case "meeting": {
+      const tid = input.binding.templateId?.trim() || "default";
+      base.processSkill =
+        MEETING_TEMPLATE_SKILL[tid] ?? MEETING_TEMPLATE_SKILL.default;
+      base.templatePackId =
+        MEETING_TEMPLATE_PACK[tid] ?? MEETING_TEMPLATE_PACK.default;
+      return base;
+    }
+    case "knowledge":
+      base.processSkill = "skill-kb-qa";
+      return base;
     case "writing": {
       const tid = input.binding?.templateId?.trim();
       if (tid) {
@@ -318,12 +379,12 @@ export function resolveSkills(input: SkillResolveInput): ResolvedSkills {
           WRITING_TEMPLATE_SKILL[tid] ?? `skill-wr-${tid}`;
         base.templatePackId = `tpl-wr-${tid}`;
       } else {
-        base.processSkill = WRITING_BASE_SKILL;
+        base.processSkill = WRITING_DEFAULT_SKILL;
       }
       return base;
     }
     case "ppt": {
-      const tid = input.binding.templateId?.trim() || "default";
+      const tid = input.binding.templateId?.trim() || "pitch-deck";
       base.processSkill =
         PPT_TEMPLATE_SKILL[tid] ??
         PPT_TEMPLATE_SKILL.default ??
@@ -331,19 +392,14 @@ export function resolveSkills(input: SkillResolveInput): ResolvedSkills {
       base.templatePackId = PPT_TEMPLATE_PACK[tid] ?? null;
       return base;
     }
-    case "3d": {
-      base.processSkill = "skill-industrial-drawing-base";
-      base.templatePackId = null;
-      return base;
-    }
-    case "video": {
-      base.processSkill = "skill-vp-base";
-      base.templatePackId = "tpl-vp-product-intro";
-      return base;
-    }
-    case "simulation": {
-      base.processSkill = "skill-simulation-base";
-      base.templatePackId = null;
+    case "translate": {
+      const tid = input.binding?.templateId?.trim();
+      if (tid) {
+        base.processSkill =
+          TRANSLATE_TEMPLATE_SKILL[tid] ?? `skill-tr-${tid}`;
+      } else {
+        base.processSkill = TRANSLATE_DEFAULT_SKILL;
+      }
       return base;
     }
     default:

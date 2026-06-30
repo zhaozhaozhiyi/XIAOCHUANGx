@@ -12,16 +12,6 @@ export type TurnViewModel = {
   summaryPart:
     | Extract<ChatPart, { kind: "summary" }>
     | Extract<ChatPart, { kind: "clarification" }>
-    | Extract<
-        ChatPart,
-        {
-          kind:
-            | "writing_requirements"
-            | "ppt_requirements"
-            | "3d_requirements"
-            | "video_requirements";
-        }
-      >
     | null;
   deliverablesPart: Extract<ChatPart, { kind: "deliverables" }> | null;
   waitingMessage: string | null;
@@ -122,7 +112,7 @@ export function buildTurnViewModel(message: ChatMessage): TurnViewModel {
 
   // contentParts = 完整时序交错（含 text/summary），跨 kind 按文字内容去重
   const contentSeenTexts = new Set<string>();
-  let contentParts = timeline.filter((part) => {
+  const contentParts = timeline.filter((part) => {
     if (isDebugPart(part)) return false;
     if (isWaitingPart(part)) return false;
     if (isConnectStatusPart(part)) return false;
@@ -137,9 +127,6 @@ export function buildTurnViewModel(message: ChatMessage): TurnViewModel {
     }
     return true;
   });
-  if (contentParts.length === 0 && summaryPart?.kind === "summary") {
-    contentParts = [summaryPart];
-  }
 
   return {
     summaryPart,

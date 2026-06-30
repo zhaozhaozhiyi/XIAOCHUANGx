@@ -36,13 +36,6 @@ extraResources:
     to: prompts
     filter:
       - "**/*"
-  # 3D / 工业制图：产品托管 OpenSCAD Runtime。
-  # 平台二进制放在 resources/engines/openscad/{darwin,win32,linux}/，
-  # Web CAD API 运行时从 process.resourcesPath/engines/openscad 解析。
-  - from: resources/engines
-    to: engines
-    filter:
-      - "**/*"
 
 asar: true
 

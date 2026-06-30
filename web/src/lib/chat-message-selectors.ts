@@ -8,34 +8,10 @@ import { stripInjectedActivityContext } from "@/lib/activity-log";
 
 type SummaryPart = Extract<ChatPart, { kind: "summary" }>;
 type ClarificationPart = Extract<ChatPart, { kind: "clarification" }>;
-type RequirementsPart = Extract<
-  ChatPart,
-  {
-    kind:
-      | "writing_requirements"
-      | "ppt_requirements"
-      | "3d_requirements"
-      | "video_requirements";
-  }
->;
-
-function hasRequirementsPart(message: ChatMessage): boolean {
-  return (message.parts ?? []).some(
-    (part) =>
-      part.kind === "writing_requirements" ||
-      part.kind === "ppt_requirements" ||
-      part.kind === "3d_requirements" ||
-      part.kind === "video_requirements",
-  );
-}
 
 export function selectAssistantDisplayContent(message: ChatMessage): string {
   if (message.role !== "assistant") {
     return normalizeMarkdown(message.content);
-  }
-
-  if (hasRequirementsPart(message)) {
-    return "";
   }
 
   const fromCanonical = stripInjectedActivityContext(
@@ -64,18 +40,7 @@ export function selectHasAssistantSummaryContent(message: ChatMessage): boolean 
 
 export function selectAssistantSummaryPart(
   message: ChatMessage,
-): SummaryPart | ClarificationPart | RequirementsPart | null {
-  const requirements = [...(message.parts ?? [])]
-    .reverse()
-    .find(
-      (part): part is RequirementsPart =>
-        part.kind === "writing_requirements" ||
-        part.kind === "ppt_requirements" ||
-        part.kind === "3d_requirements" ||
-        part.kind === "video_requirements",
-    );
-  if (requirements) return requirements;
-
+): SummaryPart | ClarificationPart | null {
   const clarification = [...(message.parts ?? [])]
     .reverse()
     .find(

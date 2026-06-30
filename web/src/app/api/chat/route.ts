@@ -1,12 +1,9 @@
 import { getMockActivityEvents, getMockReply } from "@/lib/chat";
 import { buildDeliverablesPart } from "@/lib/mock-deliverables";
-import { buildMockAiUiFlow } from "@/lib/mock-ai-ui-flow";
 import { encodeMockActivitySse } from "@/lib/mock-activity-sse";
 import {
   DEFAULT_API_PROVIDER_CONFIG,
   hasUsableApiProviderConfig,
-  redactSensitiveText,
-  toUserFacingProviderError,
   trimApiProviderConfig,
 } from "@/lib/byok/shared";
 import { streamApiProviderChat } from "@/lib/byok/server";
@@ -41,69 +38,20 @@ function mockSseStream(
   text: string,
   mode: ChatModeId,
   lastUser: string,
-  options?: {
-    surfaceModuleId?: "chat" | "writing" | "ppt" | "3d" | "video" | "simulation";
-    writingTemplateId?: string;
-    pptTemplateId?: string;
-  },
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
+  const parts = text.match(/[\s\S]{1,48}/g) ?? [text];
   const activity = getMockActivityEvents(mode, lastUser);
-  const moduleId =
-    options?.surfaceModuleId === "writing" ||
-    options?.surfaceModuleId === "ppt" ||
-    options?.surfaceModuleId === "3d" ||
-    options?.surfaceModuleId === "video" ||
-    options?.surfaceModuleId === "simulation"
-      ? options.surfaceModuleId
-      : "chat";
-  const templateId =
-    moduleId === "writing"
-      ? options?.writingTemplateId
-      : moduleId === "ppt"
-        ? options?.pptTemplateId
-        : undefined;
-  const mockAiUiFlow = buildMockAiUiFlow({
-    moduleId,
-    templateId,
-    lastUserText: lastUser,
-  });
 
   return new ReadableStream({
     async start(controller) {
-      if (mockAiUiFlow) {
-        for (const part of mockAiUiFlow.parts) {
-          controller.enqueue(
-            encoder.encode(
-              `event: part.append\ndata: ${JSON.stringify({ part })}\n\n`,
-            ),
-          );
-          await new Promise((r) => setTimeout(r, 60));
-        }
-        if (mockAiUiFlow.stopAfterParts) {
-          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-          controller.close();
-          return;
-        }
-        if (mockAiUiFlow.deliverables) {
-          controller.enqueue(
-            encoder.encode(
-              `event: part.append\ndata: ${JSON.stringify({ part: mockAiUiFlow.deliverables })}\n\n`,
-            ),
-          );
-          await new Promise((r) => setTimeout(r, 60));
-        }
-      }
-
       for (const ev of activity) {
         for (const chunk of encodeMockActivitySse(encoder, ev, "hermes")) {
           controller.enqueue(chunk);
         }
         await new Promise((r) => setTimeout(r, 60));
       }
-      const deliverablesPart = mockAiUiFlow
-        ? null
-        : buildDeliverablesPart(mode, lastUser);
+      const deliverablesPart = buildDeliverablesPart(mode, lastUser);
       if (deliverablesPart) {
         controller.enqueue(
           encoder.encode(
@@ -112,9 +60,7 @@ function mockSseStream(
         );
         await new Promise((r) => setTimeout(r, 50));
       }
-      const finalText = mockAiUiFlow?.finalText ?? text;
-      const finalParts = finalText.match(/[\s\S]{1,48}/g) ?? [finalText];
-      for (const part of finalParts) {
+      for (const part of parts) {
         const payload = JSON.stringify({
           choices: [{ index: 0, delta: { content: part } }],
         });
@@ -167,12 +113,6 @@ function parseBody(body: unknown): ChatCompletionRequestBody | null {
       ? ("writing" as const)
       : b.surfaceModuleId === "ppt"
         ? ("ppt" as const)
-        : b.surfaceModuleId === "3d"
-          ? ("3d" as const)
-          : b.surfaceModuleId === "video"
-            ? ("video" as const)
-            : b.surfaceModuleId === "simulation"
-              ? ("simulation" as const)
         : ("chat" as const);
   const writingTemplateId =
     typeof b.writingTemplateId === "string" && b.writingTemplateId.trim()
@@ -236,14 +176,6 @@ export async function POST(request: Request) {
   const executionSource = parsed.executionSource ?? "cli";
   const lastUserIndex = findLastUserMessageIndex(messages);
   const lastUser = lastUserIndex >= 0 ? messages[lastUserIndex] : undefined;
-  const mockSurfaceModuleId =
-    parsed.surfaceModuleId === "writing" ||
-    parsed.surfaceModuleId === "ppt" ||
-    parsed.surfaceModuleId === "3d" ||
-    parsed.surfaceModuleId === "video" ||
-    parsed.surfaceModuleId === "simulation"
-      ? parsed.surfaceModuleId
-      : "chat";
 
   if (executionSource === "api") {
     // 优先使用前端传来的配置，环境变量作为回退
@@ -304,9 +236,6 @@ export async function POST(request: Request) {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to reach provider";
-      const safeMessage = toUserFacingProviderError({
-        detail: redactSensitiveText(message),
-      });
 
       // 添加详细的错误诊断信息
       const debugInfo = {
@@ -315,7 +244,7 @@ export async function POST(request: Request) {
         providerProtocol: providerConfig.protocol,
         hasApiKey: !!providerConfig.apiKey,
         errorType: error instanceof Error ? error.constructor.name : typeof error,
-        errorMessage: safeMessage,
+        errorMessage: message,
       };
 
       console.error("[API Chat] Provider request failed:", debugInfo);
@@ -323,7 +252,7 @@ export async function POST(request: Request) {
       return Response.json(
         {
           error: "provider_unreachable",
-          message: safeMessage,
+          message,
           debug: debugInfo,
         },
         { status: 502 },
@@ -374,20 +303,16 @@ export async function POST(request: Request) {
   if (hermesConfig.useMock) {
     const reply = getMockReply(lastUser?.content ?? "", mode, agentId);
     return new Response(
-      mockSseStream(reply, mode, lastUser?.content ?? "", {
-        surfaceModuleId: mockSurfaceModuleId,
-        writingTemplateId: parsed.writingTemplateId,
-        pptTemplateId: parsed.pptTemplateId,
-      }),
+      mockSseStream(reply, mode, lastUser?.content ?? ""),
       {
-        headers: {
-          "Content-Type": "text/event-stream; charset=utf-8",
-          "Cache-Control": "no-cache, no-transform",
-          Connection: "keep-alive",
-          "X-Hermes-Client": "mock",
-          "X-JLC-Agent-Id": agentId,
-        },
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Hermes-Client": "mock",
+        "X-JLC-Agent-Id": agentId,
       },
+    },
     );
   }
 
