@@ -13,6 +13,11 @@ import {
 import { fetchRunEvents, fetchRunRecord } from "@/lib/companion/runtime";
 import { applyRunEventsToMessage } from "@/lib/chat-run-events";
 
+export type LoadedSessionMessages = {
+  messages: ChatMessage[];
+  projectId?: string | null;
+};
+
 function statusFromRunRecord(
   record: CompanionRunRecord,
   message?: ChatMessage,
@@ -96,7 +101,7 @@ async function restoreInflightMessages(
 /** Companion 优先 → localStorage → demo seed */
 export async function loadSessionMessagesHybrid(
   sessionId: string,
-): Promise<ChatMessage[]> {
+): Promise<LoadedSessionMessages> {
   const remote = await fetchCompanionSessionMessages(sessionId);
   if (remote?.messages?.length) {
     const sanitizedRemote = sanitizeMessages(remote.messages, {
@@ -104,15 +109,15 @@ export async function loadSessionMessagesHybrid(
     });
     const restored = await restoreInflightMessages(sanitizedRemote);
     saveChatSessionMessages(sessionId, restored, { preserveInflight: true });
-    return restored;
+    return { messages: restored, projectId: remote.projectId };
   }
   const local = loadChatSessionMessages(sessionId);
   if (local?.length) {
     const restored = await restoreInflightMessages(local);
     saveChatSessionMessages(sessionId, restored, { preserveInflight: true });
-    return restored;
+    return { messages: restored };
   }
-  return getSeedMessages(sessionId) ?? [];
+  return { messages: getSeedMessages(sessionId) ?? [] };
 }
 
 export async function saveSessionMessagesHybrid(

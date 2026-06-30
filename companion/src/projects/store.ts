@@ -6,6 +6,9 @@ import {
   constants,
   realpath,
   open,
+  cp,
+  readdir,
+  stat,
 } from "node:fs/promises";
 import {
   join,
@@ -479,6 +482,120 @@ async function resolveUniqueLeafDir(
       return candidate;
     }
   }
+}
+
+async function findGeneratedDrawingRoot(sourceDir: string): Promise<string> {
+  async function walk(dir: string, depth: number): Promise<string | null> {
+    const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
+    const names = new Set(entries.map((entry) => entry.name));
+    if (
+      names.has("drawing.scad") ||
+      names.has("drawing.parameters.json") ||
+      names.has("README.md") ||
+      names.has("exports")
+    ) {
+      return dir;
+    }
+    if (depth <= 0) return null;
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      if (entry.name.startsWith(".")) continue;
+      const found = await walk(join(dir, entry.name), depth - 1);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  return (await walk(sourceDir, 3)) ?? sourceDir;
+}
+
+async function hasAnyFile(dir: string): Promise<boolean> {
+  const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
+  for (const entry of entries) {
+    const full = join(dir, entry.name);
+    if (entry.isFile()) return true;
+    if (entry.isDirectory() && (await hasAnyFile(full))) return true;
+  }
+  return false;
+}
+
+async function copyDirectoryContents(sourceDir: string, targetDir: string) {
+  const entries = await readdir(sourceDir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (entry.name === ".DS_Store") continue;
+    const from = join(sourceDir, entry.name);
+    const to = join(targetDir, entry.name);
+    await cp(from, to, {
+      recursive: true,
+      force: false,
+      errorOnExist: true,
+      preserveTimestamps: true,
+    });
+  }
+}
+
+export async function createDefaultTaskProjectFromSource(input: {
+  moduleId: string;
+  taskTitle?: string;
+  taskId?: string;
+  sourceDir: string;
+}): Promise<CompanionProjectSummary> {
+  const segment = resolveModuleWorkspaceSegment(input.moduleId);
+  if (!segment) throw new Error("module_no_workspace_segment");
+
+  const sourceRoot =
+    input.moduleId === "3d"
+      ? await findGeneratedDrawingRoot(input.sourceDir)
+      : input.sourceDir;
+  if (!(await hasAnyFile(sourceRoot))) {
+    throw new Error("lazy_workspace_no_generated_files");
+  }
+
+  const db = await loadDb();
+  const dedupeKey =
+    input.taskId?.trim() ?
+      defaultTaskDedupeKey(input.moduleId, input.taskId.trim())
+    : undefined;
+  if (dedupeKey) {
+    const existing = db.projects.find((p) => p.defaultTaskKey === dedupeKey);
+    if (existing) return toSummary(existing);
+  }
+
+  const title =
+    sanitizeTaskTitle(input.taskTitle) ||
+    MODULE_DEFAULT_TASK_NAMES[input.moduleId] ||
+    "未命名任务";
+  const moduleParent = join(
+    defaultWorkspaceRoot(),
+    XIAOCHUANG_DIR,
+    segment,
+    todaySegment(),
+  );
+  await mkdir(moduleParent, { recursive: true });
+
+  const leafDir = await resolveUniqueLeafDir(moduleParent, title);
+  await mkdir(leafDir, { recursive: true });
+  await copyDirectoryContents(sourceRoot, leafDir);
+  validateLocalBaseDir(leafDir);
+  if (!(await stat(leafDir)).isDirectory()) {
+    throw new Error("lazy_workspace_target_invalid");
+  }
+
+  const projectId = `proj-${randomUUID().slice(0, 8)}`;
+  const record: ProjectRecord = {
+    projectId,
+    name: basename(leafDir),
+    workspaceKind: "local_bound",
+    pathSummary: formatPathSummary(leafDir),
+    baseDir: leafDir,
+    bindingSource: "platform_default",
+    defaultTaskKey: dedupeKey,
+    createdAt: new Date().toISOString(),
+  };
+
+  db.projects.push(record);
+  await saveDb(db);
+  return toSummary(record);
 }
 
 /**

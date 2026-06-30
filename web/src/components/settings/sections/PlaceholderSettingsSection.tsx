@@ -1,7 +1,6 @@
 "use client";
 
 import { Construction } from "lucide-react";
-import { CHAT_MODES } from "@/lib/navigation";
 import type { SettingsSectionId } from "@/lib/settings";
 
 const COPY: Record<
@@ -13,23 +12,18 @@ const COPY: Record<
 > = {
   chat_defaults: {
     title: "研究与对话默认",
-    body: "配置新建对话的默认问答模式，以及是否沿用上次模式。",
-    planned: "V1.1 · F-SET-002",
+    body: "配置新建对话的默认问答策略；当前默认由助手自动判断回答深度。",
+    planned: "Desktop Beta · F-SET-002",
   },
   workspace: {
     title: "工作区",
     body: "默认展开工作区、记住面板宽度、是否显示 Agent 终端页签。",
-    planned: "V1.1 · F-SET-004",
-  },
-  knowledge: {
-    title: "知识库",
-    body: "查看容量用量，配置生成完成后是否提示存入知识库。",
-    planned: "V1.1 · F-SET-005",
+    planned: "Desktop Beta · F-SET-004",
   },
   admin: {
     title: "功能与审计",
-    body: "模块开关、企业配额、会议/上传上限与审计日志查询。",
-    planned: "V1.1 · F-SET-008",
+    body: "模块开关、企业配额、上传上限与审计日志查询。",
+    planned: "Web Sandbox · F-SET-008",
   },
 };
 
@@ -39,8 +33,7 @@ export function PlaceholderSettingsSection({ section }: { section: SettingsSecti
 
   const isPartial =
     section === "chat_defaults" ||
-    section === "workspace" ||
-    section === "knowledge";
+    section === "workspace";
 
   return (
     <div className="space-y-6">
@@ -59,21 +52,16 @@ export function PlaceholderSettingsSection({ section }: { section: SettingsSecti
           <p className="text-overline">预览（未生效）</p>
           {section === "chat_defaults" && (
             <>
-              <label className="block text-sm">默认问答模式</label>
-              <select className="w-full rounded-lg border border-[var(--border)] px-2 py-2 text-sm">
-                {CHAT_MODES.map((m) => (
-                  <option key={m.id}>{m.label}</option>
-                ))}
-              </select>
+              <label className="block text-sm">默认问答策略</label>
+              <div className="rounded-lg border border-[var(--border)] px-2 py-2 text-sm">
+                自动判断
+              </div>
             </>
           )}
           {section === "workspace" && (
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" defaultChecked /> 进入模块时默认展开工作区
             </label>
-          )}
-          {section === "knowledge" && (
-            <p className="text-sm">已用 1.2 GB / 5 GB</p>
           )}
         </div>
       )}

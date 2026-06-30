@@ -24,11 +24,17 @@ export type ResolveCompanionWorkspaceResult = {
   workspaceProjectId: string;
   /** 由 ensure-default-task-project 新解析出的 projectId */
   ensuredProject?: ResearchProject;
+  lazyDefaultWorkspace?: {
+    moduleId: ModuleId;
+    taskId?: string;
+    taskTitle?: string;
+  };
 };
 
 /**
  * 将 Web 研究项目 ID 解析为 Companion 可扫描的 workspaceProjectId。
- * 未选课题时调用 ensure-default-task-project（§5.3.2.1a）。
+ * 未选课题且无需立即承接附件时，统一走懒创建：Agent 先写入临时目录，
+ * 产生真实文件后由 Companion 注册为 XIAOCHUANG/{module}/{date}/{title} 项目。
  */
 export async function resolveCompanionWorkspaceProjectId(
   uiProjectId: string,
@@ -36,6 +42,7 @@ export async function resolveCompanionWorkspaceProjectId(
     moduleId?: ModuleId;
     taskId?: string;
     taskTitle?: string;
+    requiresImmediateWorkspace?: boolean;
   },
 ): Promise<ResolveCompanionWorkspaceResult> {
   if (uiProjectId !== NO_PROJECT_ID) {
@@ -54,6 +61,17 @@ export async function resolveCompanionWorkspaceProjectId(
 
   if (!options?.moduleId) {
     throw new Error("module_id_required_for_default_workspace");
+  }
+
+  if (!options.requiresImmediateWorkspace) {
+    return {
+      workspaceProjectId: "__lazy_default__",
+      lazyDefaultWorkspace: {
+        moduleId: options.moduleId,
+        taskId: options.taskId,
+        taskTitle: options.taskTitle,
+      },
+    };
   }
 
   const summary = await ensureCompanionDefaultTaskProject({

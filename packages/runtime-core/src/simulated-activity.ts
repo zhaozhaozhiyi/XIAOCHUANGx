@@ -45,10 +45,13 @@ export function getSimulatedActivityEvents(
   text: string,
   agentId?: AgentId,
 ): SimulatedActivityEvent[] {
-  if (agentId === "hermes" && mode === "fast") {
+  const effectiveMode =
+    mode === "auto" ? (isComplexDeepQuestion(text) ? "deep" : "fast") : mode;
+
+  if (agentId === "hermes" && effectiveMode === "fast") {
     return hermesFastEvents(text);
   }
-  if (mode === "fast") {
+  if (effectiveMode === "fast") {
     return [
       {
         type: "interim",
@@ -76,7 +79,7 @@ export function getSimulatedActivityEvents(
         ]
       : [];
 
-  if (mode === "deep" && !isComplexDeepQuestion(text)) {
+  if (effectiveMode === "deep" && !isComplexDeepQuestion(text)) {
     return [
       ...hermesPrefix,
       {
@@ -121,7 +124,7 @@ export function getSimulatedActivityEvents(
       },
     ];
   }
-  if (mode === "deep") {
+  if (effectiveMode === "deep") {
     return [
     ...hermesPrefix,
     {

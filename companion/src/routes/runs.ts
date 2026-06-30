@@ -29,11 +29,11 @@ import type { RunEvent } from "@jlc/contracts";
 const VALID_AGENT_IDS = new Set<string>(AGENT_IDS);
 const MODULE_IDS = new Set<string>([
   "chat",
-  "meeting",
-  "knowledge",
   "writing",
   "ppt",
-  "translate",
+  "3d",
+  "video",
+  "simulation",
 ]);
 const TIMEOUT_PROFILES = new Set([
   "default",
@@ -41,8 +41,27 @@ const TIMEOUT_PROFILES = new Set([
   "deep",
   "writing",
   "ppt",
-  "translate",
+  "video",
 ]);
+
+function parseLazyDefaultWorkspace(
+  value: unknown,
+): CreateRunRequest["lazyDefaultWorkspace"] | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const raw = value as Record<string, unknown>;
+  if (typeof raw.moduleId !== "string" || !MODULE_IDS.has(raw.moduleId)) {
+    return undefined;
+  }
+  return {
+    moduleId: raw.moduleId as ModuleId,
+    ...(typeof raw.taskId === "string" && raw.taskId.trim()
+      ? { taskId: raw.taskId.trim() }
+      : {}),
+    ...(typeof raw.taskTitle === "string" && raw.taskTitle.trim()
+      ? { taskTitle: raw.taskTitle.trim() }
+      : {}),
+  };
+}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -74,7 +93,7 @@ function replayPayloadForSse(event: RunEvent): unknown {
   return event;
 }
 
-function parseCreateRun(body: unknown): CreateRunRequest | null {
+export function parseCreateRun(body: unknown): CreateRunRequest | null {
   if (!body || typeof body !== "object") return null;
   const b = body as Record<string, unknown>;
   if (typeof b.sessionId !== "string" || !b.sessionId.trim()) return null;
@@ -108,6 +127,7 @@ function parseCreateRun(body: unknown): CreateRunRequest | null {
     sessionId: b.sessionId.trim(),
     projectId: typeof b.projectId === "string" ? b.projectId : "none",
     workspaceProjectId: String(b.workspaceProjectId),
+    lazyDefaultWorkspace: parseLazyDefaultWorkspace(b.lazyDefaultWorkspace),
     moduleId: b.moduleId as ModuleId,
     binding: b.binding as CreateRunRequest["binding"],
     agentId: b.agentId,

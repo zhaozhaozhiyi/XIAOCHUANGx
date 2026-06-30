@@ -38,9 +38,16 @@ export type ClarificationPayload = {
   input?: unknown;
 };
 
+export type ProjectEnsuredPayload = {
+  id: string;
+  name: string;
+  pathSummary: string;
+};
+
 export type ChatStreamCallbacks = {
   onStreamStart?: () => void;
   onRunStarted?: (payload: RunStartedPayload) => void;
+  onProjectEnsured?: (project: ProjectEnsuredPayload) => void;
   onDelta: (content: string) => void;
   onInterimAssistant?: (payload: {
     text: string;
@@ -102,6 +109,7 @@ function parseCompanionPayload(
   partPatch?: { id: string; merge: Record<string, unknown> };
   todoItems?: TodoItem[];
   runStarted?: RunStartedPayload;
+  projectEnsured?: ProjectEnsuredPayload;
   status?: { label: string; phase?: string };
   error?: string;
   code?: string;
@@ -128,6 +136,23 @@ function parseCompanionPayload(
     }
     if (eventName === "run.started") {
       return { runStarted: parseRunStartedPayload(json) };
+    }
+    if (eventName === "project.ensured") {
+      const id =
+        typeof json.id === "string"
+          ? json.id
+          : typeof json.projectId === "string"
+            ? json.projectId
+            : "";
+      if (!id) return null;
+      return {
+        projectEnsured: {
+          id,
+          name: typeof json.name === "string" ? json.name : id,
+          pathSummary:
+            typeof json.pathSummary === "string" ? json.pathSummary : "",
+        },
+      };
     }
     if (eventName === "run.status") {
       const label =
@@ -364,6 +389,9 @@ export async function consumeChatSse(
           }
           if (eventName === "run.started" && parsed?.runStarted) {
             callbacks.onRunStarted?.(parsed.runStarted);
+          }
+          if (eventName === "project.ensured" && parsed?.projectEnsured) {
+            callbacks.onProjectEnsured?.(parsed.projectEnsured);
           }
           if (eventName === "run.status" && parsed?.status) {
             callbacks.onStatus?.(parsed.status.label, parsed.status.phase);

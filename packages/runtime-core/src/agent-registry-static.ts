@@ -34,7 +34,7 @@ export type StaticAgentRegistryEntry = {
 export const STATIC_AGENT_REGISTRY: Record<AgentId, StaticAgentRegistryEntry> = {
   codex: {
     id: "codex",
-    role: "默认推荐 · 写作 / PPT / 多文件工作区",
+    role: "通用工作流 · 写作 / PPT / 多文件工作区",
     fallbackModels: [
       { id: "default", label: "Default" },
       { id: "gpt-5.4", label: "gpt-5.4" },

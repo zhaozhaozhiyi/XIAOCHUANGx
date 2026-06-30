@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "playwright-report/**",
+    "test-results/**",
+    "public/pdf.worker.min.mjs",
+    "public/openscad-wasm/**",
   ]),
 ]);
 

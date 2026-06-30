@@ -1,0 +1,245 @@
+name: Desktop Packages
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    tags:
+      - "v*"
+  pull_request:
+    branches:
+      - main
+      - dev
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Build a release-gated package with bundled OpenSCAD runtime"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-packages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS DMG
+            os: macos-14
+            platform: darwin
+            artifact_name: desktop-macos
+          - name: Windows NSIS
+            os: windows-latest
+            platform: win32
+            artifact_name: desktop-windows
+
+    env:
+      PNPM_VERSION: 11.8.0
+      NODE_VERSION: 22
+      JLC_OPENSCAD_SOURCE_CODE_URL: ${{ vars.JLC_OPENSCAD_SOURCE_CODE_URL || 'https://github.com/openscad/openscad' }}
+      OPENSCAD_DIST_URL_DARWIN: ${{ vars.JLC_OPENSCAD_DIST_URL_DARWIN || secrets.JLC_OPENSCAD_DIST_URL_DARWIN }}
+      OPENSCAD_DIST_SHA256_DARWIN: ${{ vars.JLC_OPENSCAD_DIST_SHA256_DARWIN || secrets.JLC_OPENSCAD_DIST_SHA256_DARWIN }}
+      OPENSCAD_REQUIRED_ARCHES_DARWIN: ${{ vars.JLC_OPENSCAD_REQUIRED_ARCHES_DARWIN }}
+      OPENSCAD_DIST_URL_WIN32: ${{ vars.JLC_OPENSCAD_DIST_URL_WIN32 || secrets.JLC_OPENSCAD_DIST_URL_WIN32 }}
+      OPENSCAD_DIST_SHA256_WIN32: ${{ vars.JLC_OPENSCAD_DIST_SHA256_WIN32 || secrets.JLC_OPENSCAD_DIST_SHA256_WIN32 }}
+      OPENSCAD_REQUIRED_ARCHES_WIN32: ${{ vars.JLC_OPENSCAD_REQUIRED_ARCHES_WIN32 }}
+      OPENSCAD_LICENSES_DIR: ${{ vars.JLC_OPENSCAD_LICENSES_DIR }}
+      OPENSCAD_LICENSES_ZIP_BASE64: ${{ secrets.JLC_OPENSCAD_LICENSES_ZIP_BASE64 }}
+      OPENSCAD_WASM_DIST_URL: ${{ vars.JLC_OPENSCAD_WASM_DIST_URL || secrets.JLC_OPENSCAD_WASM_DIST_URL }}
+      OPENSCAD_WASM_DIST_SHA256: ${{ vars.JLC_OPENSCAD_WASM_DIST_SHA256 || secrets.JLC_OPENSCAD_WASM_DIST_SHA256 }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install unzip on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install unzip -y --no-progress
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Select package mode
+        id: mode
+        shell: bash
+        run: |
+          release=false
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            release=true
+          fi
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.release }}" == "true" ]]; then
+            release=true
+          fi
+          echo "release=${release}" >> "${GITHUB_OUTPUT}"
+          echo "release=${release}"
+
+      - name: Prepare OpenSCAD license notices
+        if: steps.mode.outputs.release == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${OPENSCAD_LICENSES_ZIP_BASE64}" ]]; then
+            mkdir -p .runtime
+            printf "%s" "${OPENSCAD_LICENSES_ZIP_BASE64}" > .runtime/openscad-license-notices.zip.b64
+            node -e "const fs=require('node:fs');const input=fs.readFileSync('.runtime/openscad-license-notices.zip.b64','utf8').replace(/\\s+/g,'');fs.writeFileSync('.runtime/openscad-license-notices.zip', Buffer.from(input, 'base64'));"
+            rm -rf .runtime/openscad-license-notices
+            mkdir -p .runtime/openscad-license-notices
+            unzip -q .runtime/openscad-license-notices.zip -d .runtime/openscad-license-notices
+            licenses_root="${PWD}/.runtime/openscad-license-notices"
+            if [[ ! -f "${licenses_root}/LICENSE" && ! -f "${licenses_root}/COPYING" ]]; then
+              nested_dir_count="$(find "${licenses_root}" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
+              nested_file_count="$(find "${licenses_root}" -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')"
+              if [[ "${nested_dir_count}" == "1" && "${nested_file_count}" == "0" ]]; then
+                licenses_root="$(find "${licenses_root}" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+              fi
+            fi
+            echo "JLC_OPENSCAD_LICENSES_DIR=${licenses_root}" >> "${GITHUB_ENV}"
+            exit 0
+          fi
+
+          if [[ -n "${OPENSCAD_LICENSES_DIR}" && -d "${OPENSCAD_LICENSES_DIR}" ]]; then
+            echo "JLC_OPENSCAD_LICENSES_DIR=${OPENSCAD_LICENSES_DIR}" >> "${GITHUB_ENV}"
+            exit 0
+          fi
+
+          echo "::error::Release desktop builds require JLC_OPENSCAD_LICENSES_ZIP_BASE64 secret or JLC_OPENSCAD_LICENSES_DIR variable."
+          exit 1
+
+      - name: Prepare OpenSCAD runtime
+        if: steps.mode.outputs.release == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ matrix.platform }}" in
+            darwin)
+              dist_url="${OPENSCAD_DIST_URL_DARWIN}"
+              dist_sha256="${OPENSCAD_DIST_SHA256_DARWIN}"
+              required_arches="${OPENSCAD_REQUIRED_ARCHES_DARWIN}"
+              ;;
+            win32)
+              dist_url="${OPENSCAD_DIST_URL_WIN32}"
+              dist_sha256="${OPENSCAD_DIST_SHA256_WIN32}"
+              required_arches="${OPENSCAD_REQUIRED_ARCHES_WIN32}"
+              ;;
+            *)
+              echo "::error::Unsupported desktop runtime platform: ${{ matrix.platform }}"
+              exit 1
+              ;;
+          esac
+
+          if [[ -z "${dist_url}" || -z "${dist_sha256}" ]]; then
+            echo "::error::Release desktop builds require platform runtime URL and SHA256 variables/secrets."
+            echo "::error::Missing one of JLC_OPENSCAD_DIST_URL_${{ matrix.platform }} / JLC_OPENSCAD_DIST_SHA256_${{ matrix.platform }}."
+            exit 1
+          fi
+
+          echo "JLC_OPENSCAD_PLATFORM=${{ matrix.platform }}" >> "${GITHUB_ENV}"
+          if [[ -n "${required_arches}" ]]; then
+            echo "JLC_OPENSCAD_REQUIRED_ARCHES=${required_arches}" >> "${GITHUB_ENV}"
+          fi
+
+          JLC_OPENSCAD_PLATFORM="${{ matrix.platform }}" \
+          JLC_OPENSCAD_DIST_URL="${dist_url}" \
+          JLC_OPENSCAD_DIST_SHA256="${dist_sha256}" \
+          JLC_OPENSCAD_SOURCE_CODE_URL="${JLC_OPENSCAD_SOURCE_CODE_URL}" \
+          JLC_OPENSCAD_REQUIRED=1 \
+          pnpm engines:fetch:openscad -- --required
+
+      - name: Prepare OpenSCAD WASM preview
+        if: steps.mode.outputs.release == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${OPENSCAD_WASM_DIST_URL}" || -z "${OPENSCAD_WASM_DIST_SHA256}" ]]; then
+            echo "::error::Release desktop builds require JLC_OPENSCAD_WASM_DIST_URL and JLC_OPENSCAD_WASM_DIST_SHA256."
+            exit 1
+          fi
+
+          mkdir -p .runtime/openscad-downloads/wasm
+          archive=".runtime/openscad-downloads/wasm/openscad-wasm.zip"
+          curl --fail --location --retry 3 "${OPENSCAD_WASM_DIST_URL}" --output "${archive}"
+          actual_sha256="$(node -e "const fs=require('node:fs');const crypto=require('node:crypto');console.log(crypto.createHash('sha256').update(fs.readFileSync(process.argv[1])).digest('hex'))" "${archive}")"
+          if [[ "${actual_sha256}" != "${OPENSCAD_WASM_DIST_SHA256}" ]]; then
+            echo "::error::OpenSCAD WASM SHA256 mismatch. expected=${OPENSCAD_WASM_DIST_SHA256} actual=${actual_sha256}"
+            exit 1
+          fi
+
+          JLC_OPENSCAD_WASM_ARCHIVE="${archive}" \
+          JLC_OPENSCAD_WASM_DIST_URL="${OPENSCAD_WASM_DIST_URL}" \
+          JLC_OPENSCAD_WASM_DIST_SHA256="${OPENSCAD_WASM_DIST_SHA256}" \
+          JLC_OPENSCAD_SOURCE_CODE_URL="${JLC_OPENSCAD_SOURCE_CODE_URL}" \
+          pnpm engines:prepare:openscad-wasm -- --required
+
+      - name: Build desktop package
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ steps.mode.outputs.release }}" == "true" ]]; then
+            pnpm desktop:pack:ci:release
+          else
+            pnpm desktop:pack:ci
+          fi
+
+      - name: Upload desktop artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}-${{ github.run_number }}
+          if-no-files-found: error
+          path: |
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.zip
+            apps/desktop/release/*.blockmap
+            apps/desktop/release/latest*.yml
+            apps/desktop/release/*.yml
+            !apps/desktop/release/builder-debug.yml
+
+  release:
+    name: Draft GitHub Release
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: write
+    steps:
+      - name: Download desktop artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: desktop-artifacts
+          merge-multiple: true
+
+      - name: Create draft GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          make_latest: false
+          files: |
+            desktop-artifacts/*.dmg
+            desktop-artifacts/*.exe
+            desktop-artifacts/*.zip
+            desktop-artifacts/*.blockmap
+            desktop-artifacts/latest*.yml
+            desktop-artifacts/*.yml

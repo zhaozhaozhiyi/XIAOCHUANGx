@@ -1,13 +1,17 @@
 "use client";
 
-import { Globe, RotateCw } from "lucide-react";
+import { ExternalLink, FolderOpen, Globe, RotateCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { PptxPreview } from "./PptxPreview";
 import { FileSourceView } from "./FileSourceView";
+import { EditableFileSourceView } from "./EditableFileSourceView";
 import { ImagePreview } from "./ImagePreview";
 import { PdfPreview } from "./PdfPreview";
 import { DocxPreview } from "./DocxPreview";
+import { StlPreview } from "./StlPreview";
+import { ScadPreview } from "./ScadPreview";
+import { DxfPreview } from "./DxfPreview";
 import { workspaceErrorMessage } from "@/lib/workspace-errors";
 import { inferMimeFromPath } from "@/lib/workspace-binary";
 import { useWorkspace } from "./WorkspaceContext";
@@ -16,6 +20,8 @@ export function FileViewer() {
   const {
     selectedFile,
     activeTab,
+    workspaceProjectId,
+    selectedFileId,
     fileContent,
     fileBinaryBase64,
     fileLoading,
@@ -29,6 +35,10 @@ export function FileViewer() {
     fileActionMessage,
     clearFileActionMessage,
     openBrowserTab,
+    openFileInSystem,
+    showFileInFolder,
+    updateFileCacheContent,
+    refreshTree,
   } = useWorkspace();
   const [htmlRenderVersion, setHtmlRenderVersion] = useState(0);
 
@@ -67,6 +77,9 @@ export function FileViewer() {
     /\.(png|jpe?g|gif|webp|svg)$/i.test(selectedFile.name);
   const isPdf = isFileSelected && /\.pdf$/i.test(selectedFile.name);
   const isDocx = isFileSelected && /\.docx$/i.test(selectedFile.name);
+  const isStl = isFileSelected && /\.stl$/i.test(selectedFile.name);
+  const isScad = isFileSelected && /\.scad$/i.test(selectedFile.name);
+  const isDxf = isFileSelected && /\.dxf$/i.test(selectedFile.name);
 
   const openHtmlInBrowser = useCallback(() => {
     if (!body.trim()) return;
@@ -81,7 +94,7 @@ export function FileViewer() {
 
   useEffect(() => {
     if (!isFileSelected) return;
-    if (isMarkdown) {
+    if (isMarkdown || isScad || isDxf) {
       if (fileViewMode !== "preview" && fileViewMode !== "source") {
         setFileViewMode("preview");
       }
@@ -96,7 +109,44 @@ export function FileViewer() {
     if (fileViewMode !== "source") {
       setFileViewMode("source");
     }
-  }, [fileViewMode, isFileSelected, isHtml, isMarkdown, setFileViewMode]);
+  }, [
+    fileViewMode,
+    isDxf,
+    isFileSelected,
+    isHtml,
+    isMarkdown,
+    isScad,
+    setFileViewMode,
+  ]);
+
+  const renderEditableSource = () => {
+    if (!selectedFile || selectedFile.type !== "file") return null;
+    if (!selectedFile.relativePath) {
+      return (
+        <FileSourceView
+          content={body}
+          language={selectedFile.language}
+          highlightLine={revealLine}
+          highlightEndLine={revealEndLine}
+          onRevealed={clearPendingReveal}
+        />
+      );
+    }
+    return (
+      <EditableFileSourceView
+        projectId={workspaceProjectId}
+        relativePath={selectedFile.relativePath}
+        content={body}
+        language={selectedFile.language}
+        onSaved={(nextContent) => {
+          if (selectedFileId) {
+            updateFileCacheContent(selectedFileId, nextContent);
+          }
+        }}
+        onWorkspaceChanged={refreshTree}
+      />
+    );
+  };
 
   if (!selectedFile || selectedFile.type !== "file") {
     return (
@@ -161,6 +211,72 @@ export function FileViewer() {
               </button>
             </div>
           )}
+          {isScad && (
+            <div
+              className="flex rounded-md border border-[var(--border)] bg-[var(--bg)] p-0.5 text-[11px]"
+              role="tablist"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={fileViewMode === "preview"}
+                onClick={() => setFileViewMode("preview")}
+                className={`rounded px-2 py-0.5 ${
+                  fileViewMode === "preview"
+                    ? "bg-[var(--surface-elevated)] font-medium text-[var(--fg)] shadow-[var(--shadow-ring)]"
+                    : "text-[var(--fg-tertiary)]"
+                }`}
+              >
+                Preview
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={fileViewMode === "source"}
+                onClick={() => setFileViewMode("source")}
+                className={`rounded px-2 py-0.5 ${
+                  fileViewMode === "source"
+                    ? "bg-[var(--surface-elevated)] font-medium text-[var(--fg)] shadow-[var(--shadow-ring)]"
+                    : "text-[var(--fg-tertiary)]"
+                }`}
+              >
+                OpenSCAD
+              </button>
+            </div>
+          )}
+          {isDxf && (
+            <div
+              className="flex rounded-md border border-[var(--border)] bg-[var(--bg)] p-0.5 text-[11px]"
+              role="tablist"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={fileViewMode === "preview"}
+                onClick={() => setFileViewMode("preview")}
+                className={`rounded px-2 py-0.5 ${
+                  fileViewMode === "preview"
+                    ? "bg-[var(--surface-elevated)] font-medium text-[var(--fg)] shadow-[var(--shadow-ring)]"
+                    : "text-[var(--fg-tertiary)]"
+                }`}
+              >
+                Preview
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={fileViewMode === "source"}
+                onClick={() => setFileViewMode("source")}
+                className={`rounded px-2 py-0.5 ${
+                  fileViewMode === "source"
+                    ? "bg-[var(--surface-elevated)] font-medium text-[var(--fg)] shadow-[var(--shadow-ring)]"
+                    : "text-[var(--fg-tertiary)]"
+                }`}
+              >
+                DXF
+              </button>
+            </div>
+          )}
           {isHtml && (
             <div
               className="flex rounded-md border border-[var(--border)] bg-[var(--bg)] p-0.5 text-[11px]"
@@ -220,12 +336,35 @@ export function FileViewer() {
               <Globe className="h-3.5 w-3.5" strokeWidth={1.75} />
             </button>
           )}
+          {selectedFile.relativePath && (
+            <button
+              type="button"
+              className="btn-icon"
+              onClick={() => void openFileInSystem(selectedFile.relativePath!)}
+              aria-label="系统打开文件"
+              title="系统打开文件"
+            >
+              <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.75} />
+            </button>
+          )}
+          {selectedFile.relativePath && (
+            <button
+              type="button"
+              className="btn-icon"
+              onClick={() => void showFileInFolder(selectedFile.relativePath!)}
+              aria-label="在文件夹中显示"
+              title="在文件夹中显示"
+            >
+              <FolderOpen className="h-3.5 w-3.5" strokeWidth={1.75} />
+            </button>
+          )}
         </div>
       </div>
 
       <div
         className={`min-h-0 flex-1 overflow-y-auto p-4 ${
-          (isPptx || isImage || isPdf || isDocx) && fileBinaryBase64
+          ((isPptx || isImage || isPdf || isDocx || isStl) && fileBinaryBase64) ||
+          ((isScad || isDxf) && fileViewMode === "preview")
             ? "flex flex-col"
             : ""
         }`}
@@ -295,19 +434,58 @@ export function FileViewer() {
           )}
         {!fileLoading &&
           !fileErrorText &&
+          isStl &&
+          fileBinaryBase64 && (
+            <StlPreview
+              base64={fileBinaryBase64}
+              fileName={selectedFile.name}
+            />
+          )}
+        {!fileLoading &&
+          !fileErrorText &&
+          isScad &&
+          fileViewMode === "preview" &&
+          selectedFile.relativePath && (
+            <ScadPreview
+              projectId={workspaceProjectId}
+              relativePath={selectedFile.relativePath}
+              fileName={selectedFile.name}
+              source={body}
+              onSourceSaved={(nextSource) => {
+                if (selectedFileId) {
+                  updateFileCacheContent(selectedFileId, nextSource);
+                }
+              }}
+              onWorkspaceChanged={refreshTree}
+            />
+          )}
+        {!fileLoading &&
+          !fileErrorText &&
+          isDxf &&
+          fileViewMode === "preview" && (
+            <DxfPreview source={body} fileName={selectedFile.name} />
+          )}
+        {!fileLoading &&
+          !fileErrorText &&
           !isPptx &&
           !isImage &&
           !isPdf &&
           !isDocx &&
-          (!isMarkdown && !isHtml || fileViewMode === "source") && (
-            <FileSourceView
-              content={body}
-              language={selectedFile.language}
-              highlightLine={revealLine}
-              highlightEndLine={revealEndLine}
-              onRevealed={clearPendingReveal}
-            />
-          )}
+          !isStl &&
+          !isScad &&
+          !isDxf &&
+          ((!isMarkdown && !isHtml) || fileViewMode === "source") &&
+          renderEditableSource()}
+        {!fileLoading &&
+          !fileErrorText &&
+          isScad &&
+          fileViewMode === "source" &&
+          renderEditableSource()}
+        {!fileLoading &&
+          !fileErrorText &&
+          isDxf &&
+          fileViewMode === "source" &&
+          renderEditableSource()}
         {!fileLoading && !fileErrorText && isPptx && !fileBinaryBase64 && (
           <p className="text-sm text-[var(--fg-tertiary)]">无法加载演示文稿</p>
         )}
@@ -319,6 +497,9 @@ export function FileViewer() {
         )}
         {!fileLoading && !fileErrorText && isDocx && !fileBinaryBase64 && (
           <p className="text-sm text-[var(--fg-tertiary)]">无法加载 DOCX</p>
+        )}
+        {!fileLoading && !fileErrorText && isStl && !fileBinaryBase64 && (
+          <p className="text-sm text-[var(--fg-tertiary)]">无法加载 STL</p>
         )}
       </div>
     </div>

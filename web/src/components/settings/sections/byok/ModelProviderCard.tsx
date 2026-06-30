@@ -13,17 +13,22 @@ import {
   MODEL_CAPABILITY_ORDER,
   createModelEntryId,
   groupModelsByType,
+  hasConnectableProviderInstance,
+  hasUsableProviderInstance,
   inferModelType,
   providerCapabilityTypes,
+  providerCredentialSchema,
   providerToApiConfig,
   vendorById,
   type ModelEntry,
   type ModelProviderInstance,
 } from "@/lib/byok/model-providers";
 import {
-  hasConnectableApiProviderConfig,
-  hasUsableApiProviderConfig,
+  redactSensitiveText,
+  toUserFacingProviderError,
 } from "@/lib/byok/shared";
+import { CredentialForm } from "./CredentialForm";
+import { ModelProviderIcon } from "./ModelProviderIcon";
 import { ModelTypeBadge } from "./ModelTypeBadge";
 
 type Notice = { kind: "success" | "error"; text: string };
@@ -31,14 +36,13 @@ type Notice = { kind: "success" | "error"; text: string };
 type ModelProviderCardProps = {
   provider: ModelProviderInstance;
   expanded: boolean;
+  /** 草稿态：未通过连接测试前不落盘 */
+  isDraft?: boolean;
   onToggleExpand: () => void;
   onChange: (next: ModelProviderInstance) => void;
   onRemove: () => void;
+  onConnectionVerified?: (provider: ModelProviderInstance) => void;
 };
-
-function vendorInitial(name: string): string {
-  return name.trim().charAt(0).toUpperCase() || "?";
-}
 
 function ModelRow({
   model,
@@ -88,9 +92,11 @@ function ModelRow({
 export function ModelProviderCard({
   provider,
   expanded,
+  isDraft = false,
   onToggleExpand,
   onChange,
   onRemove,
+  onConnectionVerified,
 }: ModelProviderCardProps) {
   const vendor = vendorById(provider.vendorId);
   const accent = vendor?.accent ?? "#87867f";
@@ -98,22 +104,24 @@ export function ModelProviderCard({
   const [loadingModels, setLoadingModels] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
 
+  const toSafeNotice = (message: string, fallback: string) =>
+    toUserFacingProviderError({
+      detail: redactSensitiveText(message),
+      fallback,
+    });
+
   const apiConfig = useMemo(
     () => providerToApiConfig(provider),
     [provider],
   );
 
-  // 用于测试连接和拉取模型（只需要 URL 和 Key）
-  const connectable = hasConnectableApiProviderConfig({
-    ...apiConfig,
-    enabled: provider.enabled,
-  });
+  const credentialSchema = useMemo(
+    () => providerCredentialSchema(provider),
+    [provider],
+  );
 
-  // 用于对话（需要 URL、Key 和至少一个模型）
-  const ready = hasUsableApiProviderConfig({
-    ...apiConfig,
-    enabled: provider.enabled,
-  });
+  const connectable = hasConnectableProviderInstance(provider);
+  const ready = hasUsableProviderInstance(provider);
 
   const capabilityTypes = providerCapabilityTypes(provider);
   const grouped = groupModelsByType(provider.models);
@@ -162,17 +170,29 @@ export function ModelProviderCard({
         models?: Array<{ id: string }>;
       };
       if (!payload.ok) {
-        setNotice({ kind: "error", text: payload.error ?? "连接测试失败" });
+        setNotice({
+          kind: "error",
+          text: toSafeNotice(
+            payload.error ?? "连接测试失败",
+            "连接测试失败，请检查 Provider 地址与 API Key 配置。",
+          ),
+        });
         return;
       }
       setNotice({
         kind: "success",
         text: `连接成功${payload.models?.length ? ` · ${payload.models.length} 个模型可用` : ""}`,
       });
+      const nextProvider = { ...provider, connectionVerified: true };
+      onChange(nextProvider);
+      onConnectionVerified?.(nextProvider);
     } catch (error) {
       setNotice({
         kind: "error",
-        text: error instanceof Error ? error.message : "连接测试失败",
+        text: toSafeNotice(
+          error instanceof Error ? error.message : "连接测试失败",
+          "连接测试失败，请检查 Provider 地址与 API Key 配置。",
+        ),
       });
     } finally {
       setTesting(false);
@@ -196,7 +216,10 @@ export function ModelProviderCard({
       if (!payload.ok || !payload.models?.length) {
         setNotice({
           kind: "error",
-          text: payload.error ?? "未获取到可用模型",
+          text: toSafeNotice(
+            payload.error ?? "未获取到可用模型",
+            "模型拉取失败，请检查 Provider 地址、API Key 与模型权限。",
+          ),
         });
         return;
       }
@@ -232,7 +255,10 @@ export function ModelProviderCard({
     } catch (error) {
       setNotice({
         kind: "error",
-        text: error instanceof Error ? error.message : "模型拉取失败",
+        text: toSafeNotice(
+          error instanceof Error ? error.message : "模型拉取失败",
+          "模型拉取失败，请检查 Provider 地址、API Key 与模型权限。",
+        ),
       });
     } finally {
       setLoadingModels(false);
@@ -260,10 +286,10 @@ export function ModelProviderCard({
         </button>
 
         <span
-          className="model-vendor-avatar"
+          className="model-vendor-avatar model-vendor-avatar--logo"
           style={{ ["--vendor-accent" as string]: accent }}
         >
-          {vendorInitial(displayName)}
+          <ModelProviderIcon vendorId={provider.vendorId} size={20} />
         </span>
 
         <button
@@ -311,7 +337,7 @@ export function ModelProviderCard({
           <button
             type="button"
             className="model-provider-icon-btn"
-            aria-label="删除 Provider"
+            aria-label={isDraft ? "取消配置" : "删除 Provider"}
             onClick={onRemove}
           >
             <Trash2 className="h-4 w-4" strokeWidth={1.75} />
@@ -346,40 +372,23 @@ export function ModelProviderCard({
             </div>
 
             <label className="space-y-1">
-              <span className="text-overline">Base URL</span>
+              <span className="text-overline">协议</span>
               <input
-                className="model-provider-input"
-                value={provider.baseUrl}
-                onChange={(e) => patch({ baseUrl: e.target.value })}
-                placeholder={vendor?.defaultBaseUrl}
+                className="model-provider-input bg-[var(--surface)] text-[var(--fg-secondary)]"
+                value={
+                  provider.protocol === "anthropic"
+                    ? "Anthropic Messages API"
+                    : "OpenAI Compatible"
+                }
+                readOnly
               />
             </label>
 
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="space-y-1">
-                <span className="text-overline">API Key</span>
-                <input
-                  type="password"
-                  className="model-provider-input"
-                  value={provider.apiKey}
-                  onChange={(e) => patch({ apiKey: e.target.value })}
-                  placeholder="sk-..."
-                />
-              </label>
-              {provider.protocol === "anthropic" && (
-                <label className="space-y-1">
-                  <span className="text-overline">Anthropic Version</span>
-                  <input
-                    className="model-provider-input"
-                    value={provider.anthropicVersion}
-                    onChange={(e) =>
-                      patch({ anthropicVersion: e.target.value })
-                    }
-                    placeholder="2023-06-01"
-                  />
-                </label>
-              )}
-            </div>
+            <CredentialForm
+              schema={credentialSchema}
+              values={provider.credentials}
+              onChange={(credentials) => patch({ credentials })}
+            />
 
             <div className="flex flex-wrap gap-2">
               <button

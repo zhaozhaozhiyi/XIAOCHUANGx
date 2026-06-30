@@ -73,7 +73,6 @@ export type PendingSession = {
   projectId?: string;
   writingTemplateId?: string;
   pptTemplateId?: string;
-  translateTemplateId?: string;
 };
 
 export function setPendingSession(id: string, payload: PendingSession) {
@@ -272,7 +271,9 @@ export function getMockReply(
     return "已为你生成螺纹钢周报大纲：\n1. 价格与基差回顾\n2. 供给：高炉开工与产量\n3. 需求：基建与地产用钢\n4. 库存：社会库与厂库\n5. 展望与风险提示\n\n可在「写作」模块中一键展开为完整文稿。";
   }
 
-  if (mode === "deep") {
+  const effectiveMode =
+    mode === "auto" ? (isComplexDeepQuestion(text) ? "deep" : "fast") : mode;
+  if (effectiveMode === "deep") {
     if (isComplexDeepQuestion(text)) {
       return `${agentTag} 【深度分析摘要】\n· 主题：${text}\n· 信源：资讯 / 公告 / 研报 已分层归纳\n· 可导出可视化报告（功能接入后开放）`;
     }

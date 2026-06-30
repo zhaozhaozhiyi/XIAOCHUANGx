@@ -13,7 +13,11 @@ import {
   NO_PROJECT_ID,
   SANDBOX_PROJECT_ID,
 } from "@/lib/research-projects";
-import { findWorkspaceFile, WORKSPACE_ROOT } from "@/lib/workspace";
+import {
+  createEmptyWorkspaceRoot,
+  findWorkspaceFile,
+  WORKSPACE_ROOT,
+} from "@/lib/workspace";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,7 +27,7 @@ type RouteContext = { params: Promise<{ projectId: string }> };
 function projectLabel(projectId: string): string {
   const mock = getResearchProject(projectId);
   if (mock) return mock.name;
-  if (projectId === SANDBOX_PROJECT_ID) return "默认工作区";
+  if (projectId === SANDBOX_PROJECT_ID) return "默认工作文件夹";
   return projectId;
 }
 
@@ -41,18 +45,14 @@ export async function GET(request: Request, context: RouteContext) {
         nodes: [],
       });
     }
+    const label = "默认工作文件夹（XIAOCHUANG）";
     return Response.json({
       projectId,
       mode: "draft",
       root: null,
       tree: [],
-      rootNode: {
-        id: "root",
-        name: "默认工作区（XIAOCHUANG）",
-        type: "folder",
-        children: [],
-      },
-      label: "默认工作区（XIAOCHUANG）",
+      rootNode: createEmptyWorkspaceRoot(label),
+      label,
     });
   }
 

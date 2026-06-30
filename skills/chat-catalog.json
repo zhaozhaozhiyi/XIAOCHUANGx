@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "description": "对话模块可见 Skill 目录（仅摘要进入 system；全文由 Agent 按需经 Agent Kit 读取）。维护说明见 web/docs/chat-core-architecture.md",
+  "description": "对话模块可见 Skill 目录（仅摘要进入 system；全文由 Agent 按需经 Agent Kit 读取）。维护说明见 docs/technical/chat-core-architecture.md",
   "entries": [
     {
       "slug": "skill-writing-general",
@@ -175,6 +175,42 @@
       "kind": "tool",
       "scope": ["ppt"],
       "summary": "HTML 与 PPTX 导出保真度对照与修复"
+    },
+    {
+      "slug": "skill-industrial-drawing-base",
+      "kind": "workflow",
+      "scope": ["chat", "3d"],
+      "summary": "工业制图基座：需求收敛、3D 摘要/结构方案、参数化 CAD 文件落盘与 OpenSCAD 预览导出流程"
+    },
+    {
+      "slug": "skill-industrial-drawing-parametric",
+      "kind": "workflow",
+      "scope": ["chat", "3d"],
+      "summary": "参数化 OpenSCAD 建模：生成可编辑 drawing.scad 与 drawing.parameters.json，支持后续参数回改"
+    },
+    {
+      "slug": "skill-industrial-drawing-export",
+      "kind": "tool",
+      "scope": ["chat", "3d"],
+      "summary": "工业制图预览与导出：OpenSCAD STL/DXF、工具链状态、fallback 来源标注与导出质量检查"
+    },
+    {
+      "slug": "skill-vp-base",
+      "kind": "workflow",
+      "scope": ["chat", "video"],
+      "summary": "视频制作基座：收敛视频 brief，P0 默认交接网页视频生产 Skill，产出可预览、可录屏的 presentation 项目；Remotion/MP4 属于 P1"
+    },
+    {
+      "slug": "skill-vp-web-video-presentation",
+      "kind": "workflow",
+      "scope": ["chat", "video"],
+      "summary": "网页视频生产：从文章或口播稿生成 Vite/React presentation 项目，支持 ?reel=1 自动预览、?audio=1 配音检查、?auto=1 录屏出片路径"
+    },
+    {
+      "slug": "skill-simulation-base",
+      "kind": "workflow",
+      "scope": ["chat", "simulation"],
+      "summary": "推演基座：收敛复杂问题边界，拆解主体、变量、假设和多条情景路径，生成可继续深挖的推演报告"
     }
   ]
 }

@@ -2,12 +2,13 @@ import type { ChatSurfaceModuleId } from "@/lib/module-chat-config";
 import {
   getResearchProject,
   isPlatformDefaultProject,
+  isResearchProjectHidden,
   isUsingLocalProject,
   NO_PROJECT_ID,
   PLATFORM_DEFAULT_GROUP_LABEL,
 } from "@/lib/research-projects";
 
-/** 侧栏「默认工作区（XIAOCHUANG）」合成组 ID */
+/** 侧栏「默认工作文件夹（XIAOCHUANG）」合成组 ID */
 export const PLATFORM_DEFAULT_GROUP_ID = "__platform_default__";
 
 /** Agent 执行态（侧栏状态点主维度之一） */
@@ -185,11 +186,21 @@ function normalizeSession(
     typeof raw.lastReadAt === "number"
       ? raw.lastReadAt
       : (seed?.lastReadAt ?? 0);
+  const surfaceModuleId =
+    raw.surfaceModuleId === "writing" ||
+    raw.surfaceModuleId === "ppt" ||
+    raw.surfaceModuleId === "3d" ||
+    raw.surfaceModuleId === "video" ||
+    raw.surfaceModuleId === "simulation" ||
+    raw.surfaceModuleId === "chat"
+      ? raw.surfaceModuleId
+      : (seed?.surfaceModuleId ?? "chat");
 
   return {
     id: raw.id,
     title: raw.title ?? seed?.title ?? "新对话",
     projectId: raw.projectId ?? seed?.projectId ?? NO_PROJECT_ID,
+    surfaceModuleId,
     createdAt:
       typeof raw.createdAt === "number"
         ? raw.createdAt
@@ -279,6 +290,7 @@ export function patchChatSession(
       | "projectId"
       | "updatedAt"
       | "createdAt"
+      | "surfaceModuleId"
       | "runStatus"
       | "lastReadAt"
       | "contextCompression"
@@ -292,6 +304,26 @@ export function patchChatSession(
   const without = list.filter((s) => s.id !== sessionId);
   writeIndex([next, ...without]);
   return next;
+}
+
+export function renameChatSession(
+  sessionId: string,
+  title: string,
+): ChatSessionRecord | undefined {
+  const nextTitle = title.trim();
+  if (!nextTitle) return undefined;
+  return patchChatSession(sessionId, {
+    title: nextTitle,
+    updatedAt: Date.now(),
+  });
+}
+
+export function removeChatSession(sessionId: string): boolean {
+  const list = readIndex();
+  const next = list.filter((s) => s.id !== sessionId);
+  if (next.length === list.length) return false;
+  writeIndex(next);
+  return true;
 }
 
 export function setSessionRunStatus(
@@ -379,16 +411,16 @@ export type GroupedChatHistory = {
 
 function groupChatSessions(sessions: ChatSessionRecord[]): GroupedChatHistory {
   const byUserProject = new Map<string, ChatSessionRecord[]>();
-  const platformDefault: ChatSessionRecord[] = [];
-  const unassigned: ChatSessionRecord[] = [];
+  const defaultFolder: ChatSessionRecord[] = [];
 
   for (const s of sessions) {
+    if (isResearchProjectHidden(s.projectId)) continue;
     if (s.projectId === NO_PROJECT_ID) {
-      unassigned.push(s);
+      defaultFolder.push(s);
       continue;
     }
     if (isPlatformDefaultProject(s.projectId)) {
-      platformDefault.push(s);
+      defaultFolder.push(s);
       continue;
     }
     if (isUsingLocalProject(s.projectId)) {
@@ -397,7 +429,7 @@ function groupChatSessions(sessions: ChatSessionRecord[]): GroupedChatHistory {
       byUserProject.set(s.projectId, list);
       continue;
     }
-    unassigned.push(s);
+    defaultFolder.push(s);
   }
 
   const projectGroups: ChatHistoryProjectGroup[] = [...byUserProject.entries()]
@@ -411,17 +443,15 @@ function groupChatSessions(sessions: ChatSessionRecord[]): GroupedChatHistory {
         (b.sessions[0]?.updatedAt ?? 0) - (a.sessions[0]?.updatedAt ?? 0),
     );
 
-  if (platformDefault.length > 0) {
-    projectGroups.unshift({
+  if (defaultFolder.length > 0) {
+    projectGroups.push({
       projectId: PLATFORM_DEFAULT_GROUP_ID,
       label: PLATFORM_DEFAULT_GROUP_LABEL,
-      sessions: platformDefault.sort((a, b) => b.updatedAt - a.updatedAt),
+      sessions: defaultFolder.sort((a, b) => b.updatedAt - a.updatedAt),
     });
   }
 
-  unassigned.sort((a, b) => b.updatedAt - a.updatedAt);
-
-  return { projectGroups, unassigned };
+  return { projectGroups, unassigned: [] };
 }
 
 /**
@@ -454,6 +484,7 @@ export function branchChatSession(
     id: newSessionId,
     title: title ?? (parent?.title ? `${parent.title}（分支）` : "新对话"),
     projectId: parent?.projectId ?? NO_PROJECT_ID,
+    surfaceModuleId: parent?.surfaceModuleId ?? "chat",
     runStatus: "idle",
   });
 }

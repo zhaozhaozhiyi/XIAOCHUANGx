@@ -11,7 +11,7 @@
  *  - 不打 Node 单二进制：用 esbuild 把 companion ESM 跨包打包为单 CJS
  *    （≈ 数百 KB），运行时由 Electron 主进程通过 ELECTRON_RUN_AS_NODE=1
  *    + spawn(process.execPath, [bundle.cjs]) 跑成 Node。理由见
- *    web/docs/desktop-d1.4-bundle-status.md（与 roadmap §6.3 写的
+ *    docs/plans/desktop-d1.4-bundle-status.md（与 roadmap §6.3 写的
  *    pkg/nexe 路线偏离的明确决策）。
  *  - skills/ + prompts/ 不进 bundle：让用户能就地查看/修改；体积也
  *    省 ≈ 12MB；通过 supervisor 注入 JLC_SKILLS_DIR / JLC_PROMPTS_DIR

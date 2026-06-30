@@ -1,6 +1,6 @@
 import type { Dirent } from "node:fs";
-import { readdir, stat, readFile } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { mkdir, readdir, stat, readFile, writeFile } from "node:fs/promises";
+import { dirname, join, relative } from "node:path";
 import type { FileTreeNode } from "../types.js";
 import { shouldSkipDirEntry } from "./ignore.js";
 import { safeRelativePath } from "./store.js";
@@ -89,7 +89,7 @@ export async function getProjectTreeChildren(
   return listDirectoryLevel(projectRoot, full);
 }
 
-const BINARY_EXT = /\.(pptx|docx|xlsx|pdf|png|jpe?g|gif|webp|svg)$/i;
+const BINARY_EXT = /\.(pptx|docx|xlsx|pdf|png|jpe?g|gif|webp|svg|stl)$/i;
 
 function mimeForPath(relPath: string): string {
   const lower = relPath.toLowerCase();
@@ -105,6 +105,9 @@ function mimeForPath(relPath: string): string {
   if (lower.endsWith(".gif")) return "image/gif";
   if (lower.endsWith(".webp")) return "image/webp";
   if (lower.endsWith(".svg")) return "image/svg+xml";
+  if (lower.endsWith(".stl")) return "model/stl";
+  if (lower.endsWith(".dxf")) return "image/vnd.dxf";
+  if (lower.endsWith(".scad")) return "text/x-openscad";
   if (lower.endsWith(".md")) return "text/markdown";
   if (lower.endsWith(".json")) return "application/json";
   return "text/plain";
@@ -124,4 +127,74 @@ export async function readProjectFile(
   }
   const content = await readFile(full, "utf8");
   return { content, mime, encoding: "utf8" };
+}
+
+export async function writeProjectFile(input: {
+  projectRoot: string;
+  relPath: string;
+  content: string;
+  encoding?: "utf8" | "base64";
+}): Promise<{ path: string; mime: string; size: number }> {
+  const full = safeRelativePath(input.projectRoot, input.relPath);
+  await mkdir(dirname(full), { recursive: true });
+  const bytes =
+    input.encoding === "base64"
+      ? Buffer.from(input.content, "base64")
+      : Buffer.from(input.content, "utf8");
+  await writeFile(full, bytes);
+  return {
+    path: input.relPath.replace(/\\/g, "/").replace(/^\.\//, ""),
+    mime: mimeForPath(input.relPath),
+    size: bytes.length,
+  };
+}
+
+function normalizeEntryPath(relPath: string): string {
+  const normalized = relPath.replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+$/, "");
+  if (!normalized.trim()) throw new Error("path_required");
+  if (normalized.startsWith("/") || /^[A-Za-z]:\//i.test(normalized)) {
+    throw new Error("absolute_path_not_allowed");
+  }
+  const segments = normalized.split("/");
+  if (segments.some((segment) => !segment || segment === "." || segment === "..")) {
+    throw new Error("invalid_path");
+  }
+  return normalized;
+}
+
+async function assertEntryDoesNotExist(path: string): Promise<void> {
+  try {
+    await stat(path);
+    throw new Error("entry_already_exists");
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw err;
+  }
+}
+
+export async function createProjectEntry(input: {
+  projectRoot: string;
+  relPath: string;
+  type: "file" | "folder";
+  content?: string;
+}): Promise<{ path: string; type: "file" | "folder"; mime?: string; size?: number }> {
+  const relPath = normalizeEntryPath(input.relPath);
+  const full = safeRelativePath(input.projectRoot, relPath);
+  await assertEntryDoesNotExist(full);
+
+  if (input.type === "folder") {
+    await mkdir(full, { recursive: true });
+    return { path: relPath, type: "folder" };
+  }
+
+  await mkdir(dirname(full), { recursive: true });
+  const content = input.content ?? "";
+  const bytes = Buffer.from(content, "utf8");
+  await writeFile(full, bytes, { flag: "wx" });
+  return {
+    path: relPath,
+    type: "file",
+    mime: mimeForPath(relPath),
+    size: bytes.length,
+  };
 }

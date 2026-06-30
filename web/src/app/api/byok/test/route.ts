@@ -1,5 +1,9 @@
 import { probeApiProvider } from "@/lib/byok/server";
-import type { ApiProviderConfig } from "@/lib/byok/shared";
+import {
+  redactSensitiveText,
+  toUserFacingProviderError,
+  type ApiProviderConfig,
+} from "@/lib/byok/shared";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,7 +53,12 @@ export async function POST(request: Request) {
     return Response.json(
       {
         ok: false,
-        error: error instanceof Error ? error.message : "probe_failed",
+        error: toUserFacingProviderError({
+          detail: redactSensitiveText(
+            error instanceof Error ? error.message : "probe_failed",
+          ),
+          fallback: "连接测试失败，请检查 Provider 地址与 API Key 配置。",
+        }),
       },
       { status: 502 },
     );

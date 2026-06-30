@@ -5,6 +5,7 @@ import { resolveSkillsRoot } from "./paths.js";
 export const CHAT_ORCHESTRATION_MODE = "hybrid-steer" as const;
 
 export const CHAT_BASE_SKILLS = {
+  auto: "skill-qa",
   fast: "skill-qa-fast",
   deep: "skill-qa-deep",
 } as const;
@@ -28,7 +29,7 @@ export function resolveChatOrchestration(input: {
   skillsRoot?: string;
 }): ChatOrchestration {
   const skillsRoot = input.skillsRoot ?? resolveSkillsRoot();
-  const mode = normalizeChatMode(input.mode) ?? "fast";
+  const mode = normalizeChatMode(input.mode) ?? "auto";
   const catalog = loadChatCatalog(skillsRoot);
 
   return {

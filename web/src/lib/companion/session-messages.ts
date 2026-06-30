@@ -5,6 +5,7 @@ export type SessionMessagesResponse = {
   sessionId: string;
   messages: ChatMessage[];
   updatedAt: string | null;
+  projectId?: string | null;
   source?: string;
 };
 

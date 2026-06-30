@@ -1,0 +1,29 @@
+{
+  "name": "@jlc/video",
+  "version": "0.1.0-alpha",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "remotion studio --port 41000",
+    "build": "remotion render XiaochuangPromo out/xiaochuang-promo.mp4",
+    "build:png": "remotion still XiaochuangPromo out/cover.png --frame=180",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.483",
+    "@remotion/google-fonts": "4.0.483",
+    "@remotion/media-utils": "4.0.483",
+    "@remotion/player": "4.0.483",
+    "@remotion/renderer": "4.0.483",
+    "@remotion/bundler": "4.0.483",
+    "lucide-react": "1.16.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "remotion": "4.0.483"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5"
+  }
+}

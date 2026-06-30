@@ -3,6 +3,8 @@ import {
   companionConfig,
   companionHealthUrl,
   companionProjectFileUrl,
+  companionProjectFilesUrl,
+  companionProjectEntriesUrl,
   companionProjectFilesIndexUrl,
   companionProjectUploadUrl,
   companionProjectTreeUrl,
@@ -196,6 +198,73 @@ export async function fetchCompanionProjectFile(
     content: string;
     mime?: string;
     encoding?: string;
+  };
+}
+
+export async function writeCompanionProjectFile(input: {
+  projectId: string;
+  path: string;
+  content: string;
+  encoding?: "utf8" | "base64";
+}): Promise<{ projectId: string; path: string; mime?: string; size: number }> {
+  const res = await companionFetch(companionProjectFilesUrl(input.projectId), {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      path: input.path,
+      content: input.content,
+      encoding: input.encoding ?? "utf8",
+    }),
+  });
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      message?: string;
+    };
+    throw new Error(err.message ?? err.error ?? `file_write_failed_${res.status}`);
+  }
+  return (await res.json()) as {
+    projectId: string;
+    path: string;
+    mime?: string;
+    size: number;
+  };
+}
+
+export async function createCompanionProjectEntry(input: {
+  projectId: string;
+  type: "file" | "folder";
+  path: string;
+  content?: string;
+}): Promise<{
+  projectId: string;
+  type: "file" | "folder";
+  path: string;
+  mime?: string;
+  size?: number;
+}> {
+  const res = await companionFetch(companionProjectEntriesUrl(input.projectId), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      type: input.type,
+      path: input.path,
+      content: input.content ?? "",
+    }),
+  });
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      message?: string;
+    };
+    throw new Error(err.message ?? err.error ?? `entry_create_failed_${res.status}`);
+  }
+  return (await res.json()) as {
+    projectId: string;
+    type: "file" | "folder";
+    path: string;
+    mime?: string;
+    size?: number;
   };
 }
 

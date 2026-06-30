@@ -37,11 +37,11 @@ import type { ChatPendingAttachment } from "@/lib/chat";
 import {
   getModuleSkillOptions,
   MODULE_SKILL_CHANGED_EVENT,
+  sessionHrefFromNewEntry,
   readStoredModuleSkillTemplateId,
   writeStoredModuleSkillTemplateId,
   type ModuleSkillPickerKind,
   type PptSkillTemplateId,
-  type TranslateSkillTemplateId,
   type WritingSkillTemplateId,
 } from "@/lib/module-chat-config";
 
@@ -55,7 +55,6 @@ export type ChatComposerSendPayload = {
   projectId: string;
   writingTemplateId?: WritingSkillTemplateId;
   pptTemplateId?: PptSkillTemplateId;
-  translateTemplateId?: TranslateSkillTemplateId;
 };
 
 type ChatComposerProps = {
@@ -71,14 +70,22 @@ type ChatComposerProps = {
   onProjectIdChange?: (id: string) => void;
   /** 仅新建/未发送会话时展示「进入项目工作」 */
   showProjectPicker?: boolean;
-  /** 写作等深度产出模块隐藏快速/深度切换 */
+  /** 主路径隐藏问答策略切换；仅保留旧调试入口兼容 */
   showModePicker?: boolean;
   /** 写作 / PPT：底栏 Skill 模板选择 */
   skillPickerModule?: ModuleSkillPickerKind;
+  /** 当前模块的新会话入口，用于会话中切换工作区时保持模块归属 */
+  newSessionHref?: string;
   defaultMode?: ChatModeId;
   executionSource: ChatExecutionSource;
   agentId: AgentId;
   agentModel: string;
+};
+
+type ComposePrefillDetail = {
+  text?: string;
+  append?: boolean;
+  focus?: boolean;
 };
 
 const TEXT_ATTACHMENT_MAX_CHARS = 60_000;
@@ -149,8 +156,6 @@ function isImageAttachment(file: File): boolean {
     (!!extension && IMAGE_ATTACHMENT_EXTENSIONS.has(extension))
   );
 }
-
-
 
 async function attachmentFromFile(file: File): Promise<ChatPendingAttachment> {
   const extension = file.name.includes(".")
@@ -367,6 +372,7 @@ export function ChatComposer({
   showProjectPicker = false,
   showModePicker = true,
   skillPickerModule,
+  newSessionHref = "/chat",
   defaultMode,
   executionSource,
   agentId,
@@ -484,6 +490,31 @@ export function ChatComposer({
     }
   }, []);
 
+  useEffect(() => {
+    const handleComposePrefill = (event: Event) => {
+      const detail = (event as CustomEvent<ComposePrefillDetail>).detail;
+      const incoming = detail?.text ?? "";
+      if (!incoming) return;
+      setText((current) => {
+        const next =
+          detail?.append && current.trim()
+            ? `${current.replace(/\s+$/u, "")}\n\n${incoming}`
+            : incoming;
+        requestAnimationFrame(() => {
+          const el = textareaRef.current;
+          if (!el) return;
+          if (detail?.focus !== false) el.focus();
+          el.setSelectionRange(next.length, next.length);
+          syncMention(next, next.length);
+        });
+        return next;
+      });
+    };
+    window.addEventListener("jlc-compose-prefill", handleComposePrefill);
+    return () =>
+      window.removeEventListener("jlc-compose-prefill", handleComposePrefill);
+  }, [syncMention]);
+
   const insertMention = (file: WorkspaceFileNode) => {
     const label = file.relativePath ?? file.name;
     const before = text.slice(0, mentionStart);
@@ -527,9 +558,6 @@ export function ChatComposer({
         ...(skillPickerModule === "ppt"
           ? { pptTemplateId: moduleSkillId as PptSkillTemplateId }
           : {}),
-        ...(skillPickerModule === "translate"
-          ? { translateTemplateId: moduleSkillId as TranslateSkillTemplateId }
-          : {}),
       });
       if (settings.rememberLastChatMode) {
         updateSettings({ defaultChatMode: mode });
@@ -557,7 +585,7 @@ export function ChatComposer({
           : "已切换到默认工作文件夹，正在新建对话…",
       );
       window.setTimeout(() => {
-        router.push(`/chat/${newId}`);
+        router.push(sessionHrefFromNewEntry(newSessionHref, newId));
       }, 480);
       return;
     }
@@ -903,7 +931,7 @@ export function ChatComposer({
           {switchHint ??
             (isUsingLocalProject(projectId)
               ? `当前工作文件夹：${getResearchProject(projectId)?.pathSummary}`
-              : "当前工作文件夹：默认工作区（XIAOCHUANG）")}
+              : "当前工作文件夹：默认工作文件夹（XIAOCHUANG）")}
         </p>
       )}
     </div>

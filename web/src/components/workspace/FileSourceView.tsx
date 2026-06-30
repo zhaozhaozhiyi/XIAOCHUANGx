@@ -18,7 +18,7 @@ type Rule = {
   type: Exclude<TokenType, "plain">;
 };
 
-type CodeLanguage =
+export type CodeLanguage =
   | "markdown"
   | "json"
   | "sql"
@@ -31,7 +31,10 @@ type CodeLanguage =
   | "text"
   | "pptx"
   | "html"
-  | "python";
+  | "python"
+  | "scad"
+  | "stl"
+  | "dxf";
 
 type Token = { text: string; type: TokenType };
 
@@ -105,6 +108,22 @@ function tokenizeByLanguage(
       { regex: /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/gy, type: "string" },
       { regex: /\b\d+(?:\.\d+)?\b/gy, type: "number" },
       { regex: /[=+\-*/%<>!]+/gy, type: "operator" },
+    ]);
+  }
+
+  if (language === "scad") {
+    return tokenizeWithRules(line, [
+      { regex: /\/\/.*/gy, type: "comment" },
+      { regex: /\/\*.*?\*\//gy, type: "comment" },
+      {
+        regex:
+          /\b(?:module|function|use|include|if|else|for|let|assign|true|false|undef|echo|assert|color|translate|rotate|scale|mirror|resize|offset|hull|minkowski|union|difference|intersection|linear_extrude|rotate_extrude|projection|surface|import|cube|sphere|cylinder|circle|square|polygon|polyhedron)\b/gy,
+        type: "keyword",
+      },
+      { regex: /"(?:\\.|[^"\\])*"/gy, type: "string" },
+      { regex: /-?\b\d+(?:\.\d+)?\b/gy, type: "number" },
+      { regex: /[=+\-*/%<>!&|?:]+/gy, type: "operator" },
+      { regex: /[{}\[\](),;]/gy, type: "punctuation" },
     ]);
   }
 

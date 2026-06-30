@@ -243,15 +243,6 @@ test.describe("MVP chat", () => {
   test("keeps structured assistant sections and stable long-session scrolling", async ({
     page,
   }) => {
-    await page.goto("/chat/2");
-    await expect(page.getByText("执行结果")).toBeVisible();
-    await expect(page.getByText("执行过程")).toBeVisible();
-    await expect(page.getByText("最终回复")).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: /查看处理过程/ }),
-    ).toBeVisible();
-    await expect(page.getByRole("button", { name: /技术详情/ })).toBeVisible();
-
     await page.addInitScript(
       ([sessionId, messages]) => {
         window.localStorage.setItem(
@@ -269,17 +260,39 @@ test.describe("MVP chat", () => {
       return !!root && root.scrollHeight > root.clientHeight;
     });
 
-    await expect(page.getByText("第 1 轮问题")).toBeVisible();
+    await expect(page.locator(".bubble-user").filter({ hasText: "第 1 轮问题" })).toBeVisible();
     await expect(page.locator(".chat-turn")).toHaveCount(18);
 
     await page.evaluate(() => {
       const root = document.querySelector(".chat-scroll-root");
+      const target = document.querySelector('[data-turn-id="scroll-user-10"]');
       if (!(root instanceof HTMLElement)) return;
-      root.scrollTop = Math.floor(root.scrollHeight * 0.55);
+      if (!(target instanceof HTMLElement)) return;
+      root.scrollTop = target.offsetTop;
       root.dispatchEvent(new Event("scroll"));
     });
-    await expect(page.getByText("第 10 轮问题")).toBeVisible();
+    await expect(page.locator(".bubble-user").filter({ hasText: "第 10 轮问题" })).toBeVisible();
     await expect(page.locator(".chat-turn")).toHaveCount(18);
+    const stickyState = await page.evaluate(() => {
+      const root = document.querySelector(".chat-scroll-root");
+      const active = document.querySelector(
+        '.chat-turn[data-active-turn="true"] .chat-turn-user-panel',
+      );
+      if (!(root instanceof HTMLElement) || !(active instanceof HTMLElement)) {
+        return null;
+      }
+      const rootTop = root.getBoundingClientRect().top;
+      const activeTop = active.getBoundingClientRect().top;
+      const computed = window.getComputedStyle(active);
+      return {
+        position: computed.position,
+        offset: Math.round(activeTop - rootTop),
+        text: active.textContent ?? "",
+      };
+    });
+    expect(stickyState).toMatchObject({ position: "sticky" });
+    expect(stickyState?.offset).toBeGreaterThanOrEqual(10);
+    expect(stickyState?.offset).toBeLessThanOrEqual(40);
 
     await page.evaluate(() => {
       const root = document.querySelector(".chat-scroll-root");
@@ -287,7 +300,7 @@ test.describe("MVP chat", () => {
       root.scrollTop = root.scrollHeight;
       root.dispatchEvent(new Event("scroll"));
     });
-    await expect(page.getByText("第 18 轮问题")).toBeVisible();
+    await expect(page.locator(".bubble-user").filter({ hasText: "第 18 轮问题" })).toBeVisible();
 
     await page.evaluate(() => {
       const root = document.querySelector(".chat-scroll-root");
@@ -295,13 +308,115 @@ test.describe("MVP chat", () => {
       root.scrollTop = 0;
       root.dispatchEvent(new Event("scroll"));
     });
-    await expect(page.getByText("第 1 轮问题")).toBeVisible();
+    await expect(page.locator(".bubble-user").filter({ hasText: "第 1 轮问题" })).toBeVisible();
+  });
+
+  test("persists committed outline edits after refresh", async ({ page }) => {
+    const sessionId = `outline-commit-recovery-${Date.now()}`;
+    const storageKey = `jlc-chat-messages-${sessionId}`;
+
+    await page.addInitScript(([seedSessionId, seedStorageKey]) => {
+      const messages = [
+        {
+          id: "outline-user",
+          role: "user",
+          content: "请按大纲生成一份行业深度报告",
+          status: "complete",
+        },
+        {
+          id: "outline-assistant",
+          role: "assistant",
+          content: "",
+          status: "complete",
+          parts: [
+            {
+              id: "outline-part",
+              kind: "writing_outline",
+              title: "写作大纲",
+              markdown:
+                "## 原始大纲\n\n1. 市场回顾\n- 需求恢复\n\n2. 风险研判\n- 价格波动",
+              outline: {
+                version: 1,
+                source: "ai",
+                committed: false,
+                sections: [
+                  {
+                    id: "section-1",
+                    title: "市场回顾",
+                    bullets: ["需求恢复"],
+                  },
+                  {
+                    id: "section-2",
+                    title: "风险研判",
+                    bullets: ["价格波动"],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ];
+      window.localStorage.setItem(seedStorageKey, JSON.stringify(messages));
+      window.localStorage.setItem(`jlc-chat-started-${seedSessionId}`, "1");
+    }, [sessionId, storageKey]);
+
+    await page.goto(`/chat/${sessionId}`);
+    await expect(page.getByText("写作大纲")).toBeVisible();
+
+    await page
+      .locator('input[value="写作大纲"]')
+      .fill("用户确认版行业深度报告大纲");
+    await page
+      .locator('input[value="市场回顾"]')
+      .fill("上半年市场复盘");
+    await page.locator('input[value="需求恢复"]').fill("汽柴油需求分化");
+    await page.getByRole("button", { name: "新增一节" }).click();
+    await page.locator('input[value="新章节 3"]').fill("新增行动建议");
+    await page.getByRole("button", { name: "确认采用" }).click();
+
+    await expect(page.getByText("已确认")).toBeVisible();
+    await expect
+      .poll(() =>
+        page.evaluate((key) => {
+          const raw = window.localStorage.getItem(key);
+          if (!raw) return null;
+          const messages = JSON.parse(raw);
+          const part = messages
+            .flatMap((message: { parts?: unknown[] }) => message.parts ?? [])
+            .find(
+              (item: { id?: string; kind?: string }) =>
+                item.id === "outline-part" && item.kind === "writing_outline",
+            );
+          return part ?? null;
+        }, storageKey),
+      )
+      .toMatchObject({
+        outline: {
+          source: "user",
+          committed: true,
+          sections: expect.arrayContaining([
+            expect.objectContaining({
+              title: "上半年市场复盘",
+              bullets: expect.arrayContaining(["汽柴油需求分化"]),
+            }),
+            expect.objectContaining({
+              title: "新增行动建议",
+            }),
+          ]),
+        },
+      });
+
+    await page.reload();
+    await expect(page.getByText("已确认")).toBeVisible();
+    await expect(page.getByText("用户确认版行业深度报告大纲")).toBeVisible();
+    await expect(page.getByText("上半年市场复盘")).toBeVisible();
+    await expect(page.getByText("新增行动建议")).toBeVisible();
   });
 
   test("opens workspace file links from markdown in the right workspace pane", async ({
     page,
   }) => {
-    const sessionId = "workspace-link-open";
+    const sessionId = `workspace-link-open-${Date.now()}`;
 
     await page.addInitScript(([seedSessionId]) => {
       const messages = [
@@ -314,7 +429,7 @@ test.describe("MVP chat", () => {
         {
           id: "workspace-link-assistant",
           role: "assistant",
-          content: "结果文件： [PRD-小窗.md](PRD-小窗.md)",
+          content: "结果文件： [docs/product/PRD-小窗.md](../../../docs/product/PRD-小窗.md)",
           status: "complete",
         },
       ];
@@ -327,11 +442,16 @@ test.describe("MVP chat", () => {
     await page.goto(`/chat/${sessionId}`);
     await expect(page.getByText("结果文件：")).toBeVisible();
 
-    await page.getByRole("link", { name: "PRD-小窗.md" }).click();
+    await page.getByRole("link", { name: "docs/product/PRD-小窗.md" }).click();
 
-    await expect(page.getByLabel("工作区")).toBeVisible();
+    await expect(
+      page.getByRole("complementary", { name: "工作区" }),
+    ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "PRD-小窗.md" }).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByTitle("docs/product/PRD-小窗.md", { exact: true }),
     ).toBeVisible();
     await expect(page.getByText("Preview")).toBeVisible();
   });

@@ -70,6 +70,27 @@ function spawnPnpm(label, script, extraEnv = {}) {
   return child;
 }
 
+function spawnWeb(port) {
+  const cmd = npmExecPath ? process.execPath : "pnpm";
+  const args = npmExecPath
+    ? [npmExecPath, "--filter", "web", "dev", "--port", String(port)]
+    : ["--filter", "web", "dev", "--port", String(port)];
+  const child = spawn(cmd, args, {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      FORCE_COLOR: "1",
+      PORT: String(port),
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+    shell: isWin && !npmExecPath,
+  });
+
+  prefixLines("web", child.stdout);
+  prefixLines("web", child.stderr);
+  return child;
+}
+
 async function waitForUrl(url, input = {}) {
   const timeoutMs = input.timeoutMs ?? 180_000;
   const intervalMs = input.intervalMs ?? 1_000;
@@ -87,6 +108,50 @@ async function waitForUrl(url, input = {}) {
     await sleep(intervalMs);
   }
   return false;
+}
+
+async function fetchText(url, input = {}) {
+  try {
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(input.timeoutMs ?? 3_000),
+    });
+    if (!res.ok) return null;
+    return await res.text();
+  } catch {
+    return null;
+  }
+}
+
+async function isXiaochuangWeb(url) {
+  try {
+    const identityUrl = new URL("/api/app/identity", url);
+    const res = await fetch(identityUrl, {
+      signal: AbortSignal.timeout(2_000),
+    });
+    if (res.ok) {
+      const json = await res.json().catch(() => null);
+      return json?.appId === "xiaochuang";
+    }
+  } catch {
+    // Fall back to HTML probing for older dev servers.
+  }
+
+  const html = await fetchText(url, { timeoutMs: 2_000 });
+  if (!html) return false;
+  return (
+    html.includes("<title>小窗</title>") ||
+    html.includes("小窗智能研究助手")
+  );
+}
+
+async function findAvailableWebUrl(startPort = 3000) {
+  for (let port = startPort; port < startPort + 20; port += 1) {
+    const url = `http://localhost:${port}`;
+    if (!(await waitForUrl(url, { timeoutMs: 500, intervalMs: 100 }))) {
+      return { port, url };
+    }
+  }
+  throw new Error(`未找到可用 Web 端口（${startPort}-${startPort + 19}）`);
 }
 
 function processExists(pid) {
@@ -196,27 +261,41 @@ async function main() {
     timeoutMs: 1_000,
     intervalMs: 250,
   });
-  if (!defaultWebOk) {
+  let shouldStartWeb = false;
+  if (defaultWebOk) {
+    if (await isXiaochuangWeb(webUrl)) {
+      console.log(`[dev] Reusing existing Web on ${webUrl}`);
+    } else {
+      const next = await findAvailableWebUrl(3001);
+      webUrl = next.url;
+      shouldStartWeb = true;
+      console.log(
+        `[dev] Port 3000 is occupied by a non-Xiaochuang app; starting Web on ${webUrl}`,
+      );
+    }
+  } else {
     const lock = await loadWebLock();
     if (lock?.appUrl) {
       const lockedWebOk = await waitForUrl(lock.appUrl, {
         timeoutMs: 1_500,
         intervalMs: 250,
       });
-      if (lockedWebOk) {
+      if (lockedWebOk && (await isXiaochuangWeb(lock.appUrl))) {
         webUrl = lock.appUrl;
         console.log(`[dev] Reusing existing Web on ${webUrl}`);
       } else {
         console.log("[dev] Cleaning up stale Next dev lock before restart...");
         await cleanupStaleWebLock(lock);
+        shouldStartWeb = true;
       }
+    } else {
+      shouldStartWeb = true;
     }
-  } else {
-    console.log(`[dev] Reusing existing Web on ${webUrl}`);
   }
 
-  if (!defaultWebOk && webUrl === "http://localhost:3000") {
-    const web = spawnPnpm("web", "dev:web");
+  if (shouldStartWeb) {
+    const target = new URL(webUrl);
+    const web = spawnWeb(Number(target.port || "3000"));
     children.push(web);
     web.on("exit", (code, signal) => {
       if (shuttingDown) return;

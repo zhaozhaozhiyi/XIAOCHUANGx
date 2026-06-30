@@ -11,18 +11,18 @@ import {
   type ReactNode,
 } from "react";
 import {
+  createWorkspaceEntry,
   fetchWorkspaceFileIndex,
   fetchWorkspaceFolderChildren,
   fetchWorkspaceTree,
 } from "@/lib/workspace/adapter";
 import { useWorkspaceProject } from "@/components/workspace/WorkspaceProjectContext";
 import {
-  WORKSPACE_ROOT,
-  WORKSPACE_TREE_WIDTH_DEFAULT,
   clampWorkspaceTreeWidth,
   clampWorkspaceWidth,
   collectAncestorFolderIds,
   collectWorkspaceFolderIds,
+  createEmptyWorkspaceRoot,
   findWorkspaceFile,
   hydrateAllWorkspaceFolders,
   hydrateWorkspaceFolders,
@@ -70,6 +70,11 @@ type TerminalApi = {
   getSessionTitle: (sessionId: string) => string;
 };
 
+type WorkspaceFileActionResult = {
+  ok: boolean;
+  message?: string;
+};
+
 type WorkspaceContextValue = {
   sessionKey: string;
   setSessionKey: (key: string) => void;
@@ -100,6 +105,8 @@ type WorkspaceContextValue = {
   treeLoading: boolean;
   treeError: string | null;
   refreshTree: () => void;
+  createWorkspaceFile: (relativePath: string) => Promise<boolean>;
+  createWorkspaceFolder: (relativePath: string) => Promise<boolean>;
   panelWidth: number;
   setPanelWidth: (width: number) => void;
   resetPanelWidth: () => void;
@@ -117,6 +124,7 @@ type WorkspaceContextValue = {
   fileBinaryBase64: string | null;
   fileLoading: boolean;
   fileError: string | null;
+  updateFileCacheContent: (fileId: string, content: string) => void;
   getBrowserState: (tabId: string) => BrowserTabState;
   updateBrowserState: (tabId: string, patch: Partial<BrowserTabState>) => void;
   /** F-QA-010：从对话区打开项目内文件并可定位行号 */
@@ -125,6 +133,11 @@ type WorkspaceContextValue = {
     line?: number;
     endLine?: number;
   }) => Promise<boolean>;
+  openFileInSystem: (relativePath: string) => Promise<boolean>;
+  openFileInSystemForProject: (
+    projectId: string,
+    relativePath: string,
+  ) => Promise<WorkspaceFileActionResult>;
   showFileInFolder: (relativePath: string) => Promise<boolean>;
   pendingReveal: { fileId: string; line?: number; endLine?: number } | null;
   clearPendingReveal: () => void;
@@ -147,6 +160,13 @@ function normalizeLookupPath(path: string): string {
 function basename(path: string): string {
   const normalized = normalizeLookupPath(path);
   return normalized.split("/").pop() ?? normalized;
+}
+
+function parentPath(path: string): string | null {
+  const normalized = normalizeLookupPath(path);
+  const idx = normalized.lastIndexOf("/");
+  if (idx <= 0) return null;
+  return normalized.slice(0, idx);
 }
 
 function isAbsoluteLookupPath(path: string): boolean {
@@ -256,7 +276,9 @@ export function WorkspaceProvider({
 }: WorkspaceProviderProps) {
   const { workspaceProjectId, projectLabel } = useWorkspaceProject();
   const [sessionKey, setSessionKey] = useState("_global");
-  const [root, setRoot] = useState<WorkspaceFileNode>(WORKSPACE_ROOT);
+  const [root, setRoot] = useState<WorkspaceFileNode>(() =>
+    createEmptyWorkspaceRoot(projectLabel),
+  );
   const [treeLoading, setTreeLoading] = useState(false);
   const [treeError, setTreeError] = useState<string | null>(null);
   const treeRequestRef = useRef(0);
@@ -454,6 +476,24 @@ export function WorkspaceProvider({
       });
   }, [workspaceProjectId, projectLabel, loadFolderChildrenByPath]);
 
+  const reloadWorkspaceTree = useCallback(async (): Promise<WorkspaceFileNode> => {
+    const payload = await fetchWorkspaceTree(workspaceProjectId);
+    let nextRoot = payload.root;
+    const expanded = expandedFoldersRef.current;
+    if (expanded.size > 0) {
+      nextRoot = await hydrateWorkspaceFolders(
+        nextRoot,
+        expanded,
+        loadFolderChildrenByPath,
+      );
+    }
+    setRoot(nextRoot);
+    setTreeLoading(false);
+    setTreeError(null);
+    setFileCache({});
+    return nextRoot;
+  }, [workspaceProjectId, loadFolderChildrenByPath]);
+
   useEffect(() => {
     refreshTree();
     setFileCache({});
@@ -605,6 +645,18 @@ export function WorkspaceProvider({
       }));
     }
   }, [workspaceProjectId]);
+
+  const updateFileCacheContent = useCallback((fileId: string, content: string) => {
+    setFileCache((prev) => ({
+      ...prev,
+      [fileId]: {
+        content,
+        binaryBase64: null,
+        loading: false,
+        error: null,
+      },
+    }));
+  }, []);
 
   const expandPanelToMax = useCallback(() => {
     setPanelWidthState(
@@ -823,6 +875,81 @@ export function WorkspaceProvider({
     [openTabs, activateTab, pushFileNavEntry],
   );
 
+  const createWorkspaceFile = useCallback(
+    async (relativePath: string): Promise<boolean> => {
+      const path = normalizeLookupPath(relativePath);
+      if (!path) return false;
+      try {
+        setFileActionMessage("正在创建文件…");
+        const entry = await createWorkspaceEntry({
+          projectId: workspaceProjectId,
+          type: "file",
+          path,
+          content: "",
+        });
+        const parent = parentPath(entry.path);
+        if (parent) {
+          setExpandedFolders((prev) => new Set([...prev, parent]));
+        }
+        await reloadWorkspaceTree();
+        setSelectedFileId(entry.path);
+        const existing = openTabs.find(
+          (tab) => tab.kind === "file" && tab.fileId === entry.path,
+        );
+        if (existing) {
+          setActiveTabId(existing.id);
+        } else {
+          const tab: WorkspaceEditorTab = {
+            id: createTabId("tab-file"),
+            kind: "file",
+            fileId: entry.path,
+          };
+          setOpenTabs((prev) => [...prev, tab]);
+          setActiveTabId(tab.id);
+        }
+        setFileViewModeState("source");
+        pushFileNavEntry(entry.path);
+        setFileActionMessage(null);
+        return true;
+      } catch (err) {
+        setFileActionMessage(err instanceof Error ? err.message : "创建文件失败");
+        return false;
+      }
+    },
+    [openTabs, pushFileNavEntry, reloadWorkspaceTree, workspaceProjectId],
+  );
+
+  const createWorkspaceFolder = useCallback(
+    async (relativePath: string): Promise<boolean> => {
+      const path = normalizeLookupPath(relativePath);
+      if (!path) return false;
+      try {
+        setFileActionMessage("正在创建文件夹…");
+        const entry = await createWorkspaceEntry({
+          projectId: workspaceProjectId,
+          type: "folder",
+          path,
+        });
+        const parent = parentPath(entry.path);
+        setExpandedFolders((prev) => new Set([
+          ...prev,
+          ...(parent ? [parent] : []),
+          entry.path,
+        ]));
+        await reloadWorkspaceTree();
+        setSelectedFileId(null);
+        setFileActionMessage(null);
+        return true;
+      } catch (err) {
+        setFileActionMessage(
+          err instanceof Error ? err.message : "创建文件夹失败",
+        );
+        return false;
+      }
+    },
+    [reloadWorkspaceTree, workspaceProjectId],
+  );
+
   const clearPendingReveal = useCallback(() => setPendingReveal(null), []);
   const clearFileActionMessage = useCallback(
     () => setFileActionMessage(null),
@@ -943,6 +1070,17 @@ export function WorkspaceProvider({
     ],
   );
 
+  useEffect(() => {
+    const handleOpenWorkspaceFile = (event: Event) => {
+      const detail = (event as CustomEvent<{ path?: string }>).detail;
+      if (!detail?.path) return;
+      void openFileAt({ relativePath: detail.path });
+    };
+    window.addEventListener("jlc-open-workspace-file", handleOpenWorkspaceFile);
+    return () =>
+      window.removeEventListener("jlc-open-workspace-file", handleOpenWorkspaceFile);
+  }, [openFileAt]);
+
   const showFileInFolder = useCallback(
     async (relativePath: string) => {
       if (!window.electronAPI?.showItemInFolder) {
@@ -970,6 +1108,45 @@ export function WorkspaceProvider({
       }
     },
     [workspaceProjectId],
+  );
+
+  const openFileInSystemForProject = useCallback(
+    async (projectId: string, relativePath: string): Promise<WorkspaceFileActionResult> => {
+      if (!window.electronAPI?.openPath) {
+        setFileActionMessage("当前环境不支持系统打开文件");
+        return { ok: false, message: "当前环境不支持系统打开文件" };
+      }
+      const parsed = parseFileRef(relativePath);
+      const path = parsed.path || relativePath;
+      try {
+        const result = await window.electronAPI.openPath({
+          projectId,
+          path,
+        });
+        if (!result.ok) {
+          setFileActionMessage(result.message ?? "无法打开文件");
+          return { ok: false, message: result.message ?? "无法打开文件" };
+        }
+        setFileActionMessage(null);
+        return { ok: true };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "无法打开文件";
+        setFileActionMessage(message);
+        return { ok: false, message };
+      }
+    },
+    [],
+  );
+
+  const openFileInSystem = useCallback(
+    async (relativePath: string) => {
+      const result = await openFileInSystemForProject(
+        workspaceProjectId,
+        relativePath,
+      );
+      return result.ok;
+    },
+    [openFileInSystemForProject, workspaceProjectId],
   );
 
   const openExplorerTab = useCallback(
@@ -1181,6 +1358,8 @@ export function WorkspaceProvider({
       treeLoading,
       treeError,
       refreshTree,
+      createWorkspaceFile,
+      createWorkspaceFolder,
       panelWidth,
       setPanelWidth,
       resetPanelWidth,
@@ -1198,9 +1377,12 @@ export function WorkspaceProvider({
       fileBinaryBase64,
       fileLoading,
       fileError,
+      updateFileCacheContent,
       getBrowserState,
       updateBrowserState,
       openFileAt,
+      openFileInSystem,
+      openFileInSystemForProject,
       showFileInFolder,
       pendingReveal,
       clearPendingReveal,
@@ -1223,6 +1405,8 @@ export function WorkspaceProvider({
       treeLoading,
       treeError,
       refreshTree,
+      createWorkspaceFile,
+      createWorkspaceFolder,
       panelWidth,
       treePaneWidth,
       fileViewMode,
@@ -1230,6 +1414,7 @@ export function WorkspaceProvider({
       fileBinaryBase64,
       fileLoading,
       fileError,
+      updateFileCacheContent,
       browserStates,
       toggleOpen,
       toggleFolder,
@@ -1255,6 +1440,8 @@ export function WorkspaceProvider({
       getBrowserState,
       updateBrowserState,
       openFileAt,
+      openFileInSystem,
+      openFileInSystemForProject,
       showFileInFolder,
       pendingReveal,
       clearPendingReveal,

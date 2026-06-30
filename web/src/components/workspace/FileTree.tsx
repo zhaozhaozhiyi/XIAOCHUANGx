@@ -1,21 +1,31 @@
 "use client";
 
 import {
+  Check,
   ChevronRight,
   FileCode2,
   FileText,
   Folder,
   FolderPlus,
+  X,
 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type { WorkspaceFileNode } from "@/lib/workspace";
 import { workspaceErrorMessage } from "@/lib/workspace-errors";
 import { useWorkspace } from "./WorkspaceContext";
 
-function promptNewName(label: string, placeholder: string): string | null {
-  const name = window.prompt(label, placeholder);
-  if (name === null) return null;
-  const trimmed = name.trim();
-  return trimmed || null;
+type CreateDraft = { type: "file" | "folder"; value: string };
+
+function dirname(path: string): string {
+  const normalized = path.replace(/\\/g, "/").replace(/\/+$/, "");
+  const idx = normalized.lastIndexOf("/");
+  return idx > 0 ? normalized.slice(0, idx) : "";
+}
+
+function joinWorkspacePath(base: string, name: string): string {
+  const cleanName = name.replace(/\\/g, "/").replace(/^\.\//, "");
+  if (!base) return cleanName;
+  return `${base.replace(/\/+$/, "")}/${cleanName}`.replace(/\/+/g, "/");
 }
 
 function TreeNode({
@@ -113,20 +123,72 @@ function TreeNode({
 }
 
 export function FileTree() {
-  const { root, treeLoading, treeError, refreshTree } = useWorkspace();
+  const {
+    root,
+    treeLoading,
+    treeError,
+    refreshTree,
+    selectedFile,
+    createWorkspaceFile,
+    createWorkspaceFolder,
+  } = useWorkspace();
+  const [creatingEntry, setCreatingEntry] = useState<"file" | "folder" | null>(
+    null,
+  );
+  const [createDraft, setCreateDraft] = useState<CreateDraft | null>(null);
+  const createInputRef = useRef<HTMLInputElement>(null);
   const treeErrorText = workspaceErrorMessage(treeError);
+  const hasNodes = (root.children?.length ?? 0) > 0;
+  const selectedBasePath =
+    selectedFile?.type === "folder"
+      ? (selectedFile.relativePath ?? selectedFile.id)
+      : selectedFile?.relativePath
+        ? dirname(selectedFile.relativePath)
+        : "";
 
-  const handleNewFile = () => {
-    const name = promptNewName("新建文件", "untitled.md");
+  useEffect(() => {
+    if (!createDraft) return;
+    const id = window.setTimeout(() => {
+      createInputRef.current?.focus();
+      createInputRef.current?.select();
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [createDraft]);
+
+  const submitCreateDraft = async () => {
+    if (creatingEntry) return;
+    const draft = createDraft;
+    if (!draft) return;
+    const name = draft.value.trim();
     if (!name) return;
-    // 原型阶段：后续接入工作区 API 创建文件
-    console.info("[workspace] create file:", name);
+    const type = draft.type;
+    setCreatingEntry(type);
+    try {
+      const create =
+        type === "file" ? createWorkspaceFile : createWorkspaceFolder;
+      const ok = await create(joinWorkspacePath(selectedBasePath, name));
+      if (!ok) {
+        window.alert(
+          type === "file"
+            ? "创建文件失败，请确认当前工作区可写后重试。"
+            : "创建文件夹失败，请确认当前工作区可写后重试。",
+        );
+        return;
+      }
+      setCreateDraft(null);
+    } finally {
+      setCreatingEntry(null);
+    }
   };
 
-  const handleNewFolder = () => {
-    const name = promptNewName("新建文件夹", "new-folder");
-    if (!name) return;
-    console.info("[workspace] create folder:", name);
+  const handleNewFile = () => {
+    if (creatingEntry) return;
+    setCreateDraft({ type: "file", value: "untitled.md" });
+  };
+
+  const handleNewFolder = async () => {
+    if (creatingEntry) return;
+    setCreateDraft({ type: "folder", value: "new-folder" });
   };
 
   return (
@@ -142,8 +204,9 @@ export function FileTree() {
           type="button"
           className="btn-icon h-7 w-7 shrink-0"
           onClick={handleNewFile}
+          disabled={creatingEntry !== null}
           aria-label="新建文件"
-          title="新建文件"
+          title={creatingEntry === "file" ? "正在创建文件" : "新建文件"}
         >
           <FileCode2 className="h-3.5 w-3.5" strokeWidth={1.75} />
         </button>
@@ -151,12 +214,71 @@ export function FileTree() {
           type="button"
           className="btn-icon h-7 w-7 shrink-0"
           onClick={handleNewFolder}
+          disabled={creatingEntry !== null}
           aria-label="新建文件夹"
-          title="新建文件夹"
+          title={creatingEntry === "folder" ? "正在创建文件夹" : "新建文件夹"}
         >
           <FolderPlus className="h-3.5 w-3.5" strokeWidth={1.75} />
         </button>
       </div>
+      {createDraft ? (
+        <form
+          className="mx-1.5 mt-1 flex shrink-0 items-center gap-1 rounded-md bg-[var(--sidebar-hover)] px-1.5 py-1"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void submitCreateDraft();
+          }}
+        >
+          {createDraft.type === "file" ? (
+            <FileCode2
+              className="h-3.5 w-3.5 shrink-0 text-[var(--fg-secondary)]"
+              strokeWidth={1.75}
+            />
+          ) : (
+            <FolderPlus
+              className="h-3.5 w-3.5 shrink-0 text-[var(--fg-secondary)]"
+              strokeWidth={1.75}
+            />
+          )}
+          <input
+            ref={createInputRef}
+            className="min-w-0 flex-1 bg-transparent px-1 py-0.5 text-sm text-[var(--fg)] outline-none placeholder:text-[var(--fg-tertiary)]"
+            value={createDraft.value}
+            disabled={creatingEntry !== null}
+            aria-label={createDraft.type === "file" ? "新建文件名" : "新建文件夹名"}
+            onChange={(event) =>
+              setCreateDraft((draft) =>
+                draft ? { ...draft, value: event.target.value } : draft,
+              )
+            }
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                setCreateDraft(null);
+              }
+            }}
+          />
+          <button
+            type="submit"
+            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--fg-secondary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--fg)] disabled:opacity-40"
+            disabled={creatingEntry !== null || !createDraft.value.trim()}
+            aria-label={creatingEntry ? "正在创建" : "确认创建"}
+            title={creatingEntry ? "正在创建" : "确认创建"}
+          >
+            <Check className="h-3.5 w-3.5" strokeWidth={2} />
+          </button>
+          <button
+            type="button"
+            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--fg-tertiary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--fg)] disabled:opacity-40"
+            disabled={creatingEntry !== null}
+            aria-label="取消新建"
+            title="取消"
+            onClick={() => setCreateDraft(null)}
+          >
+            <X className="h-3.5 w-3.5" strokeWidth={2} />
+          </button>
+        </form>
+      ) : null}
       <div className="min-h-0 flex-1 overflow-y-auto py-1">
         {treeLoading && (
           <p className="px-3 py-2 text-xs text-[var(--fg-tertiary)]">加载目录…</p>
@@ -174,6 +296,14 @@ export function FileTree() {
           </div>
         )}
         {!treeLoading &&
+          !treeErrorText &&
+          !hasNodes && (
+            <p className="px-3 py-2 text-xs leading-relaxed text-[var(--fg-tertiary)]">
+              工作区尚未创建或暂无文件。发送第一条消息后，生成文件会显示在这里。
+            </p>
+          )}
+        {!treeLoading &&
+          hasNodes &&
           root.children?.map((node) => (
             <TreeNode key={node.id} node={node} depth={0} />
           ))}

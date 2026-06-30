@@ -3,56 +3,54 @@
 import {
   ArrowRight,
   BarChart3,
+  Box,
+  Clapperboard,
   FileText,
+  GitBranch,
   GitCompare,
+  Ruler,
   Shuffle,
+  Upload,
   type LucideIcon,
 } from "lucide-react";
+import type {
+  ChatHomeSuggestionGroup,
+  ChatHomeSuggestionIcon,
+} from "@/lib/chat-home-suggestions";
 
-type TaskSuggestion = {
-  id: string;
-  label: string;
-  icon: LucideIcon;
+const ICONS: Record<ChatHomeSuggestionIcon, LucideIcon> = {
+  chart: BarChart3,
+  compare: GitCompare,
+  document: FileText,
+  box: Box,
+  ruler: Ruler,
+  upload: Upload,
+  video: Clapperboard,
+  simulation: GitBranch,
 };
 
-const TASKS: TaskSuggestion[] = [
-  {
-    id: "inventory",
-    label: "上周螺纹钢社会库存环比变化",
-    icon: BarChart3,
-  },
-  {
-    id: "compare",
-    label: "对比三家机构对原油的多空观点",
-    icon: GitCompare,
-  },
-  {
-    id: "outline",
-    label: "生成一份螺纹钢周报大纲",
-    icon: FileText,
-  },
-];
-
 type ChatHomeTaskSuggestionsProps = {
+  group: ChatHomeSuggestionGroup;
   onSelect: (text: string) => void;
 };
 
 export function ChatHomeTaskSuggestions({
+  group,
   onSelect,
 }: ChatHomeTaskSuggestionsProps) {
   return (
     <section
       className="mt-6 w-full max-w-3xl"
-      aria-label="推荐研究任务"
+      aria-label={group.ariaLabel}
     >
       <p className="mb-2 flex items-center gap-1.5 px-1 text-xs text-[var(--fg-tertiary)]">
         <Shuffle className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
-        挑一条开始
+        {group.heading}
       </p>
 
       <ul className="flex flex-col divide-y divide-[var(--border)]">
-        {TASKS.map((task) => {
-          const Icon = task.icon;
+        {group.tasks.map((task) => {
+          const Icon = ICONS[task.icon];
           return (
             <li key={task.id}>
               <button

@@ -55,10 +55,10 @@ export async function assertAgentAvailableServer(
     return `${agentLabel(agentId)} 需要先完成登录${state.hint ? `：${state.hint}` : ""}`;
   }
   if (state.status === "not_installed") {
-    return `${agentLabel(agentId)} 未安装，请联系管理员安装小窗智能体组件`;
+    return `${agentLabel(agentId)} 未安装，请在设置中查看安装指引`;
   }
   if (state.status === "timeout") {
     return `${agentLabel(agentId)} 探测超时${state.hint ? `：${state.hint}` : ""}`;
   }
-  return `${agentLabel(agentId)} 版本过低，请联系管理员升级`;
+  return `${agentLabel(agentId)} 版本过低，请按安装指引升级后重试`;
 }

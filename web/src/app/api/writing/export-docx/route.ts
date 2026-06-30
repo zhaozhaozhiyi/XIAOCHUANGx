@@ -4,24 +4,18 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { chatExecutionMode, companionConfig } from "@/lib/companion/config";
-import { fetchCompanionProjectFile } from "@/lib/companion/client";
+import {
+  fetchCompanionProjectFile,
+  writeCompanionProjectFile,
+} from "@/lib/companion/client";
 import { resolveCompanionWorkspaceProjectId } from "@/lib/research-projects-server";
 import { NO_PROJECT_ID, SANDBOX_PROJECT_ID } from "@/lib/research-projects";
+import { resolveLegacySafePath } from "@/lib/legacy-workspace-path";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const execFileAsync = promisify(execFile);
-const LEGACY_PROJECT_ROOT = path.resolve(process.cwd(), "..");
-
-function resolveLegacySafePath(relativePath: string): string | null {
-  const normalized = path.normalize(relativePath).replace(/^(\.\.(\/|\\|$))+/, "");
-  if (normalized.startsWith("..") || path.isAbsolute(normalized)) return null;
-  const full = path.join(LEGACY_PROJECT_ROOT, normalized);
-  if (!full.startsWith(LEGACY_PROJECT_ROOT)) return null;
-  return full;
-}
-
 function basenameFromPath(filePath: string): string {
   const parts = filePath.split(/[/\\]/);
   return parts[parts.length - 1] || "document";
@@ -52,6 +46,46 @@ async function readMarkdownSource(
   return readFile(full, "utf8");
 }
 
+function docxPathForMarkdown(filePath: string): string {
+  return filePath.trim().replace(/\.md$/i, ".docx");
+}
+
+async function writeDocxToWorkspace(input: {
+  filePath: string;
+  projectId: string;
+  docx: Buffer;
+}): Promise<{ path: string; mime?: string; size: number }> {
+  const outputRelPath = docxPathForMarkdown(input.filePath);
+  if (
+    chatExecutionMode() === "companion" &&
+    !companionConfig.useMock
+  ) {
+    const { workspaceProjectId } =
+      await resolveCompanionWorkspaceProjectId(input.projectId);
+    const written = await writeCompanionProjectFile({
+      projectId: workspaceProjectId,
+      path: outputRelPath,
+      content: input.docx.toString("base64"),
+      encoding: "base64",
+    });
+    return {
+      path: written.path,
+      mime: written.mime,
+      size: written.size,
+    };
+  }
+
+  const full = resolveLegacySafePath(outputRelPath);
+  if (!full) throw new Error("invalid_path");
+  await writeFile(full, input.docx);
+  return {
+    path: outputRelPath,
+    mime:
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    size: input.docx.byteLength,
+  };
+}
+
 export async function POST(request: Request) {
   let body: unknown;
   try {
@@ -72,6 +106,10 @@ export async function POST(request: Request) {
     typeof (body as { projectId?: string }).projectId === "string"
       ? (body as { projectId: string }).projectId.trim()
       : SANDBOX_PROJECT_ID;
+  const writeToWorkspace =
+    Boolean(body) &&
+    typeof body === "object" &&
+    (body as { writeToWorkspace?: unknown }).writeToWorkspace === true;
 
   if (!filePath) {
     return Response.json({ error: "filePath is required" }, { status: 400 });
@@ -106,6 +144,21 @@ export async function POST(request: Request) {
       timeout: 120_000,
     });
     const docx = await readFile(outputPath);
+    if (writeToWorkspace) {
+      const written = await writeDocxToWorkspace({
+        filePath,
+        projectId,
+        docx,
+      });
+      return Response.json({
+        ok: true,
+        path: written.path,
+        mime:
+          written.mime ??
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        size: written.size,
+      });
+    }
     return new Response(docx, {
       headers: {
         "Content-Type":

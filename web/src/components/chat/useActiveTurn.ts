@@ -7,14 +7,16 @@ const STICKY_TOP_OFFSET_PX = 12;
 
 /**
  * 根据滚动位置判定当前视口内的 Turn（PRD F-QA-009）。
- * 规则：最后一个「顶部已越过滚动容器上沿」的 Turn 为 active。
+ * 规则：选中覆盖 sticky 锚点、且用户问仍有空间吸顶的 Turn。
  */
 export function useActiveTurn(
   turnIds: string[],
   scrollRootRef: React.RefObject<HTMLElement | null>,
 ) {
+  const fallbackActiveTurnId =
+    turnIds.length > 0 ? turnIds[turnIds.length - 1]! : null;
   const [activeTurnId, setActiveTurnId] = useState<string | null>(
-    turnIds.length > 0 ? turnIds[turnIds.length - 1]! : null,
+    fallbackActiveTurnId,
   );
 
   const update = useCallback(() => {
@@ -31,20 +33,22 @@ export function useActiveTurn(
       const el = root.querySelector<HTMLElement>(`[data-turn-id="${id}"]`);
       if (!el) continue;
       const top = el.getBoundingClientRect().top;
-      if (top <= anchor + 2) {
+      const bottom = el.getBoundingClientRect().bottom;
+      const userPanel = el.querySelector<HTMLElement>(".chat-turn-user-panel");
+      const stickyHeight = userPanel?.getBoundingClientRect().height ?? 0;
+      const stickyEnd = anchor + stickyHeight + 4;
+      if (top <= anchor + 2 && bottom > stickyEnd) {
         active = id;
+        break;
+      }
+      if (top > anchor + 2 && bottom > stickyEnd) {
+        active = id;
+        break;
       }
     }
 
     setActiveTurnId(active);
   }, [scrollRootRef, turnIds]);
-
-  useEffect(() => {
-    setActiveTurnId((prev) => {
-      if (prev && turnIds.includes(prev)) return prev;
-      return turnIds.length > 0 ? turnIds[turnIds.length - 1]! : null;
-    });
-  }, [turnIds]);
 
   useEffect(() => {
     const root = scrollRootRef.current;
@@ -68,5 +72,8 @@ export function useActiveTurn(
     };
   }, [scrollRootRef, update, turnIds]);
 
-  return activeTurnId;
+  if (activeTurnId && turnIds.includes(activeTurnId)) {
+    return activeTurnId;
+  }
+  return fallbackActiveTurnId;
 }

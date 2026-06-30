@@ -49,7 +49,31 @@ export const chatPartKindSchema = z.enum([
   "todo",
   /** 需要用户补充信息 */
   "clarification",
-  /** 数据源 / 知识库等可溯源引用 */
+  /** 写作需求采集卡（AI to UI） */
+  "writing_requirements",
+  /** 写作需求摘要 */
+  "writing_requirement_summary",
+  /** 写作大纲 */
+  "writing_outline",
+  /** PPT 需求采集卡（AI to UI） */
+  "ppt_requirements",
+  /** PPT 需求摘要 */
+  "ppt_requirement_summary",
+  /** PPT 页纲 */
+  "ppt_outline",
+  /** 3D 需求采集卡（AI to UI） */
+  "3d_requirements",
+  /** 3D 需求摘要 */
+  "3d_requirement_summary",
+  /** 3D 方案 / 结构卡 */
+  "3d_outline",
+  /** 视频 P0 需求采集卡（复用通用 Requirements UI） */
+  "video_requirements",
+  /** 视频 P0 需求摘要 */
+  "video_requirement_summary",
+  /** 视频 P0 网页视频 outline */
+  "video_outline",
+  /** 数据源、文件、外部材料等可溯源引用 */
   "citation",
   /** 工作区产出物链接 */
   "artifact",
@@ -243,6 +267,151 @@ export type ClarificationPart = ChatPartBase & {
   answer?: string;
 };
 
+export type StructuredQuestionOption = {
+  label: string;
+  description?: string;
+};
+
+export type StructuredQuestion = {
+  id: string;
+  label: string;
+  type:
+    | "text"
+    | "textarea"
+    | "single_select"
+    | "multi_select"
+    | "date"
+    | "time"
+    | "datetime"
+    | "number"
+    | "file_pick"
+    | "file_upload";
+  required?: boolean;
+  description?: string;
+  placeholder?: string;
+  options?: StructuredQuestionOption[];
+};
+
+export type RequirementsPart = ChatPartBase & {
+  kind:
+    | "writing_requirements"
+    | "ppt_requirements"
+    | "3d_requirements"
+    | "video_requirements";
+  zone: "summary";
+  runId?: string;
+  toolUseId?: string;
+  title: string;
+  description?: string;
+  questions: StructuredQuestion[];
+  selectedOptions?: Record<string, string[]>;
+  answers?: Record<string, string>;
+  submitted?: boolean;
+  answer?: string;
+};
+
+export type RequirementSummaryPart = ChatPartBase & {
+  kind:
+    | "writing_requirement_summary"
+    | "ppt_requirement_summary"
+    | "3d_requirement_summary"
+    | "video_requirement_summary";
+  zone: "summary";
+  title?: string;
+  markdown: string;
+};
+
+export type OutlineSource = "ai" | "user";
+
+export type WritingOutlineSection = {
+  id: string;
+  title: string;
+  bullets: string[];
+};
+
+export type WritingOutlineData = {
+  version: 1;
+  source: OutlineSource;
+  committed: boolean;
+  sections: WritingOutlineSection[];
+};
+
+export type PptOutlineSlide = {
+  id: string;
+  title: string;
+  bullets: string[];
+};
+
+export type PptOutlineData = {
+  version: 1;
+  source: OutlineSource;
+  committed: boolean;
+  slides: PptOutlineSlide[];
+};
+
+export type WritingOutlinePart = ChatPartBase & {
+  kind: "writing_outline";
+  zone: "summary";
+  title?: string;
+  markdown: string;
+  outline?: WritingOutlineData;
+};
+
+export type PptOutlinePart = ChatPartBase & {
+  kind: "ppt_outline";
+  zone: "summary";
+  title?: string;
+  coverTitle?: string;
+  markdown: string;
+  outline?: PptOutlineData;
+};
+
+export type IndustrialDrawingOutlineData = {
+  version: 1;
+  source: OutlineSource;
+  committed: boolean;
+  title: string;
+  blocks: Array<{
+    id: string;
+    title: string;
+    bullets: string[];
+  }>;
+};
+
+export type IndustrialDrawingOutlinePart = ChatPartBase & {
+  kind: "3d_outline";
+  zone: "summary";
+  title?: string;
+  markdown: string;
+  outline?: IndustrialDrawingOutlineData;
+};
+
+export type VideoOutlineData = {
+  version: 1;
+  source: OutlineSource;
+  committed: boolean;
+  title: string;
+  blocks: Array<{
+    id: string;
+    title: string;
+    bullets: string[];
+  }>;
+};
+
+export type VideoOutlinePart = ChatPartBase & {
+  kind: "video_outline";
+  zone: "summary";
+  title?: string;
+  markdown: string;
+  outline?: VideoOutlineData;
+};
+
+export type OutlinePart =
+  | WritingOutlinePart
+  | PptOutlinePart
+  | IndustrialDrawingOutlinePart
+  | VideoOutlinePart;
+
 export type CitationPart = ChatPartBase & {
   kind: "citation";
   zone: "summary";
@@ -264,7 +433,12 @@ export type DeliverableItem = {
   path: string;
   label?: string;
   mime?: string;
-  kind?: "primary" | "attachment";
+  kind?: "primary" | "attachment" | "directory";
+  workspaceProjectId?: string;
+  previewUrl?: string;
+  recordingUrl?: string;
+  devCommand?: string;
+  devServerStatus?: "running" | "unknown";
 };
 
 export type DeliverablesPart = ChatPartBase & {
@@ -272,6 +446,7 @@ export type DeliverablesPart = ChatPartBase & {
   zone: "summary";
   headline?: string;
   primaryPath?: string;
+  workspaceProjectId?: string;
   items: DeliverableItem[];
 };
 
@@ -328,6 +503,9 @@ export type ChatPart =
   | DocumentEditPart
   | TodoPart
   | ClarificationPart
+  | RequirementsPart
+  | RequirementSummaryPart
+  | OutlinePart
   | CitationPart
   | ArtifactPart
   | DeliverablesPart
@@ -389,6 +567,7 @@ export type ChatMessagePartsEnvelope = {
 export const companionRunSseEventSchema = z.enum([
   "run.accepted",
   "run.started",
+  "project.ensured",
   "message.delta",
   "interim_assistant",
   "tool.progress",

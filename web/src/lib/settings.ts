@@ -12,8 +12,11 @@ import {
 import {
   defaultApiSelection,
   migrateLegacyApiProvider,
+  normalizeProviderInstance,
+  pruneUnverifiedProviders,
   syncLegacyApiProvider,
   type ApiModelSelection,
+  type LegacyModelProviderFields,
   type ModelProviderInstance,
 } from "@/lib/byok/model-providers";
 import {
@@ -42,7 +45,6 @@ export type SettingsSectionId =
   | "agent"
   | "chat_defaults"
   | "workspace"
-  | "knowledge"
   | "account"
   | "about"
   | "admin";
@@ -81,12 +83,6 @@ export const SETTINGS_MENU: SettingsMenuItem[] = [
     inPopover: true,
     comingSoon: true,
   },
-  {
-    id: "knowledge",
-    label: "知识库",
-    inPopover: false,
-    comingSoon: true,
-  },
   { id: "account", label: "账号与权限", inPopover: true, inPopoverMvp: true },
   { id: "about", label: "关于与帮助", inPopover: true, inPopoverMvp: true },
   {
@@ -104,15 +100,108 @@ export type AgentDefinition = {
   bin: string;
   role: string;
   models: { id: string; label: string }[];
+  installUrl?: string;
+  docsUrl?: string;
+  selfServiceHint?: string;
 };
 
-export const AGENT_DEFINITIONS: AgentDefinition[] = AGENT_IDS.map((id) => ({
-  id,
-  name: AGENT_CATALOG[id].execution.displayName,
-  bin: AGENT_CATALOG[id].execution.bin,
-  role: AGENT_CATALOG[id].role,
-  models: AGENT_FALLBACK_MODELS[id],
-}));
+type AgentSelfServiceGuide = {
+  installUrl?: string;
+  docsUrl?: string;
+  selfServiceHint?: string;
+};
+
+const AGENT_SELF_SERVICE_GUIDES: Partial<
+  Record<AgentId, AgentSelfServiceGuide>
+> = {
+  codex: {
+    installUrl: "https://github.com/openai/codex",
+    docsUrl: "https://developers.openai.com/codex",
+    selfServiceHint: "安装完成后，先确认 `codex --version` 可执行，再回到这里重新检测。",
+  },
+  claude: {
+    installUrl: "https://docs.anthropic.com/en/docs/claude-code/setup",
+    docsUrl: "https://docs.anthropic.com/en/docs/claude-code",
+    selfServiceHint: "安装后请在终端完成 Claude Code 登录，然后重新检测。",
+  },
+  hermes: {
+    installUrl: "https://hermes-agent.nousresearch.com/docs/",
+    docsUrl: "https://hermes-agent.nousresearch.com/docs/",
+    selfServiceHint: "请按官方文档完成安装与配置，再返回设置页重新检测。",
+  },
+  "cursor-agent": {
+    installUrl: "https://cursor.com/docs/cli/overview",
+    docsUrl: "https://docs.cursor.com/en/cli/overview",
+    selfServiceHint: "安装后执行 `cursor-agent login` 完成授权，再重新检测。",
+  },
+  gemini: {
+    installUrl: "https://github.com/google-gemini/gemini-cli",
+    docsUrl: "https://github.com/google-gemini/gemini-cli/blob/main/README.md",
+    selfServiceHint: "安装后确认 `gemini` 可在当前终端环境运行，再重新检测。",
+  },
+  opencode: {
+    installUrl: "https://opencode.ai/docs",
+    docsUrl: "https://github.com/sst/opencode",
+    selfServiceHint: "安装后请确认 `opencode` 已加入 PATH，再重新检测。",
+  },
+  copilot: {
+    installUrl: "https://github.com/github/copilot-cli",
+    docsUrl: "https://docs.github.com/en/copilot/how-tos/copilot-cli",
+    selfServiceHint: "安装后执行 `copilot login` 完成授权，再重新检测。",
+  },
+  qoder: {
+    installUrl: "https://qoder.com/download",
+    docsUrl: "https://docs.qoder.com",
+    selfServiceHint: "安装或升级完成后，确认 `qodercli` 可执行，再重新检测。",
+  },
+  deepseek: {
+    installUrl: "https://github.com/Hmbown/CodeWhale",
+    docsUrl: "https://github.com/Hmbown/CodeWhale/blob/main/README.md",
+    selfServiceHint: "安装后请补齐所需鉴权或配置，再回到这里重新检测。",
+  },
+  devin: {
+    installUrl: "https://cli.devin.ai/docs",
+    docsUrl: "https://docs.devin.ai",
+    selfServiceHint: "安装后完成 Devin CLI 授权，并确认 `devin acp` 可用。",
+  },
+  pi: {
+    docsUrl:
+      "https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md",
+    selfServiceHint: "请按文档完成 provider / auth 配置，然后重新检测。",
+  },
+  kiro: {
+    installUrl: "https://kiro.dev",
+    docsUrl: "https://kiro.dev/docs/cli/",
+    selfServiceHint: "安装后请确认 `kiro-cli acp` 可正常启动，再重新检测。",
+  },
+  kilo: {
+    installUrl: "https://kilo.ai",
+    docsUrl: "https://kilo.ai/docs/cli",
+    selfServiceHint: "安装后请确认 `kilo acp` 可正常启动，再重新检测。",
+  },
+  vibe: {
+    installUrl: "https://docs.mistral.ai/vibe/code/cli/install-setup",
+    docsUrl: "https://github.com/mistralai/mistral-vibe",
+    selfServiceHint: "升级或安装后请确认 `vibe-acp` 可直接运行，再重新检测。",
+  },
+  openclaw: {
+    selfServiceHint: "该实验性代理需单独完成本地安装与 headless 配置；就绪后再重新检测。",
+  },
+};
+
+export const AGENT_DEFINITIONS: AgentDefinition[] = AGENT_IDS.map((id) => {
+  const guide = AGENT_SELF_SERVICE_GUIDES[id];
+  return {
+    id,
+    name: AGENT_CATALOG[id].execution.displayName,
+    bin: AGENT_CATALOG[id].execution.bin,
+    role: AGENT_CATALOG[id].role,
+    models: AGENT_FALLBACK_MODELS[id],
+    installUrl: guide?.installUrl,
+    docsUrl: guide?.docsUrl,
+    selfServiceHint: guide?.selfServiceHint,
+  };
+});
 
 /** 仅 COMPANION_USE_MOCK 时 BFF 使用的演示探测结果 */
 export const MOCK_CLI_STATES: Record<
@@ -211,7 +300,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   voiceEnabled: false,
   defaultSttSelection: null,
   defaultTtsSelection: null,
-  defaultChatMode: "fast",
+  defaultChatMode: "auto",
   rememberLastChatMode: true,
   workspaceOpenByDefault: false,
   workspaceRememberWidth: true,
@@ -231,7 +320,13 @@ function normalizeUserSettings(parsed: Partial<UserSettings>): UserSettings {
     ...(parsed.apiProvider ?? {}),
   };
 
-  let modelProviders = parsed.modelProviders ?? [];
+  let modelProviders = pruneUnverifiedProviders(
+    (parsed.modelProviders ?? []).map((provider) =>
+      normalizeProviderInstance(
+        provider as Partial<ModelProviderInstance> & LegacyModelProviderFields,
+      ),
+    ),
+  );
   if (!modelProviders.length) {
     modelProviders = migrateLegacyApiProvider(apiProvider);
   }
@@ -323,9 +418,9 @@ export function cliStatusHint(id: AgentId): string | undefined {
     case "needs_login":
       return "该智能体需完成 CLI 授权后方可使用";
     case "not_installed":
-      return "未检测到该智能体组件，请联系管理员安装";
+      return "未检测到该智能体组件，请在设置中查看安装指引";
     case "outdated":
-      return "智能体版本过低，请升级后使用";
+      return "智能体版本过低，请按安装指引升级后重试";
     case "timeout":
       return "智能体探测超时，请稍后重试或在设置中单独测试";
   }

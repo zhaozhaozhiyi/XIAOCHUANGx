@@ -3,7 +3,7 @@ import type { AgentId } from "@/lib/settings";
 import type { ModuleId } from "@/lib/module-registry";
 import type { RunEvent, RunRecord } from "@jlc/contracts";
 
-/** Companion HTTP API 契约版本（与 PRD §8.5、web/docs/companion-api.md 一致） */
+/** Companion HTTP API 契约版本（与 PRD §8.5、docs/technical/companion-api.md 一致） */
 export const COMPANION_API_VERSION = "v1";
 
 export type WorkspaceKind = "sandbox" | "local_bound" | "cloud";
@@ -93,9 +93,9 @@ export type CreateRunBinding =
   | { moduleId: "chat"; mode: ChatModeId }
   | { moduleId: "writing"; templateId: string }
   | { moduleId: "ppt"; task: "deck"; templateId?: string }
-  | { moduleId: "translate"; task: "translate"; templateId?: string }
-  | { moduleId: "meeting"; task: "summary"; templateId?: string }
-  | { moduleId: "knowledge"; task: "kb-qa" };
+  | { moduleId: "3d" }
+  | { moduleId: "video" }
+  | { moduleId: "simulation" };
 
 export type ChatRunMessage = {
   id?: string;
@@ -113,6 +113,11 @@ export type CreateRunRequest = {
   sessionId: string;
   projectId: string;
   workspaceProjectId: string;
+  lazyDefaultWorkspace?: {
+    moduleId: ModuleId;
+    taskId?: string;
+    taskTitle?: string;
+  };
   moduleId: ModuleId;
   binding: CreateRunBinding;
   agentId: AgentId;
@@ -121,7 +126,7 @@ export type CreateRunRequest = {
   useClientHistory?: boolean;
   processSkill?: string | null;
   platformNormSkill?: string;
-  timeoutProfile?: "default" | "fast" | "deep" | "writing" | "ppt" | "translate";
+  timeoutProfile?: "default" | "fast" | "deep" | "writing" | "ppt" | "video";
   timeoutMs?: number;
   idleTimeoutMs?: number;
 };
@@ -143,6 +148,8 @@ export type CompanionSseEvent =
   | "message.interim"
   | "interim_assistant"
   | "tool.progress"
+  | "part.append"
+  | "part.patch"
   | "run.finished"
   | "run.error"
   | "run.cancelled";

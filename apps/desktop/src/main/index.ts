@@ -1,3 +1,4 @@
+import "./stdio.js";
 import { app, BrowserWindow, ipcMain, shell } from "electron";
 import { fileURLToPath } from "node:url";
 import {
@@ -81,7 +82,7 @@ async function createWindow(): Promise<void> {
     height: 860,
     title: APP_DISPLAY_NAME,
     ...(icon ? { icon } : {}),
-    // 自定义标题栏（设计文档：web/docs/desktop-titlebar-design.md）
+    // 自定义标题栏（设计文档：docs/design/desktop-titlebar-design.md）
     // - 全平台：titleBarStyle:'hidden' 隐藏窗口标题文字
     //   · macOS：自动保留左上角交通灯，体验不变
     //   · Win/Linux：完全无系统标题栏；下方 titleBarOverlay 加回三件套；
@@ -227,6 +228,61 @@ app.whenReady().then(() => {
         ok: false,
         message:
           err instanceof Error ? err.message : "show_item_in_folder_failed",
+      };
+    }
+  });
+
+  ipcMain.handle("desktop:open-path", async (_event, input: unknown) => {
+    const projectId =
+      isRecord(input) && typeof input.projectId === "string"
+        ? input.projectId.trim()
+        : "";
+    const relPath =
+      isRecord(input) && typeof input.path === "string"
+        ? input.path.trim()
+        : "";
+    if (!projectId || !relPath) {
+      return { ok: false, message: "invalid_path" };
+    }
+    try {
+      const root = await workspaceRootForProject(projectId);
+      const filePath = resolveInside(root, relPath);
+      if (!filePath) {
+        return { ok: false, message: "invalid_path" };
+      }
+      const message = await shell.openPath(filePath);
+      if (message) {
+        return { ok: false, message };
+      }
+      return { ok: true };
+    } catch (err) {
+      return {
+        ok: false,
+        message: err instanceof Error ? err.message : "open_path_failed",
+      };
+    }
+  });
+
+  ipcMain.handle("desktop:open-project-folder", async (_event, input: unknown) => {
+    const projectId =
+      isRecord(input) && typeof input.projectId === "string"
+        ? input.projectId.trim()
+        : "";
+    if (!projectId) {
+      return { ok: false, message: "invalid_project" };
+    }
+    try {
+      const root = await workspaceRootForProject(projectId);
+      const message = await shell.openPath(root);
+      if (message) {
+        return { ok: false, message };
+      }
+      return { ok: true };
+    } catch (err) {
+      return {
+        ok: false,
+        message:
+          err instanceof Error ? err.message : "open_project_folder_failed",
       };
     }
   });

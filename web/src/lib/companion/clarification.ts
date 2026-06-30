@@ -15,7 +15,7 @@ export async function submitRunClarification(input: {
     },
   );
   if (res.ok) return { ok: true };
-  let message = `提交失败 (${res.status})`;
+  const message = `提交失败 (${res.status})`;
   try {
     const json = (await res.json()) as { message?: string; error?: string };
     return {

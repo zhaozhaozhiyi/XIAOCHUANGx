@@ -27,13 +27,20 @@ extraResources:
       - "**/*"
   # skills/ + prompts/ 不打进 bundle —— 让用户可就地查看修改；
   # supervisor 注入 JLC_SKILLS_DIR / JLC_PROMPTS_DIR 让 runtime-core/paths.ts
-  # 找到。详见 web/docs/desktop-d1.4-bundle-status.md。
+  # 找到。详见 docs/plans/desktop-d1.4-bundle-status.md。
   - from: resources/skills
     to: skills
     filter:
       - "**/*"
   - from: resources/prompts
     to: prompts
+    filter:
+      - "**/*"
+  # 3D / 工业制图：产品托管 OpenSCAD Runtime。
+  # 平台二进制放在 resources/engines/openscad/{darwin,win32,linux}/，
+  # Web CAD API 运行时从 process.resourcesPath/engines/openscad 解析。
+  - from: resources/engines
+    to: engines
     filter:
       - "**/*"
 
@@ -66,7 +73,7 @@ nsis:
 # 占位 generic url —— 服务端（nginx 静态目录 / OSS）尚未接入；
 # auto-updater 启动时会 fetch latest.yml，404 静默走 'error' 状态，
 # 不影响主功能。运维接入后只需把 url 改为真实地址。
-# 详见 web/docs/desktop-d1.5-d1.6-status.md。
+# 详见 docs/plans/desktop-v1.1-roadmap.md §7。
 publish:
   - provider: generic
     url: https://updates.jlcresearch.com/小窗/

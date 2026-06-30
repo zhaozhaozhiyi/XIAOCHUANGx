@@ -3,7 +3,10 @@
 import { X } from "lucide-react";
 import { useSettings } from "@/components/settings/SettingsContext";
 import { AccountSettingsSection } from "@/components/settings/sections/AccountSettingsSection";
-import { AgentSettingsSection } from "@/components/settings/sections/AgentSettingsSection";
+import {
+  AgentSettingsSection,
+  ConnectionStatusCard,
+} from "@/components/settings/sections/AgentSettingsSection";
 import { AboutSettingsSection } from "@/components/settings/sections/AboutSettingsSection";
 import { ChatDefaultsSettingsSection } from "@/components/settings/sections/ChatDefaultsSettingsSection";
 import { PlaceholderSettingsSection } from "@/components/settings/sections/PlaceholderSettingsSection";
@@ -30,7 +33,6 @@ function SettingsPanel({ section }: { section: SettingsSectionId }) {
       return <AccountSettingsSection />;
     case "about":
       return <AboutSettingsSection />;
-    case "knowledge":
     case "admin":
       return <PlaceholderSettingsSection section={section} />;
     default:
@@ -90,33 +92,38 @@ export function SettingsDrawer() {
 
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <nav
-            className="w-[220px] shrink-0 overflow-y-auto border-r border-[var(--border)] bg-[var(--surface)] p-2.5"
+            className="flex w-[220px] shrink-0 flex-col border-r border-[var(--border)] bg-[var(--surface)]"
             aria-label="设置分类"
           >
-            {navItems.map((item) => {
-              const active = drawerSection === item.id;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => openDrawer(item.id)}
-                  className={`mb-0.5 flex w-full flex-col items-start rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${
-                    active
-                      ? "bg-[var(--accent-muted)] font-medium text-[var(--accent)]"
-                      : "text-[var(--fg-secondary)] hover:bg-[var(--sidebar-hover)]"
-                  }`}
-                >
-                  <span className="flex items-center gap-1.5">
-                    {item.label}
-                    {item.comingSoon && (
-                      <span className="rounded bg-[var(--border)] px-1 py-px text-[9px] font-medium uppercase tracking-wide text-[var(--fg-tertiary)]">
-                        预览
-                      </span>
-                    )}
-                  </span>
-                </button>
-              );
-            })}
+            <div className="min-h-0 flex-1 overflow-y-auto p-2.5">
+              {navItems.map((item) => {
+                const active = drawerSection === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => openDrawer(item.id)}
+                    className={`mb-0.5 flex w-full flex-col items-start rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${
+                      active
+                        ? "bg-[var(--accent-muted)] font-medium text-[var(--accent)]"
+                        : "text-[var(--fg-secondary)] hover:bg-[var(--sidebar-hover)]"
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      {item.label}
+                      {item.comingSoon && (
+                        <span className="rounded bg-[var(--border)] px-1 py-px text-[9px] font-medium uppercase tracking-wide text-[var(--fg-tertiary)]">
+                          预览
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="shrink-0 border-t border-[var(--border)] p-2.5">
+              <ConnectionStatusCard />
+            </div>
           </nav>
 
           <div className="min-w-0 flex-1 overflow-y-auto p-5">

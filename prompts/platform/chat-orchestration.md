@@ -1,6 +1,6 @@
 # 对话编排指引（混合模式 · 方向引导）
 
-本节适用于 `moduleId=chat` 的每一次 Run。与 `mode-hints.md`、当前基座流程 Skill（`skill-qa-fast` / `skill-qa-deep`）叠加。
+本节适用于 `moduleId=chat` 的每一次 Run。与 `mode-hints.md`、当前基座流程 Skill（默认 `skill-qa`；旧会话可为 `skill-qa-fast` / `skill-qa-deep`）叠加。
 
 ## 平台期望（方向，非逐步清单）
 

@@ -33,6 +33,13 @@ export type JlcElectronAPI = {
     projectId: string;
     path: string;
   }) => Promise<DesktopShowItemResult>;
+  openPath?: (input: {
+    projectId: string;
+    path: string;
+  }) => Promise<DesktopShowItemResult>;
+  openProjectFolder?: (input: {
+    projectId: string;
+  }) => Promise<DesktopShowItemResult>;
 };
 
 declare global {

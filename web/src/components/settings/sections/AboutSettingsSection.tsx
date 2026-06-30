@@ -43,7 +43,7 @@ function readUpdaterApi(): UpdaterApi | null {
 }
 
 export function AboutSettingsSection() {
-  const { settings, updateSettings, agentsRuntime } = useSettings();
+  const { settings, agentsRuntime } = useSettings();
   const [copied, setCopied] = useState(false);
   const [updater, setUpdater] = useState<UpdaterStatus | null>(null);
   const [checking, setChecking] = useState(false);
@@ -135,40 +135,27 @@ export function AboutSettingsSection() {
         />
       ) : null}
 
-      <button
-        type="button"
-        className="btn btn-secondary w-full justify-center gap-2 py-2 text-sm"
-        onClick={() => void copyDiagnostics()}
-      >
-        <Copy className="h-4 w-4" strokeWidth={1.75} />
-        {copied ? "已复制诊断信息" : "复制诊断信息"}
-      </button>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          className="btn btn-secondary flex-1 justify-center gap-1.5 py-1.5 text-xs"
+          onClick={() => void copyDiagnostics()}
+        >
+          <Copy className="h-3.5 w-3.5" strokeWidth={1.75} />
+          {copied ? "已复制" : "复制诊断信息"}
+        </button>
 
-      <a
-        href="#"
-        className="btn btn-secondary flex w-full items-center justify-center gap-2 py-2 text-sm"
-        onClick={(e) => {
-          e.preventDefault();
-          window.alert("原型：打开帮助文档");
-        }}
-      >
-        <HelpCircle className="h-4 w-4" strokeWidth={1.75} />
-        使用帮助与反馈
-      </a>
-
-      <div className="rounded-lg border border-dashed border-[var(--border-strong)] p-3">
-        <label className="flex cursor-pointer items-center justify-between gap-3 text-sm">
-          <span className="text-[var(--fg-secondary)]">模拟管理员视图（原型）</span>
-          <input
-            type="checkbox"
-            className="h-4 w-4 accent-[var(--accent)]"
-            checked={settings.simulateAdmin}
-            onChange={(e) => updateSettings({ simulateAdmin: e.target.checked })}
-          />
-        </label>
-        <p className="mt-1 text-xs text-[var(--fg-tertiary)]">
-          开启后在用户菜单中显示 BYOK、功能与审计占位项
-        </p>
+        <a
+          href="#"
+          className="btn btn-secondary flex flex-1 items-center justify-center gap-1.5 py-1.5 text-xs"
+          onClick={(e) => {
+            e.preventDefault();
+            window.alert("原型：打开帮助文档");
+          }}
+        >
+          <HelpCircle className="h-3.5 w-3.5" strokeWidth={1.75} />
+          使用帮助与反馈
+        </a>
       </div>
     </div>
   );

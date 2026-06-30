@@ -1,12 +1,13 @@
 import { resolveChatOrchestration } from "@jlc/runtime-core";
 import {
   type ChatSurfaceModuleId,
+  INDUSTRIAL_DRAWING_BASE_SKILL,
   PPT_DEFAULT_SKILL,
-  TRANSLATE_DEFAULT_SKILL,
-  WRITING_DEFAULT_SKILL,
+  SIMULATION_BASE_SKILL,
+  VIDEO_BASE_SKILL,
 } from "@/lib/module-chat-config";
 import { normalizeChatMode } from "@/lib/navigation";
-import { resolveSkills } from "@/lib/module-registry";
+import { resolveSkills, WRITING_BASE_SKILL } from "@/lib/module-registry";
 import {
   chatExecutionMode,
   companionConfig,
@@ -29,6 +30,8 @@ export type BuildCreateRunResult = {
   /** ensure-default-task-project 解析出的项目（含 pathSummary） */
   ensuredProject?: ResearchProject;
 };
+
+const LAZY_DEFAULT_WORKSPACE_ID = "__lazy_default__";
 
 type ChatAttachmentForRun = {
   id?: string;
@@ -106,12 +109,17 @@ export async function buildCreateRunRequest(
       ? "writing"
       : parsed.surfaceModuleId === "ppt"
         ? "ppt"
-        : parsed.surfaceModuleId === "translate"
-          ? "translate"
-          : "chat";
+        : parsed.surfaceModuleId === "3d"
+          ? "3d"
+          : parsed.surfaceModuleId === "video"
+            ? "video"
+            : parsed.surfaceModuleId === "simulation"
+              ? "simulation"
+        : "chat";
 
   let workspaceProjectId: string;
   let ensuredProject: ResearchProject | undefined;
+  let lazyDefaultWorkspace: CreateRunRequest["lazyDefaultWorkspace"] | undefined;
   let effectiveProjectId = uiProjectId;
 
   if (chatExecutionMode() === "companion") {
@@ -119,17 +127,22 @@ export async function buildCreateRunRequest(
       moduleId: surfaceModuleId,
       taskId: parsed.sessionId,
       taskTitle,
+      requiresImmediateWorkspace:
+        parsed.messages.some((message) =>
+          Array.isArray(message.attachments) && message.attachments.length > 0,
+        ),
     });
     workspaceProjectId = resolved.workspaceProjectId;
     if (resolved.ensuredProject) {
       ensuredProject = resolved.ensuredProject;
       effectiveProjectId = resolved.ensuredProject.id;
     }
+    lazyDefaultWorkspace = resolved.lazyDefaultWorkspace;
   } else {
     workspaceProjectId = resolveWorkspaceProjectId(uiProjectId);
   }
 
-  const mode = normalizeChatMode(parsed.mode) ?? "fast";
+  const mode = normalizeChatMode(parsed.mode) ?? "auto";
   const orchestration = resolveChatOrchestration({ mode });
   const writingTemplateId =
     surfaceModuleId === "writing"
@@ -139,10 +152,6 @@ export async function buildCreateRunRequest(
     surfaceModuleId === "ppt"
       ? parsed.pptTemplateId?.trim() || "pitch-deck"
       : "pitch-deck";
-  const translateTemplateId =
-    surfaceModuleId === "translate"
-      ? parsed.translateTemplateId?.trim() || "text"
-      : "text";
 
   const moduleSkills =
     surfaceModuleId === "writing"
@@ -155,25 +164,41 @@ export async function buildCreateRunRequest(
             moduleId: "ppt",
             binding: { task: "deck", templateId: pptTemplateId },
           })
-        : surfaceModuleId === "translate"
+        : surfaceModuleId === "3d"
           ? resolveSkills({
-              moduleId: "translate",
-              binding: { task: "translate", templateId: translateTemplateId },
+              moduleId: "3d",
+              binding: {},
             })
-          : null;
+          : surfaceModuleId === "video"
+            ? resolveSkills({
+                moduleId: "video",
+                binding: {},
+              })
+            : surfaceModuleId === "simulation"
+              ? resolveSkills({
+                  moduleId: "simulation",
+                  binding: {},
+                })
+        : null;
 
   const processSkill =
     surfaceModuleId === "writing"
-      ? (moduleSkills?.processSkill ?? WRITING_DEFAULT_SKILL)
+      ? WRITING_BASE_SKILL
       : surfaceModuleId === "ppt"
-        ? (moduleSkills?.processSkill ?? PPT_DEFAULT_SKILL)
-        : surfaceModuleId === "translate"
-          ? (moduleSkills?.processSkill ?? TRANSLATE_DEFAULT_SKILL)
-          : orchestration.baseProcessSkill;
+        ? PPT_DEFAULT_SKILL
+        : surfaceModuleId === "3d"
+          ? INDUSTRIAL_DRAWING_BASE_SKILL
+          : surfaceModuleId === "video"
+            ? VIDEO_BASE_SKILL
+            : surfaceModuleId === "simulation"
+              ? SIMULATION_BASE_SKILL
+        : orchestration.baseProcessSkill;
   const platformNormSkill =
     surfaceModuleId === "writing" ||
     surfaceModuleId === "ppt" ||
-    surfaceModuleId === "translate"
+    surfaceModuleId === "3d" ||
+    surfaceModuleId === "video" ||
+    surfaceModuleId === "simulation"
       ? (moduleSkills?.platformNormSkill ?? orchestration.platformNormSkill)
       : orchestration.platformNormSkill;
   const executionMode = chatExecutionMode();
@@ -182,14 +207,21 @@ export async function buildCreateRunRequest(
       ? "writing"
       : surfaceModuleId === "ppt"
         ? "ppt"
-        : surfaceModuleId === "translate"
-          ? "translate"
-          : mode === "deep"
-            ? "deep"
-            : "fast";
+        : surfaceModuleId === "3d"
+          ? "default"
+          : surfaceModuleId === "video"
+            ? "video"
+            : surfaceModuleId === "simulation"
+              ? "deep"
+        : mode === "deep"
+          ? "deep"
+          : mode === "fast"
+            ? "fast"
+            : "default";
 
   if (
     executionMode === "companion" &&
+    workspaceProjectId !== LAZY_DEFAULT_WORKSPACE_ID &&
     (effectiveProjectId === NO_PROJECT_ID || workspaceProjectId === NO_PROJECT_ID)
   ) {
     throw new Error("project_id_unresolved");
@@ -209,6 +241,7 @@ export async function buildCreateRunRequest(
       sessionId: parsed.sessionId,
       projectId: effectiveProjectId,
       workspaceProjectId,
+      lazyDefaultWorkspace,
       moduleId: surfaceModuleId,
       binding:
         surfaceModuleId === "writing"
@@ -222,13 +255,19 @@ export async function buildCreateRunRequest(
                 task: "deck" as const,
                 templateId: pptTemplateId,
               }
-            : surfaceModuleId === "translate"
+            : surfaceModuleId === "3d"
               ? {
-                  moduleId: "translate" as const,
-                  task: "translate" as const,
-                  templateId: translateTemplateId,
+                  moduleId: "3d" as const,
                 }
-              : { moduleId: "chat" as const, mode },
+              : surfaceModuleId === "video"
+                ? {
+                    moduleId: "video" as const,
+                  }
+                : surfaceModuleId === "simulation"
+                  ? {
+                      moduleId: "simulation" as const,
+                    }
+            : { moduleId: "chat" as const, mode },
       agentId: parsed.agentId,
       agentModel: parsed.agentModel,
       messages,

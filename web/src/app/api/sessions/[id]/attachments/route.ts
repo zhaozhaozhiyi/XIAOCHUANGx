@@ -42,10 +42,10 @@ function sanitizeSegment(value: string, fallback: string, max = 160): string {
 }
 
 function attachmentsRoot(): string {
-  return path.resolve(
-    process.env.XIAOCHUANG_ATTACHMENT_DIR ??
-      path.join(process.cwd(), ".xiaochuang", "attachments"),
-  );
+  const configured = process.env.XIAOCHUANG_ATTACHMENT_DIR?.trim();
+  return configured
+    ? path.resolve(configured)
+    : path.join(/*turbopackIgnore: true*/ process.cwd(), ".xiaochuang", "attachments");
 }
 
 function extensionOf(filename: string): string | undefined {

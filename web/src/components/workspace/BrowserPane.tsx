@@ -8,7 +8,7 @@ import {
   Loader2,
   RefreshCw,
 } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   hostAllowedForProxy,
   normalizeBrowserUrl,
@@ -40,9 +40,7 @@ export function BrowserPane({ tabId }: BrowserPaneProps) {
   const [frameStatus, setFrameStatus] = useState<FrameStatus>(
     currentUrl ? "loading" : "idle",
   );
-  const historyIndexRef = useRef(historyIndex);
-  historyIndexRef.current = historyIndex;
-  const iframeKey = useRef(0);
+  const [iframeKey, setIframeKey] = useState(0);
 
   const hasPage = currentUrl !== null;
 
@@ -57,11 +55,10 @@ export function BrowserPane({ tabId }: BrowserPaneProps) {
       if (!normalized) return;
 
       setFrameStatus("loading");
-      iframeKey.current += 1;
+      setIframeKey((prev) => prev + 1);
 
       if (pushHistory) {
-        const idx = historyIndexRef.current;
-        const nextHistory = [...history.slice(0, idx + 1), normalized];
+        const nextHistory = [...history.slice(0, historyIndex + 1), normalized];
         const newIndex = nextHistory.length - 1;
         updateBrowserState(tabId, {
           inputUrl: normalized,
@@ -84,7 +81,7 @@ export function BrowserPane({ tabId }: BrowserPaneProps) {
     const nextIndex = historyIndex - 1;
     const url = history[nextIndex];
     setFrameStatus("loading");
-    iframeKey.current += 1;
+    setIframeKey((prev) => prev + 1);
     updateBrowserState(tabId, {
       historyIndex: nextIndex,
       currentUrl: url,
@@ -97,7 +94,7 @@ export function BrowserPane({ tabId }: BrowserPaneProps) {
     const nextIndex = historyIndex + 1;
     const url = history[nextIndex];
     setFrameStatus("loading");
-    iframeKey.current += 1;
+    setIframeKey((prev) => prev + 1);
     updateBrowserState(tabId, {
       historyIndex: nextIndex,
       currentUrl: url,
@@ -108,7 +105,7 @@ export function BrowserPane({ tabId }: BrowserPaneProps) {
   const refresh = () => {
     if (!currentUrl) return;
     setFrameStatus("loading");
-    iframeKey.current += 1;
+    setIframeKey((prev) => prev + 1);
   };
 
   const setInputUrl = (value: string) => {
@@ -210,7 +207,7 @@ export function BrowserPane({ tabId }: BrowserPaneProps) {
 
         {hasPage && iframeSrc && (
           <iframe
-            key={iframeKey.current}
+            key={iframeKey}
             title="网页预览"
             src={iframeSrc}
             className="h-full w-full border-0 bg-white"

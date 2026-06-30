@@ -3,11 +3,17 @@ import { isComplexDeepQuestion, type ChatModeId } from "./chat-mode.js";
 export type SimulatedDeliverablesPayload = {
   headline: string;
   primaryPath: string;
+  workspaceProjectId?: string;
   items: Array<{
     path: string;
     label?: string;
     mime?: string;
-    kind?: "primary" | "attachment";
+    kind?: "primary" | "attachment" | "directory";
+    workspaceProjectId?: string;
+    previewUrl?: string;
+    recordingUrl?: string;
+    devCommand?: string;
+    devServerStatus?: "running" | "unknown";
   }>;
 };
 
@@ -16,7 +22,12 @@ export function getSimulatedDeliverables(
   mode: ChatModeId,
   text: string,
 ): SimulatedDeliverablesPayload | null {
-  if (mode !== "deep" || !isComplexDeepQuestion(text)) return null;
+  if (
+    !isComplexDeepQuestion(text) ||
+    (mode !== "deep" && mode !== "auto")
+  ) {
+    return null;
+  }
   return {
     headline: "本轮交付文件如下：",
     primaryPath: "research_summary.md",

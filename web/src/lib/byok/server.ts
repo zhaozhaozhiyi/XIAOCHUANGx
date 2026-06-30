@@ -6,6 +6,8 @@ import type { ChatModeId } from "@/lib/navigation";
 import type { AgentId } from "@/lib/settings";
 import {
   providerDisplayName,
+  redactSensitiveText,
+  toUserFacingProviderError,
   trimApiProviderConfig,
   type ApiProviderConfig,
   type ApiProviderModelOption,
@@ -239,6 +241,16 @@ function parseModelOptions(data: unknown): ApiProviderModelOption[] {
     .filter((item): item is ApiProviderModelOption => !!item);
 }
 
+function sanitizeProviderErrorDetail(
+  detail: string,
+  status?: number,
+): string {
+  return toUserFacingProviderError({
+    detail: redactSensitiveText(detail),
+    status,
+  });
+}
+
 export async function listApiProviderModels(
   rawConfig: ApiProviderConfig,
 ): Promise<ApiProviderModelOption[]> {
@@ -253,7 +265,10 @@ export async function listApiProviderModels(
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
     throw new Error(
-      detail.slice(0, 240) || `模型列表请求失败 (${response.status})`,
+      sanitizeProviderErrorDetail(
+        detail.slice(0, 240) || `模型列表请求失败 (${response.status})`,
+        response.status,
+      ),
     );
   }
 
@@ -303,7 +318,11 @@ export async function streamApiProviderChat(input: {
       baseUrl: config.baseUrl,
       error: message,
     });
-    throw new Error(`Provider URL 验证失败: ${message}`);
+    throw new Error(
+      toUserFacingProviderError({
+        detail: `Provider URL 验证失败: ${message}`,
+      }),
+    );
   }
 
   const body =
@@ -347,7 +366,7 @@ export async function streamApiProviderChat(input: {
     const errorMsg = fetchError instanceof Error ? fetchError.message : "Unknown fetch error";
     console.error("[BYOK] Fetch failed:", {
       endpoint,
-      error: errorMsg,
+      error: redactSensitiveText(errorMsg),
       errorType: fetchError instanceof Error ? fetchError.constructor.name : typeof fetchError,
     });
 
@@ -374,7 +393,10 @@ export async function streamApiProviderChat(input: {
       {
         error: "provider_error",
         status: upstream.status,
-        message: detail.slice(0, 500) || upstream.statusText,
+        message: sanitizeProviderErrorDetail(
+          detail.slice(0, 500) || upstream.statusText,
+          upstream.status,
+        ),
       },
       { status: 502 },
     );
@@ -470,13 +492,20 @@ export async function oneShotApiProviderCompletion(input: {
   } catch (fetchError) {
     const errorMsg =
       fetchError instanceof Error ? fetchError.message : "Unknown fetch error";
-    throw new Error(`Provider 网络错误: ${errorMsg}`);
+    throw new Error(
+      toUserFacingProviderError({
+        detail: `Provider 网络错误: ${errorMsg}`,
+      }),
+    );
   }
 
   if (!upstream.ok) {
     const detail = await upstream.text().catch(() => "");
     throw new Error(
-      `provider_error_${upstream.status}: ${detail.slice(0, 240) || upstream.statusText}`,
+      toUserFacingProviderError({
+        detail: `provider_error_${upstream.status}: ${detail.slice(0, 240) || upstream.statusText}`,
+        status: upstream.status,
+      }),
     );
   }
 
