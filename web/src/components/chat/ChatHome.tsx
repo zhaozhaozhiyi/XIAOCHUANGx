@@ -27,6 +27,10 @@ import {
 } from "@/lib/module-chat-config";
 import { getChatHomeSuggestions } from "@/lib/chat-home-suggestions";
 
+function createSessionId(): string {
+  return String(Date.now());
+}
+
 export function ChatHome({
   surfaceModuleId = "chat",
 }: {
@@ -68,7 +72,7 @@ export function ChatHome({
     if (!trimmed && !attachments?.length) return;
     setSending(true);
     try {
-      const id = String(Date.now());
+      const id = createSessionId();
       const uploadedAttachments = await uploadChatAttachments(
         id,
         attachments,

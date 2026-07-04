@@ -76,6 +76,11 @@ function mapEvent(
         typeof payload.platformNormSkill === "string"
           ? payload.platformNormSkill
           : null,
+      supportSkillSlugs: Array.isArray(payload.supportSkillSlugs)
+        ? payload.supportSkillSlugs.filter(
+            (item): item is string => typeof item === "string",
+          )
+        : null,
       orchestrationMode:
         typeof payload.orchestrationMode === "string"
           ? payload.orchestrationMode

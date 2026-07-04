@@ -132,6 +132,21 @@ export function companionSessionQueueUrl(sessionId: string): string {
   return companionUrl(`/v1/sessions/${encodeURIComponent(sessionId)}/queue`);
 }
 
+export function companionSessionSimulationRoundsUrl(sessionId: string): string {
+  return companionUrl(
+    `/v1/sessions/${encodeURIComponent(sessionId)}/simulation/rounds`,
+  );
+}
+
+export function companionSessionSimulationRoundUrl(
+  sessionId: string,
+  roundId: string,
+): string {
+  return companionUrl(
+    `/v1/sessions/${encodeURIComponent(sessionId)}/simulation/rounds/${encodeURIComponent(roundId)}`,
+  );
+}
+
 export function companionRunRecordUrl(runId: string): string {
   return companionUrl(`/v1/runs/${encodeURIComponent(runId)}`);
 }

@@ -1,17 +1,59 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { DeliverableItem, DeliverablesPart } from "@/lib/chat-parts";
 import { deliverableTypeLabel } from "@/lib/deliverable-mime";
 import { useOpenFileAt } from "@/hooks/useOpenFileAt";
 import { ExternalLink, FileText, Folder, FolderOpen, ImageIcon, Presentation } from "lucide-react";
 import { useWorkspaceOptional } from "@/components/workspace/WorkspaceContext";
+import { useWorkspaceProject } from "@/components/workspace/WorkspaceProjectContext";
 import { getSessionProjectId, NO_PROJECT_ID } from "@/lib/research-projects";
 
 function basename(path: string): string {
   const parts = path.split(/[/\\]/);
   return parts[parts.length - 1] || path;
+}
+
+function preferDisplayItem(
+  current: DeliverableItem,
+  candidate: DeliverableItem,
+): DeliverableItem {
+  const currentDepth = current.path.split(/[\\/]/).length;
+  const candidateDepth = candidate.path.split(/[\\/]/).length;
+  const preferred =
+    candidateDepth !== currentDepth
+      ? candidateDepth > currentDepth
+        ? candidate
+        : current
+      : candidate.path.length > current.path.length
+        ? candidate
+        : current;
+  return current.kind === "primary" || candidate.kind === "primary"
+    ? { ...preferred, kind: "primary" }
+    : preferred;
+}
+
+function areEquivalentDeliverablePaths(a: string, b: string): boolean {
+  return a === b || a.endsWith(`/${b}`) || b.endsWith(`/${a}`);
+}
+
+function dedupeDeliverableItems(items: DeliverableItem[]): DeliverableItem[] {
+  const deduped: DeliverableItem[] = [];
+  for (const item of items) {
+    const existingIndex = deduped.findIndex((existing) =>
+      areEquivalentDeliverablePaths(existing.path, item.path),
+    );
+    if (existingIndex === -1) {
+      deduped.push(item);
+      continue;
+    }
+    deduped[existingIndex] = preferDisplayItem(
+      deduped[existingIndex]!,
+      item,
+    );
+  }
+  return deduped;
 }
 
 function RowIcon({
@@ -57,11 +99,19 @@ function DeliverableRow({
 }) {
   const { openFileAt } = useOpenFileAt();
   const workspace = useWorkspaceOptional();
+  const {
+    workspaceProjectId: activeWorkspaceProjectId,
+    setWorkspaceProject,
+  } = useWorkspaceProject();
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [generatedPath, setGeneratedPath] = useState<string | null>(null);
   const [opening, setOpening] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const pendingOpenRef = useRef<{
+    filePath: string;
+    projectId: string;
+  } | null>(null);
   const label = item.label ?? basename(item.path);
   const typeLabel =
     item.kind === "directory" ? "目录" : deliverableTypeLabel(item.path, item.mime);
@@ -84,7 +134,7 @@ function DeliverableRow({
     );
   }, []);
 
-  const openDeliverable = useCallback(
+  const openCurrentWorkspaceFile = useCallback(
     async (filePath: string) => {
       if (!workspace) {
         setActionMessage("工作区面板尚未就绪");
@@ -93,7 +143,6 @@ function DeliverableRow({
       setOpening(true);
       setActionMessage(null);
       try {
-        workspace.refreshTree();
         const opened = await openFileAt(filePath);
         if (!opened) {
           setActionMessage("未能在当前工作区定位该文件，请确认文件已写入当前会话工作区");
@@ -107,6 +156,39 @@ function DeliverableRow({
       }
     },
     [openFileAt, workspace],
+  );
+
+  useEffect(() => {
+    const pendingOpen = pendingOpenRef.current;
+    if (!pendingOpen || activeWorkspaceProjectId !== pendingOpen.projectId) {
+      return;
+    }
+    const next = pendingOpen.filePath;
+    pendingOpenRef.current = null;
+    void openCurrentWorkspaceFile(next);
+  }, [activeWorkspaceProjectId, openCurrentWorkspaceFile]);
+
+  const openDeliverable = useCallback(
+    async (filePath: string) => {
+      const targetProjectId = itemWorkspaceProjectId;
+      if (
+        targetProjectId &&
+        workspace?.workspaceProjectId !== targetProjectId
+      ) {
+        setOpening(true);
+        setActionMessage("正在切换到交付物工作区…");
+        pendingOpenRef.current = { filePath, projectId: targetProjectId };
+        setWorkspaceProject(targetProjectId);
+        return;
+      }
+      await openCurrentWorkspaceFile(filePath);
+    },
+    [
+      itemWorkspaceProjectId,
+      openCurrentWorkspaceFile,
+      setWorkspaceProject,
+      workspace?.workspaceProjectId,
+    ],
   );
 
   const exportDocx = useCallback(async () => {
@@ -361,6 +443,7 @@ export function DeliverablesCard({ part }: { part: DeliverablesPart }) {
     pathname.match(/^\/ppt\/([^/]+)$/)?.[1] ??
     pathname.match(/^\/3d\/([^/]+)$/)?.[1] ??
     pathname.match(/^\/video\/([^/]+)$/)?.[1] ??
+    pathname.match(/^\/simulation\/([^/]+)$/)?.[1] ??
     pathname.match(/^\/chat\/([^/]+)$/)?.[1];
   const projectId = sessionId
     ? getSessionProjectId(sessionId)
@@ -369,12 +452,14 @@ export function DeliverablesCard({ part }: { part: DeliverablesPart }) {
     part.primaryPath ??
     part.items.find((i) => i.kind === "primary")?.path ??
     part.items[0]?.path;
+  const items = dedupeDeliverableItems(part.items);
+  const primaryFilename = primaryPath ? basename(primaryPath) : null;
 
   const primary =
-    primaryPath != null
-      ? part.items.find((i) => i.path === primaryPath)
+    primaryFilename != null
+      ? items.find((i) => basename(i.path) === primaryFilename)
       : undefined;
-  const rest = part.items.filter((i) => i.path !== primaryPath);
+  const rest = items.filter((i) => i !== primary);
 
   return (
     <div className="chat-deliverables flex flex-col gap-2 text-sm">

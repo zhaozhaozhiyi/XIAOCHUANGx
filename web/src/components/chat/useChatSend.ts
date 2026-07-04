@@ -457,7 +457,12 @@ export function useChatSend(
                 processSkill: payload.processSkill,
                 platformNormSkill: payload.platformNormSkill,
                 catalogSlugs: payload.catalogSlugs,
-                injectedSkills: payload.injectedSkills,
+                injectedSkills: Array.from(
+                  new Set([
+                    ...(payload.injectedSkills ?? []),
+                    ...(payload.supportSkillSlugs ?? []),
+                  ]),
+                ),
               }),
             );
           },

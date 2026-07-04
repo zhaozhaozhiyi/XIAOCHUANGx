@@ -42,6 +42,7 @@ const TIMEOUT_PROFILES = new Set([
   "writing",
   "ppt",
   "video",
+  "simulation",
 ]);
 
 function parseLazyDefaultWorkspace(
@@ -140,6 +141,11 @@ export function parseCreateRun(body: unknown): CreateRunRequest | null {
       typeof b.platformNormSkill === "string"
         ? b.platformNormSkill
         : "skill-platform-research-norms",
+    supportSkillSlugs: Array.isArray(b.supportSkillSlugs)
+      ? b.supportSkillSlugs.filter(
+          (slug): slug is string => typeof slug === "string" && slug.trim().length > 0,
+        )
+      : undefined,
     timeoutProfile:
       typeof b.timeoutProfile === "string" &&
       TIMEOUT_PROFILES.has(b.timeoutProfile)

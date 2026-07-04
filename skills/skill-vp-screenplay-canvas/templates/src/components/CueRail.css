@@ -1,0 +1,82 @@
+.cr-hover {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  z-index: 10;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+.cr-strip {
+  background: rgba(0, 0, 0, 0.84);
+  backdrop-filter: blur(20px);
+  padding: 12px 18px;
+  border-radius: 14px 14px 0 0;
+  display: flex;
+  gap: 8px;
+  max-width: calc(100vw - 32px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  opacity: 0;
+  transform: translateY(100%);
+  transition: opacity var(--dur-base) var(--ease-quart),
+    transform var(--dur-base) var(--ease-quart);
+}
+
+.cr-hover:hover .cr-strip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.cr-sequence {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-mute);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  cursor: pointer;
+  transition: color var(--dur-quick), border-color var(--dur-quick);
+}
+
+.cr-sequence:hover {
+  color: var(--text);
+}
+
+.cr-active {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.cr-index {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.cr-pips {
+  display: flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.cr-pip {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  cursor: pointer;
+  transition: background var(--dur-quick);
+}
+
+.cr-pip-on {
+  background: var(--accent);
+}

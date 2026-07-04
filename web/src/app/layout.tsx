@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { CSSProperties } from "react";
+import "@xyflow/react/dist/style.css";
 import "./globals.css";
 import { DesktopTitleBar } from "@/components/layout/DesktopTitleBar";
 

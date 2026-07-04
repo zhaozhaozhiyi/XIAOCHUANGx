@@ -10,6 +10,7 @@ import { useActiveTurn } from "./useActiveTurn";
 
 type Props = {
   messages: ChatMessage[];
+  sessionId?: string;
   scrollRootRef: React.RefObject<HTMLDivElement | null>;
   bottomRef?: React.RefObject<HTMLDivElement | null>;
   /** 深度模式显示更短的步间思考间隔 */
@@ -37,6 +38,7 @@ type Props = {
 
 export function ChatTurnList({
   messages,
+  sessionId,
   scrollRootRef,
   bottomRef,
   thinkingGapMinMs,
@@ -77,6 +79,7 @@ export function ChatTurnList({
                       <AssistantMessageBubble
                         key={msg.id}
                         message={msg}
+                        sessionId={sessionId}
                         thinkingGapMinMs={thinkingGapMinMs}
                         onClarificationSubmitted={onClarificationSubmitted}
                         onClarificationContinue={onClarificationContinue}

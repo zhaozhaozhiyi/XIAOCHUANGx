@@ -1,0 +1,51 @@
+.launch-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(24px);
+  cursor: pointer;
+}
+
+.launch-gate-card {
+  text-align: center;
+  color: #f4f4f5;
+  padding: 48px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+.launch-gate-kicker {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(244, 244, 245, 0.55);
+}
+
+.launch-gate-title {
+  font-family: var(--font-display-en, system-ui);
+  font-size: 56px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.launch-gate-sub {
+  font-size: 16px;
+  color: rgba(244, 244, 245, 0.68);
+  line-height: 1.6;
+}
+
+.launch-gate-sub kbd {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  padding: 2px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}

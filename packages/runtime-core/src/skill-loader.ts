@@ -16,6 +16,7 @@ export type LoadedSkill = {
 export type SkillBundle = {
   platformNorm?: LoadedSkill;
   process?: LoadedSkill;
+  support: LoadedSkill[];
   missing: string[];
 };
 
@@ -115,12 +116,14 @@ export function loadSkill(
 export function loadSkillBundle(input: {
   platformNormSkill?: string | null;
   processSkill?: string | null;
+  supportSkillSlugs?: string[] | null;
   skillsRoot?: string;
 }): SkillBundle {
   const skillsRoot = input.skillsRoot ?? resolveSkillsRoot();
   const missing: string[] = [];
   let platformNorm: LoadedSkill | undefined;
   let process: LoadedSkill | undefined;
+  const support: LoadedSkill[] = [];
 
   if (input.platformNormSkill) {
     const loaded = loadSkill(input.platformNormSkill, skillsRoot);
@@ -134,7 +137,23 @@ export function loadSkillBundle(input: {
     else missing.push(input.processSkill);
   }
 
-  return { platformNorm, process, missing };
+  const supportSlugs = Array.from(
+    new Set(
+      (input.supportSkillSlugs ?? []).filter(
+        (slug): slug is string => typeof slug === "string" && slug.trim().length > 0,
+      ),
+    ),
+  );
+  for (const slug of supportSlugs) {
+    if (slug === input.platformNormSkill || slug === input.processSkill) {
+      continue;
+    }
+    const loaded = loadSkill(slug, skillsRoot);
+    if (loaded) support.push(loaded);
+    else missing.push(slug);
+  }
+
+  return { platformNorm, process, support, missing };
 }
 
 /** 清除进程内缓存（测试或热更新后调用） */

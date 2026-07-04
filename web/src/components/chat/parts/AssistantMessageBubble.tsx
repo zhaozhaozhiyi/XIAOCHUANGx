@@ -12,6 +12,7 @@ import { ToolRunningDots } from "@/components/chat/parts/ToolRunningDots";
 
 type Props = {
   message: ChatMessage;
+  sessionId?: string;
   thinkingGapMinMs?: number;
   onClarificationSubmitted?: (partId: string, answer: string) => void;
   onClarificationContinue?: (answer: string) => void;
@@ -71,6 +72,7 @@ function WaitingUserCallout({ message }: { message: string }) {
 
 export function AssistantMessageBubble({
   message,
+  sessionId,
   thinkingGapMinMs = 3_000,
   onClarificationSubmitted,
   onClarificationContinue,
@@ -145,11 +147,17 @@ export function AssistantMessageBubble({
                 onRequirementsContinue={onRequirementsContinue}
                 onRequirementsDraftChange={onRequirementsDraftChange}
                 onOutlineCommitted={onOutlineCommitted}
+                sessionId={sessionId}
+                runId={message.runId}
               />
             ) : null}
             {viewModel.deliverablesPart ? (
               <div className="mt-3">
-                <PartRenderer part={viewModel.deliverablesPart} />
+                <PartRenderer
+                  part={viewModel.deliverablesPart}
+                  sessionId={sessionId}
+                  runId={message.runId}
+                />
               </div>
             ) : null}
           </div>

@@ -3,7 +3,7 @@ import { getAgentRegistryEntry } from "../agent-registry.js";
 import {
   DEFAULT_ARGV_PROMPT_BUDGET_BYTES,
   estimatePromptBytes,
-} from "../compose-daemon-prompt.js";
+} from "../prompt-size.js";
 
 export type BuildArgsContext = {
   cwd: string;
@@ -138,9 +138,10 @@ function buildClaudeArgs(ctx: BuildArgsContext): AgentLaunchSpec {
     bin: registry.execution.bin,
     args,
     streamFormat: registry.execution.streamFormat,
-    // Keep Claude's stream-json stdin open so later clarification/tool_result
-    // payloads can be written back into the same CLI process.
-    closeStdinAfterPrompt: false,
+    // Close stdin after the initial user message. Keeping Claude's stream-json
+    // stdin open makes completed turns wait forever for more input, which
+    // prevents run.finished/canonical.output and deliverables from being emitted.
+    closeStdinAfterPrompt: true,
     stdinAsClaudeUserMessage: true,
     stdinPayload: "composed",
   };

@@ -28,7 +28,8 @@ export type RunTimeoutProfile =
   | "deep"
   | "writing"
   | "ppt"
-  | "video";
+  | "video"
+  | "simulation";
 
 export const PACKAGE_VERSION = "0.1.0";
 
@@ -74,6 +75,7 @@ export const config = {
   runTimeoutWritingMs: envOptionalInt("COMPANION_RUN_TIMEOUT_WRITING_MS"),
   runTimeoutPptMs: envOptionalInt("COMPANION_RUN_TIMEOUT_PPT_MS"),
   runTimeoutVideoMs: envOptionalInt("COMPANION_RUN_TIMEOUT_VIDEO_MS"),
+  runTimeoutSimulationMs: envOptionalInt("COMPANION_RUN_TIMEOUT_SIMULATION_MS"),
   runIdleTimeoutMs: envInt("COMPANION_RUN_IDLE_TIMEOUT_MS", 900_000),
 } as const;
 
@@ -95,6 +97,8 @@ export function resolveRunTimeoutMs(
       return config.runTimeoutPptMs;
     case "video":
       return config.runTimeoutVideoMs;
+    case "simulation":
+      return config.runTimeoutSimulationMs;
     default:
       return config.runTimeoutMs;
   }

@@ -8,6 +8,10 @@ import {
   type ComposeRunPromptsOptions,
   type ComposedRunPromptsMeta,
 } from "./prompt.js";
+export {
+  DEFAULT_ARGV_PROMPT_BUDGET_BYTES,
+  estimatePromptBytes,
+} from "./prompt-size.js";
 
 export type ComposedAgentRunPayload = {
   /** 写入 CLI stdin 的完整 prompt */
@@ -88,10 +92,3 @@ export function composeAgentRunPayload(
     meta,
   };
 }
-
-/** 估算 argv 占用（Windows ~32KB）；供仍使用 argv 的 CLI 适配器做预算检查 */
-export function estimatePromptBytes(text: string): number {
-  return Buffer.byteLength(text, "utf8");
-}
-
-export const DEFAULT_ARGV_PROMPT_BUDGET_BYTES = 28_000;

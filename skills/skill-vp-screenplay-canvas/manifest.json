@@ -1,0 +1,15 @@
+{
+  "name": "screenplay-canvas",
+  "version": "0.1.0",
+  "category": "Video / Narrative",
+  "description": "Turn source material into a cue-driven 16:9 screen narrative workspace with preview, voice-pass, and capture modes. Ships a Vite + React + TypeScript studio scaffold, a sequence/beat runtime, and a theme-driven motion surface.",
+  "homepage": "https://github.com/zhaozhaozhiyi/XIAOCHUANGx/tree/main/skills/skill-vp-screenplay-canvas",
+  "compat": [
+    "claude-code",
+    "claude-ai",
+    "cursor",
+    "codex-cli",
+    "gemini-cli",
+    "opencode"
+  ]
+}

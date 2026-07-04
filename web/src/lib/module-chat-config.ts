@@ -9,6 +9,7 @@ export { WRITING_DEFAULT_SKILL };
 export const INDUSTRIAL_DRAWING_BASE_SKILL = "skill-industrial-drawing-base";
 export const VIDEO_BASE_SKILL = "skill-vp-base";
 export const SIMULATION_BASE_SKILL = "skill-simulation-base";
+export const SIMULATION_WORLD_MODEL_SKILL = "skill-world-model";
 
 /** 复用对话 UI 的模块 */
 export type ChatSurfaceModuleId = Extract<

@@ -1,4 +1,18 @@
-import type { ChatPart } from "@jlc/contracts";
+import {
+  normalizeSimulationNodeWorldModelData,
+  normalizeSimulationNodesWorldModelData,
+  type ChatPart,
+} from "@jlc/contracts";
+
+type SimulationScenarioPart = Extract<ChatPart, { kind: "simulation_scenario" }>;
+type SimulationNodePart = Extract<ChatPart, { kind: "simulation_node" }>;
+type SimulationNode = SimulationNodePart["node"];
+type SimulationScenarioView = NonNullable<
+  SimulationScenarioPart["scenario"]["scenarios"]
+>[number];
+type SimulationStageState = NonNullable<
+  SimulationScenarioPart["scenario"]["stageState"]
+>;
 
 type StructuredQuestion = {
   id: string;
@@ -27,12 +41,19 @@ type RequirementsKind =
   | "writing_requirements"
   | "ppt_requirements"
   | "3d_requirements"
-  | "video_requirements";
+  | "video_requirements"
+  | "simulation_requirements";
 type OutlineKind =
   | "writing_outline"
   | "ppt_outline"
   | "3d_outline"
   | "video_outline";
+type RequirementDraftQuestion = {
+  id: string;
+  type?: NonNullable<StructuredQuestion["type"]>;
+  placeholder?: string;
+  options?: Array<{ label: string; description?: string }>;
+};
 
 function newPartId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -40,6 +61,40 @@ function newPartId(prefix: string): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isSimulationNodeRecord(value: unknown): value is SimulationNode {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.type === "string" &&
+    typeof value.label === "string" &&
+    typeof value.roundId === "string"
+  );
+}
+
+function isSimulationScenarioViewRecord(
+  value: unknown,
+): value is SimulationScenarioView {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.label === "string" &&
+    typeof value.status === "string" &&
+    Array.isArray(value.pathIds) &&
+    Array.isArray(value.nodeIds) &&
+    Array.isArray(value.edgeIds) &&
+    typeof value.roundId === "string"
+  );
+}
+
+function isSimulationStageStateRecord(value: unknown): value is SimulationStageState {
+  return (
+    isRecord(value) &&
+    typeof value.current === "string" &&
+    typeof value.status === "string" &&
+    Array.isArray(value.completed)
+  );
 }
 
 function normalizeRequirementsKind(input: {
@@ -60,6 +115,9 @@ function normalizeRequirementsKind(input: {
     if (input.rawInput.kind === "video_requirements") {
       return "video_requirements";
     }
+    if (input.rawInput.kind === "simulation_requirements") {
+      return "simulation_requirements";
+    }
   }
 
   if (
@@ -79,6 +137,12 @@ function normalizeRequirementsKind(input: {
   }
   if (input.moduleId === "video" && input.processSkill === "skill-vp-base") {
     return "video_requirements";
+  }
+  if (
+    input.moduleId === "simulation" &&
+    input.processSkill === "skill-simulation-base"
+  ) {
+    return "simulation_requirements";
   }
   return null;
 }
@@ -104,7 +168,18 @@ function normalizeStructuredQuestionType(
   },
 ): StructuredQuestion["type"] {
   if (typeof rawType === "string") {
-    const type = rawType.trim();
+    const type = rawType.trim().toLowerCase();
+    if (type === "select" || type === "single-select" || type === "radio") {
+      return "single_select";
+    }
+    if (
+      type === "multiselect" ||
+      type === "multi-select" ||
+      type === "checkbox" ||
+      type === "checkboxes"
+    ) {
+      return "multi_select";
+    }
     if (structuredQuestionTypes.has(type as NonNullable<StructuredQuestion["type"]>)) {
       return type as StructuredQuestion["type"];
     }
@@ -145,6 +220,37 @@ function normalizeStructuredQuestionOptions(
   return options.length > 0 ? options : undefined;
 }
 
+function normalizeQuestionValue(rawValue: unknown): string | undefined {
+  if (typeof rawValue === "string" && rawValue.trim()) {
+    return rawValue.trim();
+  }
+  if (typeof rawValue === "number" || typeof rawValue === "boolean") {
+    return String(rawValue);
+  }
+  if (Array.isArray(rawValue)) {
+    const values = rawValue
+      .map((item) => {
+        if (typeof item === "string") return item.trim();
+        if (typeof item === "number" || typeof item === "boolean") {
+          return String(item);
+        }
+        if (isRecord(item)) {
+          const label =
+            typeof item.label === "string"
+              ? item.label.trim()
+              : typeof item.value === "string"
+                ? item.value.trim()
+                : "";
+          return label;
+        }
+        return "";
+      })
+      .filter(Boolean);
+    return values.length > 0 ? values.join(" / ") : undefined;
+  }
+  return undefined;
+}
+
 function normalizeStructuredQuestions(rawQuestions: unknown): StructuredQuestion[] {
   if (!Array.isArray(rawQuestions)) return [];
   const questions: StructuredQuestion[] = [];
@@ -166,7 +272,19 @@ function normalizeStructuredQuestions(rawQuestions: unknown): StructuredQuestion
         : `q${index + 1}`;
     const options = normalizeStructuredQuestionOptions(rawQuestion.options);
     const multiSelect =
-      rawQuestion.multiSelect === true || rawQuestion.type === "multi_select";
+      rawQuestion.multiSelect === true ||
+      rawQuestion.type === "multi_select" ||
+      rawQuestion.type === "multiselect" ||
+      rawQuestion.type === "multi-select" ||
+      rawQuestion.type === "checkbox" ||
+      rawQuestion.type === "checkboxes";
+    const value = normalizeQuestionValue(rawQuestion.value);
+    const placeholder =
+      value ??
+      (typeof rawQuestion.placeholder === "string" &&
+      rawQuestion.placeholder.trim()
+        ? rawQuestion.placeholder.trim()
+        : undefined);
     questions.push({
       id,
       question: label,
@@ -188,11 +306,7 @@ function normalizeStructuredQuestions(rawQuestions: unknown): StructuredQuestion
         rawQuestion.description.trim()
           ? rawQuestion.description.trim()
           : undefined,
-      placeholder:
-        typeof rawQuestion.placeholder === "string" &&
-        rawQuestion.placeholder.trim()
-          ? rawQuestion.placeholder.trim()
-          : undefined,
+      placeholder,
       options,
       multiSelect,
     });
@@ -208,6 +322,24 @@ function extractJsonCodeBlocks(markdown: string): unknown[] {
     if (!raw) continue;
     try {
       blocks.push(JSON.parse(raw));
+    } catch {
+      // Non-JSON fences are common in assistant prose; ignore them.
+    }
+  }
+  return blocks;
+}
+
+function extractJsonCodeBlocksWithRaw(
+  markdown: string,
+): Array<{ value: unknown; rawBlock: string }> {
+  const blocks: Array<{ value: unknown; rawBlock: string }> = [];
+  const codeFence = /```(?:json)?\s*([\s\S]*?)```/gi;
+  for (const match of markdown.matchAll(codeFence)) {
+    const raw = (match[1] ?? "").trim();
+    const rawBlock = match[0] ?? "";
+    if (!raw || !rawBlock) continue;
+    try {
+      blocks.push({ value: JSON.parse(raw), rawBlock });
     } catch {
       // Non-JSON fences are common in assistant prose; ignore them.
     }
@@ -243,6 +375,9 @@ function defaultTitle(kind: RequirementsKind): string {
   if (kind === "video_requirements") {
     return "请先补充这个视频的关键信息";
   }
+  if (kind === "simulation_requirements") {
+    return "请先校对这次推演的关键信息";
+  }
   return "请先补充这次 3D 制图任务的关键信息";
 }
 
@@ -256,7 +391,69 @@ function defaultDescription(kind: RequirementsKind): string {
   if (kind === "video_requirements") {
     return "我会先确认视频 brief，再进入口播稿、outline 与网页视频项目生成。";
   }
+  if (kind === "simulation_requirements") {
+    return "我会先确认推演边界、主体、变量和默认假设，再生成初始沙盘。";
+  }
   return "我会先确认零件 / 结构 brief，再进入建模方案与文件生成。";
+}
+
+function normalizeSelectionText(value: string): string {
+  return value.replace(/\s+/g, "").toLowerCase();
+}
+
+function splitSelectionValue(value: string | undefined): string[] {
+  if (!value) return [];
+  return value
+    .split(/[\/,，、;；\n]+/g)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function optionMatchesValue(optionLabel: string, value: string): boolean {
+  const option = normalizeSelectionText(optionLabel);
+  const target = normalizeSelectionText(value);
+  if (!option || !target) return false;
+  return option === target || option.includes(target) || target.includes(option);
+}
+
+function buildDefaultRequirementDraft(
+  questions: RequirementDraftQuestion[],
+): {
+  selectedOptions?: Record<string, string[]>;
+  answers?: Record<string, string>;
+} {
+  const selectedOptions: Record<string, string[]> = {};
+  const answers: Record<string, string> = {};
+
+  questions.forEach((question) => {
+    const defaultValue = question.placeholder?.trim();
+    if (!defaultValue) return;
+
+    if (
+      (question.type === "single_select" || question.type === "multi_select") &&
+      question.options?.length
+    ) {
+      const values = splitSelectionValue(defaultValue);
+      const matches = question.options
+        .filter((option) =>
+          values.some((value) => optionMatchesValue(option.label, value)),
+        )
+        .map((option) => option.label);
+      if (matches.length > 0) {
+        selectedOptions[question.id] =
+          question.type === "single_select" ? [matches[0]!] : matches;
+      }
+      return;
+    }
+
+    answers[question.id] = defaultValue;
+  });
+
+  return {
+    selectedOptions:
+      Object.keys(selectedOptions).length > 0 ? selectedOptions : undefined,
+    answers: Object.keys(answers).length > 0 ? answers : undefined,
+  };
 }
 
 export function buildRequirementsPart(input: {
@@ -279,6 +476,22 @@ export function buildRequirementsPart(input: {
     typeof raw.description === "string" && raw.description.trim()
       ? raw.description.trim()
       : undefined;
+  const questions = input.questions.map((question) => ({
+    id: question.id,
+    label: question.label ?? question.question,
+    type:
+      question.type ??
+      (question.options?.length
+        ? question.multiSelect
+          ? "multi_select"
+          : "single_select"
+        : "text"),
+    required: question.required,
+    description: question.description,
+    placeholder: question.placeholder,
+    options: question.options,
+  }));
+  const draft = buildDefaultRequirementDraft(questions);
 
   return {
     id: newPartId(kind),
@@ -288,21 +501,8 @@ export function buildRequirementsPart(input: {
     toolUseId: input.toolUseId,
     title,
     description,
-    questions: input.questions.map((question) => ({
-      id: question.id,
-      label: question.label ?? question.question,
-      type:
-        question.type ??
-        (question.options?.length
-          ? question.multiSelect
-            ? "multi_select"
-            : "single_select"
-          : "text"),
-      required: question.required,
-      description: question.description,
-      placeholder: question.placeholder,
-      options: question.options,
-    })),
+    questions,
+    ...draft,
     streaming: false,
     completedAt: Date.now(),
   };
@@ -314,7 +514,8 @@ function summaryKindFromRequirementsKind(
   | "writing_requirement_summary"
   | "ppt_requirement_summary"
   | "3d_requirement_summary"
-  | "video_requirement_summary" {
+  | "video_requirement_summary"
+  | "simulation_requirement_summary" {
   if (kind === "writing_requirements") {
     return "writing_requirement_summary";
   }
@@ -323,6 +524,9 @@ function summaryKindFromRequirementsKind(
   }
   if (kind === "video_requirements") {
     return "video_requirement_summary";
+  }
+  if (kind === "simulation_requirements") {
+    return "simulation_requirement_summary";
   }
   return "3d_requirement_summary";
 }
@@ -333,6 +537,7 @@ function summaryTitleFromRequirementsKind(
   if (kind === "writing_requirements") return "写作需求摘要";
   if (kind === "ppt_requirements") return "PPT 需求摘要";
   if (kind === "video_requirements") return "视频需求摘要";
+  if (kind === "simulation_requirements") return "推演需求摘要";
   return "3D 需求摘要";
 }
 
@@ -350,11 +555,13 @@ function summaryTitleFromKind(
     | "writing_requirement_summary"
     | "ppt_requirement_summary"
     | "3d_requirement_summary"
-    | "video_requirement_summary",
+    | "video_requirement_summary"
+    | "simulation_requirement_summary",
 ): string {
   if (kind === "writing_requirement_summary") return "写作需求摘要";
   if (kind === "ppt_requirement_summary") return "PPT 需求摘要";
   if (kind === "video_requirement_summary") return "视频需求摘要";
+  if (kind === "simulation_requirement_summary") return "推演需求摘要";
   return "3D 需求摘要";
 }
 
@@ -639,7 +846,8 @@ export function buildRequirementSummaryPart(input: {
       | "writing_requirement_summary"
       | "ppt_requirement_summary"
       | "3d_requirement_summary"
-      | "video_requirement_summary";
+      | "video_requirement_summary"
+      | "simulation_requirement_summary";
   }
 > {
   return {
@@ -693,6 +901,10 @@ const SUMMARY_BLOCK_MARKERS = {
     start: "<!--JLC:VIDEO_REQUIREMENT_SUMMARY_START-->",
     end: "<!--JLC:VIDEO_REQUIREMENT_SUMMARY_END-->",
   },
+  simulation_requirement_summary: {
+    start: "<!--JLC:SIMULATION_REQUIREMENT_SUMMARY_START-->",
+    end: "<!--JLC:SIMULATION_REQUIREMENT_SUMMARY_END-->",
+  },
 } as const;
 
 function extractMarkedBlock(
@@ -729,6 +941,7 @@ function summaryKindFromInput(input: {
   | "ppt_requirement_summary"
   | "3d_requirement_summary"
   | "video_requirement_summary"
+  | "simulation_requirement_summary"
   | null {
   if (
     input.moduleId === "writing" &&
@@ -748,6 +961,12 @@ function summaryKindFromInput(input: {
   if (input.moduleId === "video" && input.processSkill === "skill-vp-base") {
     return "video_requirement_summary";
   }
+  if (
+    input.moduleId === "simulation" &&
+    input.processSkill === "skill-simulation-base"
+  ) {
+    return "simulation_requirement_summary";
+  }
   return null;
 }
 
@@ -757,7 +976,8 @@ function extractHeadingSection(input: {
     | "writing_requirement_summary"
     | "ppt_requirement_summary"
     | "3d_requirement_summary"
-    | "video_requirement_summary";
+    | "video_requirement_summary"
+    | "simulation_requirement_summary";
 }): { markdown: string; cleaned: string } | null {
   const lines = input.source.replace(/\r\n/g, "\n").split("\n");
   const headingPattern =
@@ -767,6 +987,8 @@ function extractHeadingSection(input: {
         ? /^#{1,3}\s*((PPT|演示)\s*)?需求摘要\s*$/i
         : input.kind === "video_requirement_summary"
           ? /^#{1,3}\s*((视频|网页视频)\s*)?需求摘要\s*$/i
+          : input.kind === "simulation_requirement_summary"
+            ? /^#{1,3}\s*((推演|沙盘)\s*)?(需求摘要|边界摘要|设定摘要)\s*$/i
           : /^#{1,3}\s*((3D|三维)\s*)?(需求摘要|制图需求摘要|建模需求摘要)\s*$/i;
   const startLine = lines.findIndex((line) => headingPattern.test(line.trim()));
   if (startLine < 0) return null;
@@ -803,7 +1025,8 @@ export function extractRequirementSummaryPartFromAssistantMarkdown(input: {
         | "writing_requirement_summary"
         | "ppt_requirement_summary"
         | "3d_requirement_summary"
-        | "video_requirement_summary";
+        | "video_requirement_summary"
+        | "simulation_requirement_summary";
     }
   >;
   cleanedMarkdown: string;
@@ -816,6 +1039,7 @@ export function extractRequirementSummaryPartFromAssistantMarkdown(input: {
         "ppt_requirement_summary",
         "3d_requirement_summary",
         "video_requirement_summary",
+        "simulation_requirement_summary",
       ] as const);
 
   for (const kind of summaryKinds) {
@@ -845,6 +1069,416 @@ export function extractRequirementSummaryPartFromAssistantMarkdown(input: {
   }
 
   return null;
+}
+
+export function extractSimulationScenarioPartFromAssistantMarkdown(input: {
+  assistantMarkdown: string;
+}): {
+  part: Extract<ChatPart, { kind: "simulation_scenario" }>;
+  cleanedMarkdown: string;
+} | null {
+  for (const block of extractJsonCodeBlocksWithRaw(input.assistantMarkdown)) {
+    if (!isRecord(block.value) || block.value.kind !== "simulation_scenario") {
+      continue;
+    }
+    const scenario = isRecord(block.value.scenario)
+      ? block.value.scenario
+      : null;
+    if (!scenario) continue;
+    const topic =
+      typeof scenario.topic === "string"
+        ? scenario.topic
+        : isSimulationNodeRecord(scenario.topic) && scenario.topic.type === "topic"
+          ? normalizeSimulationNodeWorldModelData(scenario.topic)
+          : null;
+    if (!topic) continue;
+    const prompt =
+      isSimulationNodeRecord(scenario.prompt) && scenario.prompt.type === "prompt"
+        ? normalizeSimulationNodeWorldModelData(scenario.prompt)
+        : undefined;
+    const nodes = Array.isArray(scenario.nodes)
+      ? normalizeSimulationNodesWorldModelData(
+          scenario.nodes.filter(isSimulationNodeRecord),
+        )
+      : undefined;
+    const scenarios = Array.isArray(scenario.scenarios)
+      ? scenario.scenarios.filter(isSimulationScenarioViewRecord)
+      : undefined;
+    const stageState = isSimulationStageStateRecord(scenario.stageState)
+      ? scenario.stageState
+      : undefined;
+    const provenance = isRecord(scenario.provenance)
+      ? scenario.provenance
+      : {
+          source: "llm",
+          label: "模型结构化推演",
+          reason: "由模型输出的 simulation_scenario 结构化块解析生成。",
+          generatedAt: new Date().toISOString(),
+        };
+    const part: Extract<ChatPart, { kind: "simulation_scenario" }> = {
+      id: newPartId("simulation_scenario"),
+      zone: "summary",
+      kind: "simulation_scenario",
+      title:
+        typeof block.value.title === "string" && block.value.title.trim()
+          ? block.value.title.trim()
+          : "初始沙盘",
+      scenario: {
+        ...(prompt ? { prompt } : {}),
+        topic,
+        ...(isRecord(scenario.topicDefinition)
+          ? { topicDefinition: scenario.topicDefinition as Extract<ChatPart, { kind: "simulation_scenario" }>["scenario"]["topicDefinition"] }
+          : {}),
+        ...(nodes ? { nodes } : {}),
+        ...(scenarios ? { scenarios } : {}),
+        ...(stageState ? { stageState } : {}),
+        provenance: provenance as Extract<ChatPart, { kind: "simulation_scenario" }>["scenario"]["provenance"],
+        entities: Array.isArray(scenario.entities)
+          ? normalizeSimulationNodesWorldModelData(
+              scenario.entities.filter(isSimulationNodeRecord),
+            )
+          : [],
+        variables: Array.isArray(scenario.variables)
+          ? normalizeSimulationNodesWorldModelData(
+              scenario.variables.filter(isSimulationNodeRecord),
+            )
+          : [],
+        assumptions: Array.isArray(scenario.assumptions)
+          ? scenario.assumptions.filter(
+              (item): item is string => typeof item === "string",
+            )
+          : [],
+        paths: Array.isArray(scenario.paths) ? scenario.paths : [],
+        edges: Array.isArray(scenario.edges) ? scenario.edges : [],
+      },
+      streaming: false,
+      completedAt: Date.now(),
+    };
+    return {
+      part,
+      cleanedMarkdown: input.assistantMarkdown
+        .replace(block.rawBlock, "")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim(),
+    };
+  }
+  return null;
+}
+
+export function extractSimulationFollowupPartsFromAssistantMarkdown(input: {
+  assistantMarkdown: string;
+  includeSummary?: boolean;
+  includeSuggestion?: boolean;
+}): {
+  parts: Array<
+    Extract<
+      ChatPart,
+      { kind: "simulation_summary" | "simulation_suggestion" | "simulation_next_action" }
+    >
+  >;
+  cleanedMarkdown: string;
+} | null {
+  const parts: Array<
+    Extract<
+      ChatPart,
+      { kind: "simulation_summary" | "simulation_suggestion" | "simulation_next_action" }
+    >
+  > = [];
+  let cleanedMarkdown = input.assistantMarkdown;
+  const includeSummary = input.includeSummary ?? true;
+  const includeSuggestion = input.includeSuggestion ?? true;
+
+  for (const block of extractJsonCodeBlocksWithRaw(input.assistantMarkdown)) {
+    if (!isRecord(block.value)) continue;
+    if (includeSummary && block.value.kind === "simulation_summary") {
+      const markdown =
+        typeof block.value.markdown === "string" ? block.value.markdown : "";
+      if (!markdown.trim()) continue;
+      const roundId =
+        typeof block.value.roundId === "string" && block.value.roundId.trim()
+          ? block.value.roundId.trim()
+          : "round_1";
+      const conclusionIds = Array.isArray(block.value.conclusionIds)
+        ? block.value.conclusionIds.filter(
+            (item): item is string => typeof item === "string" && !!item.trim(),
+          )
+        : undefined;
+      parts.push({
+        id: newPartId("simulation_summary"),
+        zone: "summary",
+        kind: "simulation_summary",
+        roundId,
+        markdown,
+        conclusionIds,
+        streaming: false,
+        completedAt: Date.now(),
+      });
+      cleanedMarkdown = cleanedMarkdown.replace(block.rawBlock, "");
+      continue;
+    }
+
+    if (
+      includeSuggestion &&
+      (block.value.kind === "simulation_suggestion" ||
+        block.value.kind === "simulation_next_action")
+    ) {
+      const rawSuggestions = Array.isArray(block.value.suggestions)
+        ? block.value.suggestions
+        : [];
+      const rawNextActions = Array.isArray(block.value.nextActions)
+        ? block.value.nextActions
+        : [];
+      const suggestions: Array<{
+        suggestionId: string;
+        title: string;
+        description: string;
+        basedOnConclusionId?: string;
+      }> = [];
+      rawSuggestions.forEach((item, index) => {
+          if (!isRecord(item)) return;
+          const title =
+            typeof item.title === "string" && item.title.trim()
+              ? item.title.trim()
+              : "";
+          const description =
+            typeof item.description === "string" && item.description.trim()
+              ? item.description.trim()
+              : "";
+          if (!title || !description) return;
+          const suggestion: {
+            suggestionId: string;
+            title: string;
+            description: string;
+            basedOnConclusionId?: string;
+          } = {
+            suggestionId:
+              typeof item.suggestionId === "string" && item.suggestionId.trim()
+                ? item.suggestionId.trim()
+                : `suggestion_${index + 1}`,
+            title,
+            description,
+          };
+          if (
+            typeof item.basedOnConclusionId === "string" &&
+            item.basedOnConclusionId.trim()
+          ) {
+            suggestion.basedOnConclusionId = item.basedOnConclusionId.trim();
+          }
+          suggestions.push(suggestion);
+        });
+      const nextActions: Array<{
+        actionId: string;
+        title: string;
+        description: string;
+        actionType:
+          | "continue"
+          | "add_data"
+          | "add_entity"
+          | "add_variable"
+          | "rerun_inference"
+          | "generate_report";
+        targetId?: string;
+        basedOnConclusionId?: string;
+      }> = [];
+      rawNextActions.forEach((item, index) => {
+        if (!isRecord(item)) return;
+        const title =
+          typeof item.title === "string" && item.title.trim()
+            ? item.title.trim()
+            : "";
+        const description =
+          typeof item.description === "string" && item.description.trim()
+            ? item.description.trim()
+            : "";
+        if (!title || !description) return;
+        const rawActionType =
+          typeof item.actionType === "string" ? item.actionType.trim() : "";
+        const actionType = [
+          "continue",
+          "add_data",
+          "add_entity",
+          "add_variable",
+          "rerun_inference",
+          "generate_report",
+        ].includes(rawActionType)
+          ? (rawActionType as
+              | "continue"
+              | "add_data"
+              | "add_entity"
+              | "add_variable"
+              | "rerun_inference"
+              | "generate_report")
+          : "continue";
+        const action: {
+          actionId: string;
+          title: string;
+          description: string;
+          actionType:
+            | "continue"
+            | "add_data"
+            | "add_entity"
+            | "add_variable"
+            | "rerun_inference"
+            | "generate_report";
+          targetId?: string;
+          basedOnConclusionId?: string;
+        } = {
+          actionId:
+            typeof item.actionId === "string" && item.actionId.trim()
+              ? item.actionId.trim()
+              : `next_action_${index + 1}`,
+          title,
+          description,
+          actionType,
+        };
+        if (typeof item.targetId === "string" && item.targetId.trim()) {
+          action.targetId = item.targetId.trim();
+        }
+        if (
+          typeof item.basedOnConclusionId === "string" &&
+          item.basedOnConclusionId.trim()
+        ) {
+          action.basedOnConclusionId = item.basedOnConclusionId.trim();
+        }
+        nextActions.push(action);
+      });
+      if (
+        block.value.kind === "simulation_next_action" &&
+        nextActions.length === 0 &&
+        suggestions.length > 0
+      ) {
+        suggestions.forEach((suggestion, index) => {
+          nextActions.push({
+            actionId: suggestion.suggestionId || `next_action_${index + 1}`,
+            title: suggestion.title,
+            description: suggestion.description,
+            actionType: "continue",
+            basedOnConclusionId: suggestion.basedOnConclusionId,
+          });
+        });
+      }
+      if (suggestions.length === 0 && nextActions.length === 0) continue;
+      parts.push({
+        id: newPartId(
+          block.value.kind === "simulation_next_action"
+            ? "simulation_next_action"
+            : "simulation_suggestion",
+        ),
+        zone: "summary",
+        kind:
+          block.value.kind === "simulation_next_action"
+            ? "simulation_next_action"
+            : "simulation_suggestion",
+        ...(suggestions.length > 0 ? { suggestions } : {}),
+        ...(nextActions.length > 0 ? { nextActions } : {}),
+        streaming: false,
+        completedAt: Date.now(),
+      });
+      cleanedMarkdown = cleanedMarkdown.replace(block.rawBlock, "");
+    }
+  }
+
+  if (parts.length === 0) return null;
+  return {
+    parts,
+    cleanedMarkdown: cleanedMarkdown.replace(/\n{3,}/g, "\n\n").trim(),
+  };
+}
+
+export function extractSimulationDeltaPartsFromAssistantMarkdown(input: {
+  assistantMarkdown: string;
+}): {
+  parts: Array<
+    Extract<
+      ChatPart,
+      { kind: "simulation_node" | "simulation_edge" | "simulation_path" }
+    >
+  >;
+  cleanedMarkdown: string;
+} | null {
+  const parts: Array<
+    Extract<ChatPart, { kind: "simulation_node" | "simulation_edge" | "simulation_path" }>
+  > = [];
+  let cleanedMarkdown = input.assistantMarkdown;
+
+  for (const block of extractJsonCodeBlocksWithRaw(input.assistantMarkdown)) {
+    if (!isRecord(block.value)) continue;
+
+    if (block.value.kind === "simulation_node" && isRecord(block.value.node)) {
+      const node = block.value.node;
+      if (
+        typeof node.id !== "string" ||
+        typeof node.type !== "string" ||
+        typeof node.label !== "string" ||
+        typeof node.roundId !== "string"
+      ) {
+        continue;
+      }
+      parts.push({
+        id: newPartId("simulation_node"),
+        zone: "activity",
+        kind: "simulation_node",
+        node: normalizeSimulationNodeWorldModelData(
+          node as Extract<ChatPart, { kind: "simulation_node" }>["node"],
+        ),
+        streaming: false,
+        completedAt: Date.now(),
+      });
+      cleanedMarkdown = cleanedMarkdown.replace(block.rawBlock, "");
+      continue;
+    }
+
+    if (block.value.kind === "simulation_edge" && isRecord(block.value.edge)) {
+      const edge = block.value.edge;
+      if (
+        typeof edge.id !== "string" ||
+        typeof edge.type !== "string" ||
+        typeof edge.source !== "string" ||
+        typeof edge.target !== "string" ||
+        typeof edge.roundId !== "string"
+      ) {
+        continue;
+      }
+      parts.push({
+        id: newPartId("simulation_edge"),
+        zone: "activity",
+        kind: "simulation_edge",
+        edge: edge as Extract<ChatPart, { kind: "simulation_edge" }>["edge"],
+        streaming: false,
+        completedAt: Date.now(),
+      });
+      cleanedMarkdown = cleanedMarkdown.replace(block.rawBlock, "");
+      continue;
+    }
+
+    if (block.value.kind === "simulation_path" && isRecord(block.value.path)) {
+      const path = block.value.path;
+      if (
+        typeof path.id !== "string" ||
+        typeof path.label !== "string" ||
+        typeof path.status !== "string" ||
+        !Array.isArray(path.edgeIds) ||
+        typeof path.roundId !== "string"
+      ) {
+        continue;
+      }
+      parts.push({
+        id: newPartId("simulation_path"),
+        zone: "summary",
+        kind: "simulation_path",
+        path: path as Extract<ChatPart, { kind: "simulation_path" }>["path"],
+        streaming: false,
+        completedAt: Date.now(),
+      });
+      cleanedMarkdown = cleanedMarkdown.replace(block.rawBlock, "");
+    }
+  }
+
+  if (parts.length === 0) return null;
+  return {
+    parts,
+    cleanedMarkdown: cleanedMarkdown.replace(/\n{3,}/g, "\n\n").trim(),
+  };
 }
 
 export function extractOutlinePartFromAssistantMarkdown(input: {
@@ -938,6 +1572,12 @@ function requirementsKindFromInput(input: {
   }
   if (input.moduleId === "video" && input.processSkill === "skill-vp-base") {
     return "video_requirements";
+  }
+  if (
+    input.moduleId === "simulation" &&
+    input.processSkill === "skill-simulation-base"
+  ) {
+    return "simulation_requirements";
   }
   return null;
 }

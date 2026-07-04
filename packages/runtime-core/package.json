@@ -31,6 +31,18 @@
       "types": "./dist/chat-mode.d.ts",
       "default": "./dist/chat-mode.js"
     },
+    "./chat-orchestration": {
+      "types": "./dist/chat-orchestration.d.ts",
+      "default": "./dist/chat-orchestration.js"
+    },
+    "./transcript-compress": {
+      "types": "./dist/transcript-compress.d.ts",
+      "default": "./dist/transcript-compress.js"
+    },
+    "./transcript-handoff": {
+      "types": "./dist/transcript-handoff.d.ts",
+      "default": "./dist/transcript-handoff.js"
+    },
     "./agent-registry": {
       "types": "./dist/agent-registry.d.ts",
       "default": "./dist/agent-registry.js"

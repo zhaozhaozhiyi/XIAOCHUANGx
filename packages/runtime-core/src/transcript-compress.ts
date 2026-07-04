@@ -1,9 +1,10 @@
 import type { RunConversationMessage } from "./conversation-prompt.js";
+export type { RunConversationMessage } from "./conversation-prompt.js";
 import {
   HARD_MAX_COMPOSED_PROMPT_BYTES,
   HIGH_TRANSCRIPT_CHARS_THRESHOLD,
 } from "./daemon-transcript.js";
-import { estimatePromptBytes } from "./compose-daemon-prompt.js";
+import { estimatePromptBytes } from "./prompt-size.js";
 
 /** 默认保留最近消息条数（含 user/assistant） */
 export const DEFAULT_KEEP_RECENT_MESSAGES = 8;

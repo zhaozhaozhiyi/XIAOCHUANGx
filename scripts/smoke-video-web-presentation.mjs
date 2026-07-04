@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const repoRoot = process.cwd();
-const skillDir = resolve(repoRoot, "skills/skill-vp-web-video-presentation");
+const skillDir = resolve(repoRoot, "skills/skill-vp-video-stage");
 const scaffold = join(skillDir, "scripts/scaffold.sh");
 const root = mkdtempSync(join(tmpdir(), "xiaochuang-video-p0-"));
 const sessionDir = join(root, "视频", "smoke-session");

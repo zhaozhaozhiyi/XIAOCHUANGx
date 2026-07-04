@@ -78,7 +78,7 @@ export const NAV_MODULES: NavModule[] = [
     label: "视频",
     href: "/video",
     icon: Clapperboard,
-    badge: "0.x",
+    badge: "BETA",
     subNav: [
       {
         label: "视频",
@@ -92,7 +92,7 @@ export const NAV_MODULES: NavModule[] = [
     label: "推演",
     href: "/simulation",
     icon: GitBranch,
-    badge: "Beta",
+    badge: "BETA",
     subNav: [
       {
         label: "推演",

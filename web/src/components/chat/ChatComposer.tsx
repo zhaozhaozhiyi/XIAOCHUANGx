@@ -9,7 +9,7 @@ import {
   Square,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useWorkspaceProject } from "@/components/workspace/WorkspaceProjectContext";
 import { useRouter } from "next/navigation";
@@ -89,6 +89,10 @@ type ComposePrefillDetail = {
 };
 
 const TEXT_ATTACHMENT_MAX_CHARS = 60_000;
+const COMPOSER_TEXTAREA_MIN_HEIGHT_PX = 22;
+const COMPOSER_TEXTAREA_MULTILINE_MIN_HEIGHT_PX = 24;
+const COMPOSER_TEXTAREA_MAX_HEIGHT_PX = 200;
+const COMPOSER_MULTILINE_THRESHOLD_PX = 30;
 const TEXT_ATTACHMENT_EXTENSIONS = new Set([
   "css",
   "csv",
@@ -360,6 +364,51 @@ function ImagePreview({
 }
 
 
+function syncComposerTextareaHeight(
+  textarea: HTMLTextAreaElement | null,
+  minHeight: number = COMPOSER_TEXTAREA_MIN_HEIGHT_PX,
+): void {
+  if (!textarea) return;
+  textarea.style.height = "0px";
+  const next = Math.min(
+    Math.max(textarea.scrollHeight, minHeight),
+    COMPOSER_TEXTAREA_MAX_HEIGHT_PX,
+  );
+  textarea.style.height = `${next}px`;
+  textarea.style.overflowY =
+    textarea.scrollHeight > COMPOSER_TEXTAREA_MAX_HEIGHT_PX ? "auto" : "hidden";
+}
+
+function useComposerDockSync(
+  stackRef: RefObject<HTMLDivElement | null>,
+): void {
+  useEffect(() => {
+    const stack = stackRef.current;
+    if (!stack) return;
+
+    const sync = () => {
+      const footer = stack.closest("footer.chat-composer-dock");
+      if (!footer) return;
+      const scrollRoot = footer?.parentElement?.querySelector(
+        ".chat-scroll-root",
+      ) as HTMLElement | null;
+      const dockHost =
+        footer.parentElement instanceof HTMLElement ? footer.parentElement : null;
+      const height = Math.ceil(footer.getBoundingClientRect().height);
+      scrollRoot?.style.setProperty("--chat-composer-dock-h", `${height}px`);
+      dockHost?.style.setProperty("--chat-composer-dock-h", `${height}px`);
+    };
+
+    const observer = new ResizeObserver(sync);
+    observer.observe(stack);
+    const footer = stack.closest("footer.chat-composer-dock");
+    if (footer) observer.observe(footer);
+    sync();
+    return () => observer.disconnect();
+  }, [stackRef]);
+}
+
+
 export function ChatComposer({
   sessionId,
   onSend,
@@ -381,6 +430,7 @@ export function ChatComposer({
   const router = useRouter();
   const { settings, updateSettings } = useSettings();
   const { setWorkspaceProject } = useWorkspaceProject();
+  const stackRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachRef = useRef<HTMLDivElement>(null);
@@ -409,6 +459,30 @@ export function ChatComposer({
   const [switchHint, setSwitchHint] = useState<string | null>(null);
   const [selectedAttachments, setSelectedAttachments] = useState<File[]>([]);
   const [sending, setSending] = useState(false);
+  const [isMultiline, setIsMultiline] = useState(false);
+
+  const syncTextareaHeight = useCallback((el?: HTMLTextAreaElement | null) => {
+    const textarea = el ?? textareaRef.current;
+    if (!textarea) return;
+    const minHeight = isMultiline
+      ? COMPOSER_TEXTAREA_MULTILINE_MIN_HEIGHT_PX
+      : COMPOSER_TEXTAREA_MIN_HEIGHT_PX;
+    syncComposerTextareaHeight(textarea, minHeight);
+    setIsMultiline(
+      textarea.value.includes("\n") ||
+        textarea.scrollHeight > COMPOSER_MULTILINE_THRESHOLD_PX,
+    );
+  }, [isMultiline]);
+
+  useComposerDockSync(stackRef);
+
+  useEffect(() => {
+    syncTextareaHeight();
+  }, [text, selectedAttachments.length, syncTextareaHeight]);
+
+  useEffect(() => {
+    syncTextareaHeight();
+  }, [isMultiline, syncTextareaHeight]);
 
   const projectId = controlledProjectId ?? internalProjectId;
   const setProjectId = onProjectIdChange ?? setInternalProjectId;
@@ -506,6 +580,7 @@ export function ChatComposer({
           if (detail?.focus !== false) el.focus();
           el.setSelectionRange(next.length, next.length);
           syncMention(next, next.length);
+          syncTextareaHeight(el);
         });
         return next;
       });
@@ -528,6 +603,7 @@ export function ChatComposer({
       if (!el) return;
       el.focus();
       el.setSelectionRange(pos, pos);
+      syncTextareaHeight(el);
     });
   };
 
@@ -540,6 +616,8 @@ export function ChatComposer({
     setText("");
     setSelectedAttachments([]);
     setMentionOpen(false);
+    setIsMultiline(false);
+    requestAnimationFrame(() => syncTextareaHeight());
     try {
       const attachments = await Promise.all(
         attachmentsToSend.map(attachmentFromFile),
@@ -565,6 +643,7 @@ export function ChatComposer({
     } catch {
       setText(textToSend);
       setSelectedAttachments(attachmentsToSend);
+      requestAnimationFrame(() => syncTextareaHeight());
     } finally {
       setSending(false);
     }
@@ -625,12 +704,260 @@ export function ChatComposer({
   const showStop = generating && !hasText && !sending && Boolean(onStop);
   const canSend = (hasText || hasAttachments) && !locked;
 
+  const attachControl = (
+    <div className="relative shrink-0" ref={attachRef}>
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        className="sr-only"
+        aria-hidden="true"
+        tabIndex={-1}
+        disabled={locked}
+        onChange={(e) => {
+          const files = Array.from(e.target.files ?? []);
+          setSelectedAttachments((prev) => {
+            const filteredNew = files.filter(
+              (f) =>
+                !prev.some(
+                  (p) =>
+                    p.name === f.name &&
+                    p.size === f.size &&
+                    p.lastModified === f.lastModified,
+                ),
+            );
+            return [...prev, ...filteredNew];
+          });
+          e.currentTarget.value = "";
+        }}
+      />
+      <button
+        type="button"
+        className="btn-icon chat-composer__more-btn"
+        aria-label="更多"
+        aria-expanded={attachOpen}
+        disabled={locked}
+        onClick={() => setAttachOpen((o) => !o)}
+      >
+        <Plus className="h-4 w-4" strokeWidth={1.75} />
+      </button>
+      {attachOpen && (
+        <ul className="control-picker-menu control-picker-menu--above chat-composer__attach-menu absolute left-0 z-50">
+          <li>
+            <button
+              type="button"
+              className="control-picker-menu__item chat-composer__attach-item"
+              aria-label="上传附件"
+              onClick={handleAttachClick}
+            >
+              <Paperclip className="h-3.5 w-3.5" strokeWidth={1.75} />
+              添加照片和文件
+            </button>
+          </li>
+        </ul>
+      )}
+    </div>
+  );
+
+  const skillPickerControl =
+    skillPickerModule && currentModuleSkill ? (
+      <div className="relative min-w-0" data-module-skill-picker>
+        <button
+          type="button"
+          onClick={() => setModuleSkillOpen((o) => !o)}
+          className="control-picker control-picker--compact max-w-[9.5rem]"
+          aria-expanded={moduleSkillOpen}
+          disabled={locked}
+          title={currentModuleSkill.description}
+        >
+          <span className="truncate">{currentModuleSkill.label}</span>
+          <ChevronDown
+            className={`control-picker__chevron shrink-0 ${moduleSkillOpen ? "control-picker__chevron--open" : ""}`}
+            strokeWidth={1.75}
+          />
+        </button>
+        {moduleSkillOpen && (
+          <ul className="control-picker-menu control-picker-menu--above absolute left-0 z-50 max-h-[min(16rem,50vh)] min-w-[11rem] overflow-y-auto">
+            {moduleSkillOptions.map((option) => (
+              <li key={option.templateId}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModuleSkillId(option.templateId);
+                    writeStoredModuleSkillTemplateId(
+                      skillPickerModule,
+                      option.templateId,
+                      sessionId,
+                    );
+                    setModuleSkillOpen(false);
+                  }}
+                  className={`control-picker-menu__item flex-col items-start gap-0.5 ${
+                    moduleSkillId === option.templateId
+                      ? "control-picker-menu__item--selected"
+                      : ""
+                  }`}
+                >
+                  <span>{option.label}</span>
+                  <span className="mt-0.5 block text-xs text-[var(--fg-tertiary)]">
+                    {option.description}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    ) : null;
+
+  const modePickerControl = showModePicker ? (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setModeOpen((o) => !o)}
+        className="control-picker control-picker--compact"
+        aria-expanded={modeOpen}
+      >
+        <span>{currentMode.label}</span>
+        <ChevronDown
+          className={`control-picker__chevron ${modeOpen ? "control-picker__chevron--open" : ""}`}
+          strokeWidth={1.75}
+        />
+      </button>
+      {modeOpen && (
+        <ul className="control-picker-menu control-picker-menu--above absolute right-0 min-w-[140px]">
+          {CHAT_MODES.map((m) => (
+            <li key={m.id}>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode(m.id);
+                  setModeOpen(false);
+                }}
+                className={`control-picker-menu__item flex-col items-start gap-0.5 ${
+                  mode === m.id ? "control-picker-menu__item--selected" : ""
+                }`}
+              >
+                <span>{m.label}</span>
+                <span className="mt-0.5 block text-xs text-[var(--fg-tertiary)]">
+                  {m.description}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  ) : null;
+
+  const sendControl = showStop ? (
+    <button
+      type="button"
+      onClick={onStop}
+      className="btn-send btn-send--stop"
+      aria-label="停止"
+    >
+      <Square className="h-3 w-3 fill-current" strokeWidth={0} />
+    </button>
+  ) : (
+    <button
+      type="button"
+      onClick={handleSend}
+      disabled={!canSend}
+      className="btn-send"
+      aria-label="发送"
+    >
+      <ArrowUp className="h-4 w-4" strokeWidth={2} />
+    </button>
+  );
+
+  const composerTextarea = (
+    <textarea
+      ref={textareaRef}
+      value={text}
+      onChange={(e) => {
+        setText(e.target.value);
+        syncMention(e.target.value, e.target.selectionStart);
+        syncTextareaHeight(e.target);
+      }}
+      onCompositionStart={() => {
+        isComposingRef.current = true;
+      }}
+      onCompositionEnd={() => {
+        isComposingRef.current = false;
+      }}
+      onKeyDown={(e) => {
+        const imeComposing =
+          isComposingRef.current ||
+          e.nativeEvent.isComposing ||
+          e.keyCode === 229;
+        if (imeComposing) return;
+
+        if (mentionOpen && mentionFiles.length > 0) {
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            setMentionIndex((i) => (i + 1) % mentionFiles.length);
+            return;
+          }
+          if (e.key === "ArrowUp") {
+            e.preventDefault();
+            setMentionIndex(
+              (i) => (i - 1 + mentionFiles.length) % mentionFiles.length,
+            );
+            return;
+          }
+          if (e.key === "Enter" || e.key === "Tab") {
+            e.preventDefault();
+            insertMention(mentionFiles[mentionIndex]!);
+            return;
+          }
+          if (e.key === "Escape") {
+            setMentionOpen(false);
+            return;
+          }
+        }
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          void handleSend();
+        }
+      }}
+      onClick={(e) =>
+        syncMention(e.currentTarget.value, e.currentTarget.selectionStart)
+      }
+      disabled={disabled}
+      rows={1}
+      placeholder={
+        generating
+          ? "生成中可发送消息引导方向，Enter 发送（将中断当前输出）"
+          : locked
+            ? "正在生成回复…"
+            : (placeholder ?? defaultPlaceholder)
+      }
+      className={[
+        "chat-composer__textarea w-full resize-none overflow-hidden bg-transparent text-[15px] text-[var(--fg)] outline-none placeholder:text-[var(--fg-tertiary)]",
+        isMultiline
+          ? "chat-composer__textarea--multiline px-1 pt-0.5"
+          : "chat-composer__textarea--inline px-0.5 py-0",
+      ].join(" ")}
+    />
+  );
+
+  const mentionMenu = mentionOpen ? (
+    <div className="absolute bottom-full left-0 right-0 z-50 mb-2">
+      <MentionMenu
+        files={mentionFiles}
+        activeIndex={mentionIndex}
+        onSelect={insertMention}
+      />
+    </div>
+  ) : null;
+
   return (
     <div
+      ref={stackRef}
       className={`chat-composer-stack w-full max-w-[var(--chat-message-max)] ${showProjectPicker ? "chat-composer-stack--with-project" : ""}`}
     >
       <div className={showProjectPicker ? "chat-composer-layer" : undefined}>
-      <div className="chat-composer rounded-[var(--radius-2xl)] p-3">
+      <div className="chat-composer rounded-[var(--radius-2xl)] px-3 py-2">
         {selectedAttachments.length > 0 && (
           <ul className="mb-2 flex max-h-28 flex-wrap items-center gap-2 overflow-y-auto pr-1">
             {selectedAttachments.map((file, index) => {
@@ -673,247 +1000,41 @@ export function ChatComposer({
             })}
           </ul>
         )}
-        <div className="relative">
-          <textarea
-            ref={textareaRef}
-            value={text}
-            onChange={(e) => {
-              setText(e.target.value);
-              syncMention(e.target.value, e.target.selectionStart);
-            }}
-            onCompositionStart={() => {
-              isComposingRef.current = true;
-            }}
-            onCompositionEnd={() => {
-              isComposingRef.current = false;
-            }}
-            onKeyDown={(e) => {
-              const imeComposing =
-                isComposingRef.current ||
-                e.nativeEvent.isComposing ||
-                e.keyCode === 229;
-              if (imeComposing) return;
-
-              if (mentionOpen && mentionFiles.length > 0) {
-                if (e.key === "ArrowDown") {
-                  e.preventDefault();
-                  setMentionIndex((i) => (i + 1) % mentionFiles.length);
-                  return;
-                }
-                if (e.key === "ArrowUp") {
-                  e.preventDefault();
-                  setMentionIndex(
-                    (i) => (i - 1 + mentionFiles.length) % mentionFiles.length,
-                  );
-                  return;
-                }
-                if (e.key === "Enter" || e.key === "Tab") {
-                  e.preventDefault();
-                  insertMention(mentionFiles[mentionIndex]!);
-                  return;
-                }
-                if (e.key === "Escape") {
-                  setMentionOpen(false);
-                  return;
-                }
-              }
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                void handleSend();
-              }
-            }}
-            onClick={(e) =>
-              syncMention(
-                e.currentTarget.value,
-                e.currentTarget.selectionStart,
-              )
-            }
-            disabled={disabled}
-            rows={3}
-            placeholder={
-              generating
-                ? "生成中可发送消息引导方向，Enter 发送（将中断当前输出）"
-                : locked
-                  ? "正在生成回复…"
-                  : (placeholder ?? defaultPlaceholder)
-            }
-            className="w-full resize-none bg-transparent px-1 py-1 text-[15px] leading-relaxed text-[var(--fg)] outline-none placeholder:text-[var(--fg-tertiary)]"
-          />
-          {mentionOpen && (
-            <div className="absolute bottom-full left-0 right-0 z-50 mb-2">
-              <MentionMenu
-                files={mentionFiles}
-                activeIndex={mentionIndex}
-                onSelect={insertMention}
-              />
+        <div
+          className={[
+            "chat-composer__body",
+            isMultiline
+              ? "chat-composer__body--stacked"
+              : "chat-composer__body--inline",
+          ].join(" ")}
+        >
+          {!isMultiline ? (
+            <div className="chat-composer__left-tools flex items-center gap-1.5">
+              {attachControl}
+              {skillPickerControl}
+            </div>
+          ) : null}
+          <div key="composer-input-slot" className="chat-composer__input-slot relative min-w-0">
+            {composerTextarea}
+            {mentionMenu}
+          </div>
+          {isMultiline ? (
+            <div className="chat-composer__toolbar flex items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-1.5">
+                {attachControl}
+                {skillPickerControl}
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {modePickerControl}
+                {sendControl}
+              </div>
+            </div>
+          ) : (
+            <div className="chat-composer__right-tools flex shrink-0 items-center gap-2">
+              {modePickerControl}
+              {sendControl}
             </div>
           )}
-        </div>
-
-        <div className="mt-2 flex items-center justify-between gap-2">
-          <div className="flex min-w-0 flex-1 items-center gap-1.5">
-            <div className="relative shrink-0" ref={attachRef}>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                className="sr-only"
-                aria-hidden="true"
-                tabIndex={-1}
-                disabled={locked}
-                onChange={(e) => {
-                  const files = Array.from(e.target.files ?? []);
-                  setSelectedAttachments((prev) => {
-                    const filteredNew = files.filter(
-                      (f) =>
-                        !prev.some(
-                          (p) =>
-                            p.name === f.name &&
-                            p.size === f.size &&
-                            p.lastModified === f.lastModified,
-                        ),
-                    );
-                    return [...prev, ...filteredNew];
-                  });
-                  e.currentTarget.value = "";
-                }}
-              />
-              <button
-                type="button"
-                className="btn-icon chat-composer__more-btn"
-                aria-label="更多"
-                aria-expanded={attachOpen}
-                disabled={locked}
-                onClick={() => setAttachOpen((o) => !o)}
-              >
-                <Plus className="h-4 w-4" strokeWidth={1.75} />
-              </button>
-              {attachOpen && (
-                <ul className="control-picker-menu control-picker-menu--above chat-composer__attach-menu absolute left-0 z-50">
-                  <li>
-                    <button
-                      type="button"
-                      className="control-picker-menu__item chat-composer__attach-item"
-                      aria-label="上传附件"
-                      onClick={handleAttachClick}
-                    >
-                      <Paperclip className="h-3.5 w-3.5" strokeWidth={1.75} />
-                      添加照片和文件
-                    </button>
-                  </li>
-                </ul>
-              )}
-            </div>
-            {skillPickerModule && currentModuleSkill ? (
-              <div className="relative min-w-0" data-module-skill-picker>
-                <button
-                  type="button"
-                  onClick={() => setModuleSkillOpen((o) => !o)}
-                  className="control-picker control-picker--compact max-w-[9.5rem]"
-                  aria-expanded={moduleSkillOpen}
-                  disabled={locked}
-                  title={currentModuleSkill.description}
-                >
-                  <span className="truncate">{currentModuleSkill.label}</span>
-                  <ChevronDown
-                    className={`control-picker__chevron shrink-0 ${moduleSkillOpen ? "control-picker__chevron--open" : ""}`}
-                    strokeWidth={1.75}
-                  />
-                </button>
-                {moduleSkillOpen && (
-                  <ul className="control-picker-menu control-picker-menu--above absolute left-0 z-50 max-h-[min(16rem,50vh)] min-w-[11rem] overflow-y-auto">
-                    {moduleSkillOptions.map((option) => (
-                      <li key={option.templateId}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setModuleSkillId(option.templateId);
-                            writeStoredModuleSkillTemplateId(
-                              skillPickerModule,
-                              option.templateId,
-                              sessionId,
-                            );
-                            setModuleSkillOpen(false);
-                          }}
-                          className={`control-picker-menu__item flex-col items-start gap-0.5 ${
-                            moduleSkillId === option.templateId
-                              ? "control-picker-menu__item--selected"
-                              : ""
-                          }`}
-                        >
-                          <span>{option.label}</span>
-                          <span className="mt-0.5 block text-xs text-[var(--fg-tertiary)]">
-                            {option.description}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            ) : null}
-          </div>
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-            {showModePicker ? (
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setModeOpen((o) => !o)}
-                  className="control-picker control-picker--compact"
-                  aria-expanded={modeOpen}
-                >
-                  <span>{currentMode.label}</span>
-                  <ChevronDown
-                    className={`control-picker__chevron ${modeOpen ? "control-picker__chevron--open" : ""}`}
-                    strokeWidth={1.75}
-                  />
-                </button>
-                {modeOpen && (
-                  <ul className="control-picker-menu control-picker-menu--above absolute right-0 min-w-[140px]">
-                    {CHAT_MODES.map((m) => (
-                      <li key={m.id}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setMode(m.id);
-                            setModeOpen(false);
-                          }}
-                          className={`control-picker-menu__item flex-col items-start gap-0.5 ${
-                            mode === m.id ? "control-picker-menu__item--selected" : ""
-                          }`}
-                        >
-                          <span>{m.label}</span>
-                          <span className="mt-0.5 block text-xs text-[var(--fg-tertiary)]">
-                            {m.description}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            ) : null}
-            {showStop ? (
-              <button
-                type="button"
-                onClick={onStop}
-                className="btn-send btn-send--stop"
-                aria-label="停止"
-              >
-                <Square className="h-3 w-3 fill-current" strokeWidth={0} />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSend}
-                disabled={!canSend}
-                className="btn-send"
-                aria-label="发送"
-              >
-                <ArrowUp className="h-4 w-4" strokeWidth={2} />
-              </button>
-            )}
-          </div>
         </div>
       </div>
 

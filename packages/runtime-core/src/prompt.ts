@@ -27,6 +27,7 @@ export type ComposeRunPromptsOptions = {
   messages?: RunConversationMessage[];
   processSkill?: string | null;
   platformNormSkill?: string;
+  supportSkillSlugs?: string[];
   skillsRoot?: string;
   promptsRoot?: string;
   agentKit?: AgentKitStageResult | null;
@@ -75,6 +76,7 @@ export function composeRunPrompts(
     skillsRoot,
     platformNormSkill: options.platformNormSkill ?? null,
     processSkill: options.processSkill ?? null,
+    supportSkillSlugs: options.supportSkillSlugs ?? null,
   });
 
   const platform = loadPlatformPrompts(promptsRoot);
@@ -127,6 +129,14 @@ export function composeRunPrompts(
     injectedSlugs.push(bundle.process.slug);
   } else if (options.processSkill) {
     parts.push("", `【流程 Skill】未找到：${options.processSkill}`);
+  }
+
+  if (bundle.support.length > 0) {
+    parts.push("", "## 支持 Skill（阶段/建模协议）");
+    for (const skill of bundle.support) {
+      parts.push("", formatSkillBodyForPrompt(skill));
+      injectedSlugs.push(skill.slug);
+    }
   }
 
   if (options.agentKit) {

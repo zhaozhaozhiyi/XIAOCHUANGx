@@ -32,6 +32,8 @@
     "smoke:3d:runtime-fetch": "pnpm -C companion exec tsx ../scripts/smoke-openscad-runtime-fetch.ts",
     "smoke:3d:licenses": "node scripts/smoke-openscad-licenses.mjs",
     "smoke:video": "pnpm smoke:video:module-routes && pnpm smoke:video:ai-ui-parts && pnpm smoke:video:web-presentation && pnpm smoke:video:reel && pnpm smoke:video:auto",
+    "smoke:simulation": "pnpm -C companion exec tsx --tsconfig ../web/tsconfig.json ../scripts/smoke-simulation-p0.ts",
+    "smoke:simulation:ui": "pnpm --filter web exec node ../scripts/smoke-simulation-ui.mjs",
     "smoke:video:module-routes": "pnpm -C companion exec tsx --tsconfig ../web/tsconfig.json ../scripts/smoke-module-session-paths.ts",
     "smoke:video:ai-ui-parts": "pnpm -C companion exec tsx --tsconfig ../web/tsconfig.json ../scripts/smoke-video-ai-ui-parts.ts",
     "smoke:video:web-presentation": "node scripts/smoke-video-web-presentation.mjs",

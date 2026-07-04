@@ -83,12 +83,63 @@ async function main() {
     };
   }
 
+  const simulationPathRun = await buildCreateRunRequest({
+    sessionId: "simulation-path-binding-smoke",
+    projectId: NO_PROJECT_ID,
+    surfaceModuleId: "simulation",
+    mode: "deep",
+    agentId: "codex",
+    agentModel: "default",
+    messages: [
+      {
+        role: "user",
+        content:
+          "我选择这条推演路径继续深挖：\n路径 ID：path_risk\n路径名称：风险路径",
+      },
+    ],
+  });
+  if (
+    simulationPathRun.request.binding.moduleId !== "simulation" ||
+    simulationPathRun.request.binding.scope !== "path" ||
+    simulationPathRun.request.binding.targetId !== "path_risk"
+  ) {
+    throw new Error("simulation path intent was not preserved in binding");
+  }
+
+  const simulationVariableRun = await buildCreateRunRequest({
+    sessionId: "simulation-variable-binding-smoke",
+    projectId: NO_PROJECT_ID,
+    surfaceModuleId: "simulation",
+    mode: "deep",
+    agentId: "codex",
+    agentModel: "default",
+    messages: [
+      {
+        role: "user",
+        content:
+          "请基于变量调整生成新一轮推演：\n变量 ID：var_demand\n变量名称：需求恢复速度\n新假设：偏弱",
+      },
+    ],
+  });
+  if (
+    simulationVariableRun.request.binding.moduleId !== "simulation" ||
+    simulationVariableRun.request.binding.scope !== "variable" ||
+    simulationVariableRun.request.binding.targetId !== "var_demand" ||
+    simulationVariableRun.request.binding.variableOverrides?.var_demand !== "偏弱"
+  ) {
+    throw new Error("simulation variable intent was not preserved in binding");
+  }
+
   console.log(
     JSON.stringify(
       {
         ok: true,
         cases,
         lazyByModule,
+        simulationBinding: {
+          path: simulationPathRun.request.binding,
+          variable: simulationVariableRun.request.binding,
+        },
       },
       null,
       2,

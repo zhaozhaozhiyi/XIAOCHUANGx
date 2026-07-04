@@ -39,7 +39,12 @@ function applyRunEvent(
         orchestrationMode: event.orchestrationMode ?? null,
         catalogVersion: event.catalogVersion ?? null,
         catalogSlugs: event.catalogSlugs ?? null,
-        injectedSkills: event.injectedSkills ?? event.capabilities ?? null,
+        injectedSkills: Array.from(
+          new Set([
+            ...(event.injectedSkills ?? event.capabilities ?? []),
+            ...(event.supportSkillSlugs ?? []),
+          ]),
+        ),
       });
     case "run.status":
       return reduceStatusLabel(state, event.label, event.phase);

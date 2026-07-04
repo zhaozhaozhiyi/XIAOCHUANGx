@@ -73,6 +73,24 @@ export const chatPartKindSchema = z.enum([
   "video_requirement_summary",
   /** 视频 P0 网页视频 outline */
   "video_outline",
+  /** 推演需求采集卡（AI to UI） */
+  "simulation_requirements",
+  /** 推演需求摘要 */
+  "simulation_requirement_summary",
+  /** 推演初始沙盘结构 */
+  "simulation_scenario",
+  /** 推演画布节点 */
+  "simulation_node",
+  /** 推演画布边 */
+  "simulation_edge",
+  /** 推演路径 */
+  "simulation_path",
+  /** 推演总结 */
+  "simulation_summary",
+  /** 推演下一步可执行动作 */
+  "simulation_next_action",
+  /** 后续推演建议 */
+  "simulation_suggestion",
   /** 数据源、文件、外部材料等可溯源引用 */
   "citation",
   /** 工作区产出物链接 */
@@ -297,7 +315,8 @@ export type RequirementsPart = ChatPartBase & {
     | "writing_requirements"
     | "ppt_requirements"
     | "3d_requirements"
-    | "video_requirements";
+    | "video_requirements"
+    | "simulation_requirements";
   zone: "summary";
   runId?: string;
   toolUseId?: string;
@@ -315,7 +334,8 @@ export type RequirementSummaryPart = ChatPartBase & {
     | "writing_requirement_summary"
     | "ppt_requirement_summary"
     | "3d_requirement_summary"
-    | "video_requirement_summary";
+    | "video_requirement_summary"
+    | "simulation_requirement_summary";
   zone: "summary";
   title?: string;
   markdown: string;
@@ -412,6 +432,319 @@ export type OutlinePart =
   | IndustrialDrawingOutlinePart
   | VideoOutlinePart;
 
+export type SimulationNodeType =
+  | "prompt"
+  | "topic"
+  | "entity"
+  | "variable"
+  | "event"
+  | "conclusion"
+  | "risk"
+  | "evidence"
+  | "hypothesis"
+  | "inference"
+  | "decision"
+  | "action"
+  | "scenario"
+  | "summary"
+  | "report"
+  | "next_action"
+  | "history"
+  | "recovery"
+  | "suggestion";
+
+export type SimulationStageId =
+  | "question"
+  | "entity"
+  | "hypothesis"
+  | "variable"
+  | "risk"
+  | "reasoning"
+  | "scenario"
+  | "output";
+
+export type SimulationStageStatus =
+  | "idle"
+  | "generating"
+  | "awaiting_confirmation"
+  | "confirmed"
+  | "failed";
+
+export type SimulationStageState = {
+  current: SimulationStageId;
+  status: SimulationStageStatus;
+  completed: SimulationStageId[];
+  awaitingConfirmation?: boolean;
+  message?: string;
+  waveId?: string;
+};
+
+export type SimulationEdgeType =
+  | "causal"
+  | "temporal"
+  | "evidence_support";
+
+export type SimulationValueSchema = {
+  kind: "number" | "enum" | "boolean" | "priority" | "datetime";
+  range?: [number, number];
+  options?: string[];
+  unit?: string;
+};
+
+export type SimulationNode = {
+  id: string;
+  type: SimulationNodeType;
+  label: string;
+  detail?: string;
+  roundId: string;
+  pathIds?: string[];
+  stage?: SimulationStageId;
+  status?: "draft" | "pending" | "active" | "confirmed" | "updated" | "historical" | "failed";
+  data?: Record<string, unknown>;
+  locked?: boolean;
+  value?: unknown;
+  defaultValue?: unknown;
+  valueSchema?: SimulationValueSchema;
+  evidenceSource?: string;
+  evidenceCredibility?: "high" | "medium" | "low";
+};
+
+export type SimulationEdge = {
+  id: string;
+  type: SimulationEdgeType;
+  source: string;
+  target: string;
+  label?: string;
+  roundId: string;
+};
+
+export type SimulationPath = {
+  id: string;
+  label: string;
+  probability?: number;
+  status: "available" | "selected" | "excluded" | "locked";
+  edgeIds: string[];
+  summary?: string;
+  roundId: string;
+  excludedReason?: string;
+};
+
+export type SimulationScenarioView = {
+  id: string;
+  label: string;
+  status: "available" | "selected" | "excluded" | "locked";
+  pathIds: string[];
+  nodeIds: string[];
+  edgeIds: string[];
+  probability?: number;
+  summary?: string;
+  roundId: string;
+};
+
+export type SimulationSelectionType =
+  | "entry"
+  | "path"
+  | "variable"
+  | "scenario"
+  | "inspect"
+  | "report";
+
+export type SimulationSelectionResult = {
+  id: string;
+  type: SimulationSelectionType;
+  targetId?: string;
+  value?: unknown;
+  roundId: string;
+  createdAt: string;
+};
+
+export type SimulationActionRecord = {
+  id: string;
+  type: string;
+  targetId?: string;
+  payload?: unknown;
+  roundId: string;
+  createdAt: string;
+};
+
+export type SimulationInterventionKind =
+  | "node_expand"
+  | "prompt_reparse"
+  | "topic_confirm"
+  | "topic_edit"
+  | "entity_update"
+  | "variable_override"
+  | "event_assumption"
+  | "evidence_update"
+  | "hypothesis_update"
+  | "inference_rerun"
+  | "inference_challenge"
+  | "risk_mitigate"
+  | "risk_stress_test"
+  | "decision_select"
+  | "action_simulate"
+  | "conclusion_challenge"
+  | "path_continue"
+  | "scenario_continue"
+  | "scenario_compare"
+  | "scenario_counterfactual"
+  | "summary_continue"
+  | "report_update"
+  | "next_action_execute"
+  | "history_restore"
+  | "recovery_retry";
+
+export type SimulationImpactPreview = {
+  affectedNodeIds: string[];
+  affectedEdgeIds: string[];
+  affectedPathIds?: string[];
+  affectedScenarioIds: string[];
+  affectedNodeLabels?: string[];
+  affectedEdgeLabels?: string[];
+  affectedPathLabels?: string[];
+  affectedScenarioLabels?: string[];
+  reason?: string;
+};
+
+export type SimulationIntervention = {
+  id: string;
+  kind: SimulationInterventionKind;
+  sourceNodeId: string;
+  sourceNodeType: SimulationNodeType | "path" | "edge";
+  roundId: string;
+  scenarioId?: string;
+  pathId?: string;
+  stageId?: SimulationStageId;
+  waveId?: string;
+  payload?: Record<string, unknown>;
+  impactPreview?: SimulationImpactPreview;
+  requiresConfirmation: boolean;
+  createdAt: string;
+};
+
+export type CanvasSnapshot = {
+  roundId: string;
+  parentRoundId?: string;
+  promptNodeId?: string;
+  topicNodeId?: string;
+  nodes: SimulationNode[];
+  edges: SimulationEdge[];
+  scenarios?: SimulationScenarioView[];
+  paths: SimulationPath[];
+  selections: SimulationSelectionResult[];
+  actions: SimulationActionRecord[];
+  interventions?: SimulationIntervention[];
+  stageState?: SimulationStageState;
+  provenance?: SimulationScenarioProvenance;
+  createdAt: string;
+};
+
+export type SimulationTopicDefinition = {
+  problem: string;
+  goal?: string;
+  timeRange?: string;
+  spaceRange?: string;
+  industry?: string;
+  state?:
+    | "understanding"
+    | "waiting_boundary_confirmation"
+    | "modeling_world"
+    | "identifying_variables"
+    | "generating_scenarios"
+    | "waiting_next_action"
+    | "completed";
+};
+
+export type SimulationScenarioProvenance = {
+  source: "llm" | "mock" | "fallback" | "progressive_preview";
+  label?: string;
+  reason?: string;
+  warning?: string;
+  generatedAt?: string;
+};
+
+export type SimulationScenarioPart = ChatPartBase & {
+  kind: "simulation_scenario";
+  zone: "summary";
+  title?: string;
+  scenario: {
+    prompt?: SimulationNode;
+    topic: string | SimulationNode;
+    topicDefinition?: SimulationTopicDefinition;
+    nodes?: SimulationNode[];
+    scenarios?: SimulationScenarioView[];
+    entities: SimulationNode[];
+    variables: SimulationNode[];
+    assumptions?: string[];
+    paths: SimulationPath[];
+    edges: SimulationEdge[];
+    interventions?: SimulationIntervention[];
+    stageState?: SimulationStageState;
+    provenance?: SimulationScenarioProvenance;
+    roundId?: string;
+  };
+};
+
+export type SimulationNodePart = ChatPartBase & {
+  kind: "simulation_node";
+  zone: "activity";
+  node: SimulationNode;
+};
+
+export type SimulationEdgePart = ChatPartBase & {
+  kind: "simulation_edge";
+  zone: "activity";
+  edge: SimulationEdge;
+};
+
+export type SimulationPathPart = ChatPartBase & {
+  kind: "simulation_path";
+  zone: "summary";
+  path: SimulationPath;
+};
+
+export type SimulationSummaryPart = ChatPartBase & {
+  kind: "simulation_summary";
+  zone: "summary";
+  roundId: string;
+  markdown: string;
+  conclusionIds?: string[];
+};
+
+export type SimulationSuggestionPart = ChatPartBase & {
+  kind: "simulation_suggestion" | "simulation_next_action";
+  zone: "summary";
+  suggestions?: Array<{
+    suggestionId: string;
+    title: string;
+    description: string;
+    basedOnConclusionId?: string;
+  }>;
+  nextActions?: Array<{
+    actionId: string;
+    title: string;
+    description: string;
+    actionType:
+      | "continue"
+      | "add_data"
+      | "add_entity"
+      | "add_variable"
+      | "rerun_inference"
+      | "generate_report";
+    targetId?: string;
+    basedOnConclusionId?: string;
+    expectedEffect?: string;
+  }>;
+};
+
+export type SimulationPart =
+  | SimulationScenarioPart
+  | SimulationNodePart
+  | SimulationEdgePart
+  | SimulationPathPart
+  | SimulationSummaryPart
+  | SimulationSuggestionPart;
+
 export type CitationPart = ChatPartBase & {
   kind: "citation";
   zone: "summary";
@@ -506,6 +839,7 @@ export type ChatPart =
   | RequirementsPart
   | RequirementSummaryPart
   | OutlinePart
+  | SimulationPart
   | CitationPart
   | ArtifactPart
   | DeliverablesPart

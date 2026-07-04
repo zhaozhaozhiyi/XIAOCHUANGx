@@ -1,0 +1,28 @@
+{
+  "id": "paper-grid",
+  "name": "Paper Grid",
+  "nameZh": "纸面网格",
+  "description": "Warm editorial paper with precise grid energy. Good when the narrative needs structure, references, and diagram-like confidence.",
+  "descriptionZh": "温暖纸面底色配精确网格感，适合需要结构、注释、信息密度和版面秩序的叙事。",
+  "mood": [
+    "light",
+    "newspaper",
+    "editorial",
+    "serif",
+    "documentary",
+    "warm"
+  ],
+  "bestFor": [
+    "研究解读",
+    "图文说明",
+    "结构化教程",
+    "案例拆解",
+    "信息密度较高的讲述"
+  ],
+  "preview": {
+    "shell": "#ebe5d6",
+    "surface": "#f4ede0",
+    "text": "#1a1a1a",
+    "accent": "#c9302c"
+  }
+}

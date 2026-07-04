@@ -1,0 +1,4 @@
+interface:
+  display_name: "World Model"
+  short_description: "Wave-driven world modeling for simulation canvases."
+  default_prompt: "Use World Model to build a simulation canvas in incremental reasoning waves."

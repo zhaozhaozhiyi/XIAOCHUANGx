@@ -295,6 +295,7 @@ export type ResolvedSkills = {
   processSkill: string | null;
   platformNormSkill: typeof PLATFORM_NORM_SKILL;
   templatePackId: string | null;
+  supportSkillSlugs: string[];
 };
 
 export function resolveSkills(input: SkillResolveInput): ResolvedSkills {
@@ -302,6 +303,7 @@ export function resolveSkills(input: SkillResolveInput): ResolvedSkills {
     platformNormSkill: PLATFORM_NORM_SKILL,
     processSkill: null,
     templatePackId: null,
+    supportSkillSlugs: [],
   };
 
   switch (input.moduleId) {
@@ -343,6 +345,7 @@ export function resolveSkills(input: SkillResolveInput): ResolvedSkills {
     }
     case "simulation": {
       base.processSkill = "skill-simulation-base";
+      base.supportSkillSlugs = ["skill-world-model"];
       base.templatePackId = null;
       return base;
     }

@@ -1,6 +1,8 @@
 import type {
   CompanionRunEventsResponse,
   CompanionRunRecord,
+  CompanionSimulationRoundsResponse,
+  CompanionSimulationSnapshotResponse,
   CompanionSessionQueueResponse,
   CompanionSessionRunsResponse,
 } from "@/lib/companion/types";
@@ -46,5 +48,22 @@ export async function fetchRunEvents(
 ): Promise<CompanionRunEventsResponse> {
   return fetchJson<CompanionRunEventsResponse>(
     `/api/runs/${encodeURIComponent(runId)}/events`,
+  );
+}
+
+export async function fetchSimulationRounds(
+  sessionId: string,
+): Promise<CompanionSimulationRoundsResponse> {
+  return fetchJson<CompanionSimulationRoundsResponse>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/simulation/rounds`,
+  );
+}
+
+export async function fetchSimulationSnapshot(input: {
+  sessionId: string;
+  roundId: string;
+}): Promise<CompanionSimulationSnapshotResponse> {
+  return fetchJson<CompanionSimulationSnapshotResponse>(
+    `/api/sessions/${encodeURIComponent(input.sessionId)}/simulation/rounds/${encodeURIComponent(input.roundId)}`,
   );
 }

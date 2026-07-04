@@ -319,6 +319,51 @@ body {
     0 12px 30px rgb(0 0 0 / 0.07);
 }
 
+.chat-composer__body--inline .chat-composer__input-slot {
+  display: flex;
+  align-items: center;
+  min-height: 2rem;
+}
+
+.chat-composer__body--inline {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2rem;
+}
+
+.chat-composer__body--stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.chat-composer__input-slot {
+  min-width: 0;
+}
+
+.chat-composer__toolbar {
+  min-height: 2rem;
+}
+
+.chat-composer__textarea--inline {
+  display: block;
+  min-height: 1.375rem;
+  line-height: 1.375rem;
+  padding: 0;
+  margin: 0;
+}
+
+.chat-composer__textarea--multiline {
+  min-height: 1.5rem;
+  line-height: 1.625;
+}
+
+.chat-composer__textarea {
+  max-height: 12.5rem;
+}
+
 .chat-composer-stack__hint {
   margin-top: 0.5rem;
   text-align: center;
@@ -2004,7 +2049,7 @@ body {
 .chat-scroll-root {
   --chat-scroll-pad: 1.5rem;
   --chat-sticky-gap: 0.75rem;
-  --chat-composer-dock-h: 15rem;
+  --chat-composer-dock-h: 9rem;
   scroll-padding-top: var(--chat-scroll-pad);
   scroll-padding-bottom: var(--chat-composer-dock-h);
   padding-left: var(--chat-scroll-pad);
@@ -2029,6 +2074,56 @@ body {
     color-mix(in srgb, var(--background) 88%, transparent) 55%,
     transparent 100%
   );
+}
+
+/* 推演画布：底栏透明，仅 composer 卡片自带圆角与阴影 */
+.chat-composer-dock--canvas {
+  padding-top: 0;
+  background: transparent;
+}
+
+.simulation-canvas-shell .react-flow__controls {
+  bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+}
+
+.simulation-canvas-shell .react-flow__panel.bottom.right {
+  bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+}
+
+.simulation-canvas-side-rail {
+  margin: 0.75rem !important;
+}
+
+.simulation-canvas-actionbar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 2px;
+  border: none;
+  border-radius: 8px;
+  background: var(--surface-elevated);
+  box-shadow:
+    0 0 0 1px var(--composer-border),
+    0 8px 22px rgb(0 0 0 / 0.06);
+  transition: box-shadow 0.15s ease;
+}
+
+.simulation-canvas-actionbar__divider {
+  flex-shrink: 0;
+  width: 1px;
+  height: 14px;
+  margin: 0 2px;
+  background: var(--composer-border);
+}
+
+.simulation-canvas-actionbar__btn:disabled {
+  pointer-events: none;
+}
+
+.simulation-layer-tabs-menu {
+  box-shadow:
+    0 0 0 1px var(--composer-border),
+    0 8px 22px rgb(0 0 0 / 0.06);
 }
 
 .chat-turn {
@@ -2478,7 +2573,7 @@ body {
 @media (max-width: 640px) {
   .chat-scroll-root {
     --chat-scroll-pad: 0.75rem;
-    --chat-composer-dock-h: 15.5rem;
+    --chat-composer-dock-h: 9.5rem;
   }
 
   .chat-turn {

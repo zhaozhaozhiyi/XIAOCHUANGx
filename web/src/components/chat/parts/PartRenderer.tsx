@@ -1,6 +1,10 @@
 "use client";
 
-import type { ChatPart, OutlineCommitPayload } from "@/lib/chat-parts";
+import type {
+  ChatPart,
+  OutlineCommitPayload,
+  RequirementsPart,
+} from "@/lib/chat-parts";
 import { isRenderablePart, normalizeMarkdown } from "@/lib/chat-parts-utils";
 import { ArtifactRow } from "@/components/chat/parts/ArtifactRow";
 import { DeliverablesCard } from "@/components/chat/parts/DeliverablesCard";
@@ -19,6 +23,12 @@ import { ChatMarkdown } from "@/components/chat/parts/ChatMarkdown";
 import { ClarificationCard } from "@/components/chat/parts/ClarificationCard";
 import { RequirementsCard } from "@/components/chat/parts/RequirementsCard";
 import { RequirementSummaryCard } from "@/components/chat/parts/RequirementSummaryCard";
+import {
+  SimulationScenarioCard,
+  SimulationSummaryCard,
+  SimulationSuggestionCard,
+} from "@/components/chat/parts/SimulationScenarioCard";
+import { SimulationEntryRequirementsCard } from "@/components/simulation/SimulationEntryRequirementsCard";
 import { TodoBlock } from "@/components/chat/parts/TodoBlock";
 import { ToolBatchCard } from "@/components/chat/parts/ToolBatchCard";
 import { ToolCardRow } from "@/components/chat/parts/ToolCardRow";
@@ -32,6 +42,10 @@ import {
 } from "@/lib/activity-status-tone";
 
 export type PartPresentation = "default" | "timeline";
+
+type SimulationRequirementsPart = RequirementsPart & {
+  kind: "simulation_requirements";
+};
 
 function StatusChip({ part }: { part: Extract<ChatPart, { kind: "status" }> }) {
   const tone = activityTone(part.label, part.phase);
@@ -186,6 +200,8 @@ function SummaryMarkdown({
 export function PartRenderer({
   part,
   presentation = "default",
+  sessionId,
+  runId,
   onClarificationSubmitted,
   onClarificationContinue,
   onClarificationDraftChange,
@@ -196,6 +212,8 @@ export function PartRenderer({
 }: {
   part: ChatPart;
   presentation?: PartPresentation;
+  sessionId?: string;
+  runId?: string;
   onClarificationSubmitted?: (partId: string, answer: string) => void;
   onClarificationContinue?: (answer: string) => void;
   onClarificationDraftChange?: (
@@ -261,10 +279,20 @@ export function PartRenderer({
           onDraftChange={onRequirementsDraftChange}
         />
       );
+    case "simulation_requirements":
+      return (
+        <SimulationEntryRequirementsCard
+          part={part as SimulationRequirementsPart}
+          onSubmitted={onRequirementsSubmitted}
+          onContinueAsMessage={onRequirementsContinue}
+          onDraftChange={onRequirementsDraftChange}
+        />
+      );
     case "writing_requirement_summary":
     case "ppt_requirement_summary":
     case "3d_requirement_summary":
     case "video_requirement_summary":
+    case "simulation_requirement_summary":
     case "writing_outline":
     case "ppt_outline":
     case "3d_outline":
@@ -275,6 +303,24 @@ export function PartRenderer({
           onOutlineCommitted={onOutlineCommitted}
         />
       );
+    case "simulation_scenario":
+      return (
+        <SimulationScenarioCard
+          part={part}
+          sessionId={sessionId}
+          runId={runId}
+          onContinueAsMessage={onRequirementsContinue}
+        />
+      );
+    case "simulation_node":
+    case "simulation_edge":
+    case "simulation_path":
+      return null;
+    case "simulation_summary":
+      return <SimulationSummaryCard part={part} />;
+    case "simulation_next_action":
+    case "simulation_suggestion":
+      return <SimulationSuggestionCard part={part} />;
     case "file_read":
       return <FileReadRow part={part} presentation={presentation} />;
     case "document_read":
