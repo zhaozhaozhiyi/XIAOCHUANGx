@@ -2,6 +2,8 @@
 
 交付时**优先改本目录下的 `SKILL.md` 与 `references/`**，以及并列的 [`prompts/platform/`](../prompts/platform/)（平台身份、模式说明、对话编排指引），无需改 Web/Companion 业务代码（绑定关系见 `web/src/lib/module-registry.ts`；完整约定见 PRD §6.10 **F-RT-003**、**F-RT-008**）。
 
+**全量清单：** [SKILL-INVENTORY.md](./SKILL-INVENTORY.md)（47 个 Skill，37 条 Catalog，含模块绑定与角色说明）。
+
 ## 目录约定
 
 ```
@@ -127,7 +129,8 @@ pnpm smoke:3d:claude
 | `skill-industrial-drawing-base` | 工业制图 | ✅ | P1 | 3D 模块基座；收敛需求、生成参数化 CAD 文件并落盘到工作区 |
 | `skill-industrial-drawing-parametric` | 工业制图 | ✅ | P1 | 参数化 OpenSCAD / CAD Artifact 生成规则，借鉴 CADAM |
 | `skill-industrial-drawing-export` | 工业制图 | ✅ | P1 | 预览检查、DXF/SVG/PDF/STL 导出与工作区组织 |
+| `skill-world-model` | 推演 | ✅ | P1 | wave-driven 世界模型；按节点本体论和推导语法增量生成逻辑自洽的节点、连边、路径与 checkpoint |
 
 **模板资产包 `tpl-*`：** 会议 `tpl-mm-*` 多数 ❌；PPT `tpl-ppt-*` 随 Open Design 同步部分 ✅。详见各模块子 PRD。
 
-**维护：** 新增注册表 Skill 时同步更新本表与 [设计文档审计 §5](../docs/audits/design-doc-audit-recommendations.md)；验收以 MVP/V1.1 分期为准。
+**维护：** 新增注册表 Skill 时同步更新本表、[SKILL-INVENTORY.md](./SKILL-INVENTORY.md) 与 [设计文档审计 §5](../docs/audits/design-doc-audit-recommendations.md)；验收以 MVP/V1.1 分期为准。

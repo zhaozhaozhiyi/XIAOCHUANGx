@@ -14,8 +14,7 @@ import { newPartId } from "@/lib/chat-parts-utils";
 export const MOCK_AI_UI_CONTINUE_PREFIX =
   "我补充的信息如下，请继续完成刚才的任务：";
 
-type SupportedModuleId = "writing" | "ppt" | "video";
-type MockModuleId = SupportedModuleId | "3d";
+type MockModuleId = "writing" | "ppt" | "video" | "3d";
 
 export type MockAiUiFlow = {
   parts: ChatPart[];
@@ -564,7 +563,7 @@ function outlinePart(
   };
 }
 
-function finalText(moduleId: SupportedModuleId): string {
+function finalText(moduleId: Exclude<MockModuleId, "3d">): string {
   if (moduleId === "video") {
     return [
       "已完成视频需求收敛和网页视频 outline。",
@@ -634,6 +633,10 @@ export function buildMockAiUiFlow(input: {
   templateId?: string;
   lastUserText: string;
 }): MockAiUiFlow | null {
+  if (input.moduleId === "simulation") {
+    return null;
+  }
+
   if (
     input.moduleId !== "writing" &&
     input.moduleId !== "ppt" &&
@@ -647,10 +650,11 @@ export function buildMockAiUiFlow(input: {
     return null;
   }
 
-  const moduleId = input.moduleId as MockModuleId;
   const isContinuation = input.lastUserText
     .trim()
     .startsWith(MOCK_AI_UI_CONTINUE_PREFIX);
+
+  const moduleId = input.moduleId as MockModuleId;
 
   if (!isContinuation) {
     return {

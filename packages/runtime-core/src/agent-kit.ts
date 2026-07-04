@@ -22,6 +22,7 @@ export type AgentKitStageResult = {
 export async function stageAgentKitForRun(input: {
   runId: string;
   processSkill?: string | null;
+  supportSkillSlugs?: string[] | null;
   skillsRoot?: string;
 }): Promise<AgentKitStageResult> {
   const skillsRoot = input.skillsRoot ?? resolveSkillsRoot();
@@ -33,17 +34,29 @@ export async function stageAgentKitForRun(input: {
 
   const referenceFiles: StagedReference[] = [];
 
-  if (input.processSkill) {
-    const skill = loadSkill(input.processSkill, skillsRoot);
+  const skillSlugs = Array.from(
+    new Set([
+      ...(input.processSkill ? [input.processSkill] : []),
+      ...(input.supportSkillSlugs ?? []),
+    ]),
+  );
+
+  for (const skillSlug of skillSlugs) {
+    const skill = loadSkill(skillSlug, skillsRoot);
     if (skill) {
-      const skillDir = join(skillsRoot, input.processSkill);
+      const isProcessSkill = skillSlug === input.processSkill;
+      const skillDir = join(skillsRoot, skillSlug);
       for (const dirName of SKILL_ASSET_DIRS) {
         const srcDir = join(skillDir, dirName);
         if (!existsSync(srcDir)) continue;
         const destDir =
           dirName === "references"
-            ? referencesDir
-            : join(agentKitPath, dirName);
+            ? isProcessSkill
+              ? referencesDir
+              : join(referencesDir, skillSlug)
+            : isProcessSkill
+              ? join(agentKitPath, dirName)
+              : join(agentKitPath, "support-skills", skillSlug, dirName);
         await mkdir(destDir, { recursive: true });
         const entries = await readdir(srcDir, { withFileTypes: true });
         for (const ent of entries) {
@@ -56,8 +69,12 @@ export async function stageAgentKitForRun(input: {
           }
           const rel =
             dirName === "references"
-              ? ent.name
-              : `${dirName}/${ent.name}`;
+              ? isProcessSkill
+                ? ent.name
+                : `${skillSlug}/${ent.name}`
+              : isProcessSkill
+                ? `${dirName}/${ent.name}`
+                : `support-skills/${skillSlug}/${dirName}/${ent.name}`;
           referenceFiles.push({ name: rel, absolutePath: dest });
         }
       }

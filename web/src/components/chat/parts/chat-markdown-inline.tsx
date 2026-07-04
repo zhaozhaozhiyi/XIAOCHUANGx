@@ -9,12 +9,21 @@ type InlineToken =
   | { kind: "link"; text: string; href: string }
   | { kind: "image"; alt: string; src: string }
   | { kind: "url"; href: string }
-  | { kind: "math"; value: string };
+  | { kind: "math"; value: string }
+  | { kind: "simulation_trace"; traceKind: "path" | "node"; id: string };
 
 const PATTERNS: {
   re: RegExp;
   map: (m: RegExpExecArray) => InlineToken;
 }[] = [
+  {
+    re: /\[(path|node):\s*([^\]\s]+)\]/,
+    map: (m) => ({
+      kind: "simulation_trace",
+      traceKind: m[1] as "path" | "node",
+      id: m[2]!,
+    }),
+  },
   {
     re: /!\[([^\]]*)\]\(([^)]+)\)/,
     map: (m) => ({ kind: "image", alt: m[1] ?? "", src: m[2]! }),
@@ -128,6 +137,14 @@ function WorkspaceAwareLink({
   );
 }
 
+function emitSimulationTrace(kind: "path" | "node", id: string) {
+  window.dispatchEvent(
+    new CustomEvent("jlc-simulation-highlight", {
+      detail: { kind, id },
+    }),
+  );
+}
+
 export function renderInlineMarkdown(
   text: string,
   keyPrefix: string,
@@ -173,6 +190,18 @@ export function renderInlineMarkdown(
           <WorkspaceAwareLink key={key} href={tok.href}>
             {tok.href}
           </WorkspaceAwareLink>
+        );
+      case "simulation_trace":
+        return (
+          <button
+            key={key}
+            type="button"
+            className="mx-0.5 inline-flex rounded-[var(--radius-sm)] border border-[var(--accent)]/30 bg-[var(--accent-muted)] px-1.5 py-0.5 font-mono text-[12px] text-[var(--accent)] hover:border-[var(--accent)]"
+            onClick={() => emitSimulationTrace(tok.traceKind, tok.id)}
+            title="在推演画布中高亮"
+          >
+            {tok.traceKind}: {tok.id}
+          </button>
         );
       case "image":
         return (

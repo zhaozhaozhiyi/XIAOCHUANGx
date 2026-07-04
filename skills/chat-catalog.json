@@ -201,16 +201,28 @@
       "summary": "视频制作基座：收敛视频 brief，P0 默认交接网页视频生产 Skill，产出可预览、可录屏的 presentation 项目；Remotion/MP4 属于 P1"
     },
     {
-      "slug": "skill-vp-web-video-presentation",
+      "slug": "skill-vp-video-stage",
       "kind": "workflow",
       "scope": ["chat", "video"],
-      "summary": "网页视频生产：从文章或口播稿生成 Vite/React presentation 项目，支持 ?reel=1 自动预览、?audio=1 配音检查、?auto=1 录屏出片路径"
+      "summary": "视频舞台生产：从文章或口播稿生成 Vite/React video-stage 项目，支持 ?reel=1 自动预览、?audio=1 配音检查、?auto=1 录屏出片路径"
+    },
+    {
+      "slug": "skill-vp-screenplay-canvas",
+      "kind": "workflow",
+      "scope": ["chat", "video"],
+      "summary": "屏幕叙事生产：从源材料生成 cue 驱动的 screenplay-canvas studio，支持 ?preview=1 预览、?voice=1 配音检查、?capture=1 录屏路径"
     },
     {
       "slug": "skill-simulation-base",
       "kind": "workflow",
       "scope": ["chat", "simulation"],
       "summary": "推演基座：收敛复杂问题边界，拆解主体、变量、假设和多条情景路径，生成可继续深挖的推演报告"
+    },
+    {
+      "slug": "skill-world-model",
+      "kind": "workflow",
+      "scope": ["chat", "simulation"],
+      "summary": "世界模型：按 wave 增量构建逻辑自洽的推演画布，覆盖节点本体论、推导语法、上游依据、rationale 与 checkpoint"
     }
   ]
 }

@@ -16,6 +16,10 @@ import {
   compactToolParts,
   formatDurationMs,
 } from "@/lib/chat-parts-normalize";
+import {
+  mergeSimulationDeltaIntoScenarioPreservingUpstream,
+  mergeSimulationScenarioPreservingUpstream,
+} from "@jlc/contracts";
 import { isWaitingUserSignal } from "@/lib/chat-history";
 import {
   orchestrationStatusLabel,
@@ -68,6 +72,11 @@ const SINGLETON_SUMMARY_PART_KINDS = new Set<string>([
   "video_requirements",
   "video_requirement_summary",
   "video_outline",
+  "simulation_requirements",
+  "simulation_requirement_summary",
+  "simulation_scenario",
+  "simulation_summary",
+  "simulation_suggestion",
 ]);
 
 function findRepeatablePartIndex(parts: ChatPart[], part: ChatPart): number {
@@ -85,6 +94,15 @@ function findRepeatablePartIndex(parts: ChatPart[], part: ChatPart): number {
 
 function mergeRepeatedPart(existing: ChatPart, incoming: ChatPart): ChatPart {
   const streamSeq = existing.streamSeq ?? incoming.streamSeq;
+  if (
+    existing.kind === "simulation_scenario" &&
+    incoming.kind === "simulation_scenario"
+  ) {
+    return {
+      ...mergeSimulationScenarioParts(existing, incoming),
+      streamSeq,
+    };
+  }
   if (existing.kind === "deliverables" && incoming.kind === "deliverables") {
     const itemsByPath = new Map<string, (typeof incoming.items)[number]>();
     for (const item of existing.items) itemsByPath.set(item.path, item);
@@ -100,6 +118,69 @@ function mergeRepeatedPart(existing: ChatPart, incoming: ChatPart): ChatPart {
     };
   }
   return { ...incoming, streamSeq };
+}
+
+type SimulationScenarioPart = Extract<ChatPart, { kind: "simulation_scenario" }>;
+type SimulationDeltaPart = Extract<
+  ChatPart,
+  { kind: "simulation_node" | "simulation_edge" | "simulation_path" }
+>;
+
+function mergeSimulationScenarioParts(
+  existing: SimulationScenarioPart,
+  incoming: SimulationScenarioPart,
+): SimulationScenarioPart {
+  return {
+    ...incoming,
+    title: incoming.title ?? existing.title,
+    scenario: mergeSimulationScenarioPreservingUpstream(
+      existing.scenario,
+      incoming.scenario,
+    ),
+    completedAt: incoming.completedAt ?? existing.completedAt,
+  };
+}
+
+function mergePriorSimulationDeltasIntoScenario(
+  parts: ChatPart[],
+  incoming: SimulationScenarioPart,
+): SimulationScenarioPart {
+  return parts.reduce<SimulationScenarioPart>((scenarioPart, part) => {
+    if (
+      part.kind !== "simulation_node" &&
+      part.kind !== "simulation_edge" &&
+      part.kind !== "simulation_path"
+    ) {
+      return scenarioPart;
+    }
+    return mergeSimulationDeltaIntoScenario(scenarioPart, part);
+  }, incoming);
+}
+
+function mergeSimulationDeltaIntoScenario(
+  scenarioPart: SimulationScenarioPart,
+  delta: SimulationDeltaPart,
+): SimulationScenarioPart {
+  return {
+    ...scenarioPart,
+    scenario: mergeSimulationDeltaIntoScenarioPreservingUpstream(
+      scenarioPart.scenario,
+      delta,
+    ),
+    completedAt: delta.completedAt ?? scenarioPart.completedAt,
+  };
+}
+
+function mergeSimulationDelta(
+  parts: ChatPart[],
+  delta: SimulationDeltaPart,
+): ChatPart[] | null {
+  const idx = parts.findLastIndex((part) => part.kind === "simulation_scenario");
+  if (idx < 0) return null;
+  const scenarioPart = parts[idx] as SimulationScenarioPart;
+  const next = [...parts];
+  next[idx] = mergeSimulationDeltaIntoScenario(scenarioPart, delta);
+  return next;
 }
 
 /** 新开 activity 前封存尾部流式块，避免正文占位后工具只能排在后面 */
@@ -280,7 +361,26 @@ export function reduceAppendPart(
 ): AssistantPartsState {
   const { seq, nextStreamSeq } = bumpStreamSeq(state);
   const sealedParts = sealStreamingTail(state.parts);
-  const incoming = withStreamSeq(part, seq);
+  const incoming = withStreamSeq(
+    part.kind === "simulation_scenario"
+      ? mergePriorSimulationDeltasIntoScenario(sealedParts, part)
+      : part,
+    seq,
+  );
+  if (
+    incoming.kind === "simulation_node" ||
+    incoming.kind === "simulation_edge" ||
+    incoming.kind === "simulation_path"
+  ) {
+    const merged = mergeSimulationDelta(sealedParts, incoming);
+    if (merged) {
+      return {
+        ...state,
+        nextStreamSeq,
+        parts: merged,
+      };
+    }
+  }
   const repeatedIdx = findRepeatablePartIndex(sealedParts, incoming);
   if (repeatedIdx >= 0) {
     const nextParts = [...sealedParts];
@@ -643,24 +743,25 @@ export function reduceToolProgress(
     const withCmd = addCommand(state, cmd, status);
     const parts = [...sealStreamingTail(withCmd.parts)];
     const normalizedStatus = status;
-    const running = payload.callId
+    const existingByCallId = payload.callId
       ? parts.find(
           (p): p is ToolPart =>
             p.kind === "tool" &&
-            p.callId === payload.callId &&
-            p.status === "running",
+            p.callId === payload.callId,
         )
-      : findRunningTool(parts, payload.tool);
-    if (running && normalizedStatus !== "running") {
+      : undefined;
+    const running = existingByCallId ?? findRunningTool(parts, payload.tool);
+    if (running && (existingByCallId || normalizedStatus !== "running")) {
       const idx = parts.indexOf(running);
+      const streaming = normalizedStatus === "running";
       parts[idx] = {
         ...running,
         status: normalizedStatus,
         message: payload.message ?? running.message,
         input: payload.input ?? running.input,
         output: payload.output ?? running.output,
-        streaming: false,
-        completedAt: Date.now(),
+        streaming,
+        completedAt: streaming ? undefined : Date.now(),
       };
     } else if (!running || normalizedStatus === "running") {
       const { seq, nextStreamSeq } = bumpStreamSeq(withCmd);
@@ -693,25 +794,26 @@ export function reduceToolProgress(
   let nextStreamSeq = state.nextStreamSeq;
   const parts = [...sealStreamingTail(state.parts)];
   const normalizedStatus = normalizeToolStatus(payload.status);
-  const running = payload.callId
+  const existingByCallId = payload.callId
     ? parts.find(
         (p): p is ToolPart =>
           p.kind === "tool" &&
-          p.callId === payload.callId &&
-          p.status === "running",
+          p.callId === payload.callId,
       )
-    : findRunningTool(parts, payload.tool);
+    : undefined;
+  const running = existingByCallId ?? findRunningTool(parts, payload.tool);
 
-  if (running && normalizedStatus !== "running") {
+  if (running && (existingByCallId || normalizedStatus !== "running")) {
     const idx = parts.indexOf(running);
+    const streaming = normalizedStatus === "running";
     parts[idx] = {
       ...running,
       status: normalizedStatus,
       message: payload.message ?? running.message,
       input: payload.input ?? running.input,
       output: payload.output ?? running.output,
-      streaming: false,
-      completedAt: Date.now(),
+      streaming,
+      completedAt: streaming ? undefined : Date.now(),
     };
   } else if (!running || normalizedStatus === "running") {
     const bumped = bumpStreamSeq({ ...state, parts, nextStreamSeq });

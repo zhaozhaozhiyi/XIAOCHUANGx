@@ -80,6 +80,13 @@ export function mockCompanionRunSse(
             cwd: req.workspaceProjectId,
             processSkill: req.processSkill,
             baseProcessSkill: req.processSkill,
+            supportSkillSlugs: req.supportSkillSlugs,
+            injectedSkills: Array.from(
+              new Set([
+                ...(req.processSkill ? [req.processSkill] : []),
+                ...(req.supportSkillSlugs ?? []),
+              ]),
+            ),
             orchestrationMode: "hybrid-steer",
             catalogVersion: "1",
             catalogSlugs: ["skill-ppt-deck", "skill-ppt-pitch-deck", "skill-ppt-html-studio"],

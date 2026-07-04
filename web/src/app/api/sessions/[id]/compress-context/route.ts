@@ -39,13 +39,15 @@
  */
 
 import {
-  buildLlmHandoffSummary,
   compressConversationMessages,
   estimateTranscriptChars,
   AUTO_COMPRESS_CHARS_THRESHOLD,
-  type LlmHandoffSummaryResult,
   type RunConversationMessage,
-} from "@jlc/runtime-core";
+} from "@jlc/runtime-core/transcript-compress";
+import {
+  buildLlmHandoffSummary,
+  type LlmHandoffSummaryResult,
+} from "@jlc/runtime-core/transcript-handoff";
 import {
   oneShotApiProviderCompletion,
 } from "@/lib/byok/server";

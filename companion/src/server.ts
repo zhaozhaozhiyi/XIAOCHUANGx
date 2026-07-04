@@ -8,6 +8,7 @@ import { desktopRoutes } from "./routes/desktop.js";
 import { projectRoutes } from "./routes/projects.js";
 import { runRoutes } from "./routes/runs.js";
 import { sessionRoutes } from "./routes/sessions.js";
+import { simulationRoutes } from "./routes/simulation.js";
 
 export async function buildServer() {
   assertLoopbackBind();
@@ -45,6 +46,7 @@ export async function buildServer() {
   await app.register(projectRoutes);
   await app.register(runRoutes);
   await app.register(sessionRoutes);
+  await app.register(simulationRoutes);
 
   return app;
 }

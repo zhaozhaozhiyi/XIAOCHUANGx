@@ -32,15 +32,24 @@ const ICONS: Record<ChatHomeSuggestionIcon, LucideIcon> = {
 type ChatHomeTaskSuggestionsProps = {
   group: ChatHomeSuggestionGroup;
   onSelect: (text: string) => void;
+  className?: string;
+  compact?: boolean;
 };
 
 export function ChatHomeTaskSuggestions({
   group,
   onSelect,
+  className,
+  compact = false,
 }: ChatHomeTaskSuggestionsProps) {
   return (
     <section
-      className="mt-6 w-full max-w-3xl"
+      className={[
+        compact ? "w-full" : "mt-6 w-full max-w-3xl",
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
       aria-label={group.ariaLabel}
     >
       <p className="mb-2 flex items-center gap-1.5 px-1 text-xs text-[var(--fg-tertiary)]">

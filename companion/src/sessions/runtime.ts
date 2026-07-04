@@ -8,6 +8,17 @@ import type {
 } from "../types.js";
 import { config } from "../config.js";
 
+export type SimulationMeta = {
+  /** 推演主题 */
+  topic: string;
+  /** 当前轮次 ID，格式 round_{N} */
+  currentRoundId: string;
+  /** 上一轮 ID（重算/续推时存在） */
+  previousRoundId?: string;
+  /** 历史轮次 ID 列表（按顺序） */
+  roundIds: string[];
+};
+
 export type SessionRuntimeRecord = {
   sessionId: string;
   projectId?: string;
@@ -31,6 +42,7 @@ export type SessionRuntimeRecord = {
   timeoutProfile?: RunTimeoutProfile;
   timeoutMs?: number;
   idleTimeoutMs?: number;
+  simulationMeta?: SimulationMeta;
   lastRunId?: string;
   lastRunStatus?: RunStatus;
   lastStatusLabel?: string;

@@ -1,0 +1,26 @@
+{
+  "id": "night-theater",
+  "name": "Night Theater",
+  "nameZh": "夜场剧院",
+  "description": "Dark proscenium-like canvas with warm highlights. Built for drama, reveal timing, and product storytelling with a cinematic edge.",
+  "descriptionZh": "像剧院前台一样的暗场画布，带温暖高光。适合戏剧张力、揭示节奏和产品叙事。",
+  "mood": [
+    "dark",
+    "cinematic",
+    "terminal",
+    "developer",
+    "warm"
+  ],
+  "bestFor": [
+    "讲述型产品介绍",
+    "情绪化开场",
+    "电影感教程",
+    "叙事式路演"
+  ],
+  "preview": {
+    "shell": "#0d0b09",
+    "surface": "#1a1714",
+    "text": "#f5f0e5",
+    "accent": "#ff4a2b"
+  }
+}

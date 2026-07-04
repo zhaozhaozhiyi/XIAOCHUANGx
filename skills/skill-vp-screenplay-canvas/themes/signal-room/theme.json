@@ -1,0 +1,28 @@
+{
+  "id": "signal-room",
+  "name": "Signal Room",
+  "nameZh": "信号室",
+  "description": "High-contrast broadcast-room canvas with a surgical blue accent. Feels technical, live, and a little urgent without turning into sci-fi.",
+  "descriptionZh": "高对比控制室画布，配冷静电蓝强调。技术感、直播感、反应迅速，但不走科幻霓虹路线。",
+  "mood": [
+    "light",
+    "corporate",
+    "electric",
+    "confident",
+    "enterprise",
+    "clean"
+  ],
+  "bestFor": [
+    "产品发布",
+    "技术演示",
+    "控制台风格讲解",
+    "高密度路演",
+    "直播感说明"
+  ],
+  "preview": {
+    "shell": "#0a0a0a",
+    "surface": "#ffffff",
+    "text": "#0a0a0a",
+    "accent": "#4361ee"
+  }
+}

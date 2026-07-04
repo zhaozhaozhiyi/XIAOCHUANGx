@@ -110,7 +110,13 @@ export type CreateRunBinding =
   | { moduleId: "ppt"; task: "deck" }
   | { moduleId: "3d" }
   | { moduleId: "video" }
-  | { moduleId: "simulation" };
+  | {
+      moduleId: "simulation";
+      previousRunId?: string;
+      variableOverrides?: Record<string, unknown>;
+      scope?: "node" | "path" | "variable" | "counterfactual" | "resimulate";
+      targetId?: string;
+    };
 
 export type ChatRunMessage = {
   id?: string;
@@ -137,6 +143,7 @@ export type CreateRunRequest = {
   useClientHistory?: boolean;
   processSkill?: string | null;
   platformNormSkill?: string;
+  supportSkillSlugs?: string[];
   timeoutProfile?: RunTimeoutProfile;
   timeoutMs?: number;
   idleTimeoutMs?: number;

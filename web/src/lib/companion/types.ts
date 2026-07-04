@@ -1,7 +1,7 @@
 import type { ChatModeId } from "@/lib/navigation";
 import type { AgentId } from "@/lib/settings";
 import type { ModuleId } from "@/lib/module-registry";
-import type { RunEvent, RunRecord } from "@jlc/contracts";
+import type { CanvasSnapshot, RunEvent, RunRecord } from "@jlc/contracts";
 
 /** Companion HTTP API 契约版本（与 PRD §8.5、docs/technical/companion-api.md 一致） */
 export const COMPANION_API_VERSION = "v1";
@@ -95,7 +95,13 @@ export type CreateRunBinding =
   | { moduleId: "ppt"; task: "deck"; templateId?: string }
   | { moduleId: "3d" }
   | { moduleId: "video" }
-  | { moduleId: "simulation" };
+  | {
+      moduleId: "simulation";
+      previousRunId?: string;
+      variableOverrides?: Record<string, unknown>;
+      scope?: "node" | "path" | "variable" | "counterfactual" | "resimulate";
+      targetId?: string;
+    };
 
 export type ChatRunMessage = {
   id?: string;
@@ -126,7 +132,15 @@ export type CreateRunRequest = {
   useClientHistory?: boolean;
   processSkill?: string | null;
   platformNormSkill?: string;
-  timeoutProfile?: "default" | "fast" | "deep" | "writing" | "ppt" | "video";
+  supportSkillSlugs?: string[];
+  timeoutProfile?:
+    | "default"
+    | "fast"
+    | "deep"
+    | "writing"
+    | "ppt"
+    | "video"
+    | "simulation";
   timeoutMs?: number;
   idleTimeoutMs?: number;
 };
@@ -150,6 +164,7 @@ export type CompanionSseEvent =
   | "tool.progress"
   | "part.append"
   | "part.patch"
+  | "run.resumed"
   | "run.finished"
   | "run.error"
   | "run.cancelled";
@@ -198,4 +213,16 @@ export type CompanionSessionQueueResponse = {
   items: CompanionQueuedRun[];
   count: number;
   running: boolean;
+};
+
+export type CompanionSimulationRoundsResponse = {
+  sessionId: string;
+  rounds: Array<{ roundId: string; createdAt?: string; label?: string }>;
+  count: number;
+  source?: "companion" | "unavailable";
+};
+
+export type CompanionSimulationSnapshotResponse = {
+  sessionId: string;
+  snapshot: CanvasSnapshot;
 };

@@ -14,7 +14,7 @@ const playwrightTest = await import(
   new URL("../web/node_modules/@playwright/test/index.js", import.meta.url)
 );
 const { chromium } = playwrightTest.default;
-const skillDir = resolve(repoRoot, "skills/skill-vp-web-video-presentation");
+const skillDir = resolve(repoRoot, "skills/skill-vp-video-stage");
 const scaffold = join(skillDir, "scripts/scaffold.sh");
 const root = mkdtempSync(join(tmpdir(), "xiaochuang-video-reel-"));
 const presentationDir = join(root, "presentation");

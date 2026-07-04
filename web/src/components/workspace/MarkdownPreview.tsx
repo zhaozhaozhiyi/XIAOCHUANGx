@@ -1,5 +1,45 @@
 "use client";
 
+import type { ReactNode } from "react";
+
+function emitSimulationTrace(kind: "path" | "node", id: string) {
+  window.dispatchEvent(
+    new CustomEvent("jlc-simulation-highlight", {
+      detail: { kind, id },
+    }),
+  );
+}
+
+function renderTraceText(text: string): ReactNode[] {
+  const nodes: ReactNode[] = [];
+  const pattern = /\[(path|node):\s*([^\]\s]+)\]/g;
+  let lastIndex = 0;
+  for (const match of text.matchAll(pattern)) {
+    const index = match.index ?? 0;
+    if (index > lastIndex) {
+      nodes.push(text.slice(lastIndex, index));
+    }
+    const kind = match[1] as "path" | "node";
+    const id = match[2] ?? "";
+    nodes.push(
+      <button
+        key={`${kind}-${id}-${index}`}
+        type="button"
+        className="mx-0.5 inline-flex rounded-[var(--radius-sm)] border border-[var(--accent)]/30 bg-[var(--accent-muted)] px-1.5 py-0.5 font-mono text-[12px] text-[var(--accent)] hover:border-[var(--accent)]"
+        onClick={() => emitSimulationTrace(kind, id)}
+        title="在推演画布中高亮"
+      >
+        {kind}: {id}
+      </button>,
+    );
+    lastIndex = index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+  return nodes.length > 0 ? nodes : [text];
+}
+
 /** 轻量 Markdown 预览（原型，无额外依赖） */
 export function MarkdownPreview({ source }: { source: string }) {
   const blocks = source.split(/\n\n+/);
@@ -83,7 +123,7 @@ export function MarkdownPreview({ source }: { source: string }) {
                                 : "text-[var(--fg-secondary)]"
                             }`}
                           >
-                            {cell}
+                            {renderTraceText(cell)}
                           </Tag>
                         ))}
                       </tr>
@@ -107,7 +147,9 @@ export function MarkdownPreview({ source }: { source: string }) {
               }`}
             >
               {items.map((item, li) => (
-                <li key={li}>{item.replace(/^[-*]\s|^\d+\.\s/, "")}</li>
+                <li key={li}>
+                  {renderTraceText(item.replace(/^[-*]\s|^\d+\.\s/, ""))}
+                </li>
               ))}
             </List>
           );
@@ -119,7 +161,7 @@ export function MarkdownPreview({ source }: { source: string }) {
 
         return (
           <p key={i} className="whitespace-pre-wrap text-[var(--fg-secondary)]">
-            {trimmed}
+            {renderTraceText(trimmed)}
           </p>
         );
       })}

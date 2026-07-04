@@ -42,17 +42,34 @@ import {
   resolveWorkspaceRoot,
 } from "../projects/store.js";
 import { clearAgentThread, saveAgentThread } from "../sessions/cli-threads.js";
+import {
+  listCanvasSnapshots,
+  loadCanvasSnapshot,
+  saveCanvasSnapshot,
+} from "../simulation/snapshot.js";
+import { inferSimulationActionTrace } from "../simulation/actions.js";
+import { ensureSimulationReportFallback } from "../simulation/report-fallback.js";
+import { buildSimulationScenarioFallback } from "../simulation/scenario-fallback.js";
+import {
+  findGrammarViolations,
+  summarizeGrammarViolations,
+} from "../simulation/grammar-check.js";
+import { buildCanvasDigest } from "../simulation/digest.js";
 import type { CreateRunRequest } from "../types.js";
 import {
+  type ChatPart,
   type CanonicalArtifact,
   type CanonicalCitation,
   type CanonicalEvent,
   type CanonicalWorkspaceChange,
   type RunStatus,
+  mergeSimulationDeltaIntoScenarioPreservingUpstream,
+  mergeSimulationScenarioPreservingUpstream,
 } from "@jlc/contracts";
 import {
   loadSessionRuntime,
   patchSessionRuntime,
+  type SimulationMeta,
   type SessionRuntimeRecord,
 } from "../sessions/runtime.js";
 import {
@@ -72,10 +89,19 @@ import {
   buildRequirementSummaryPart,
   buildFallbackOutlinePart,
   buildRequirementsPart,
+  extractSimulationDeltaPartsFromAssistantMarkdown,
+  extractSimulationFollowupPartsFromAssistantMarkdown,
+  extractSimulationScenarioPartFromAssistantMarkdown,
   extractRequirementSummaryPartFromAssistantMarkdown,
   extractRequirementsPartFromAssistantMarkdown,
   extractOutlinePartFromAssistantMarkdown,
 } from "./requirements-parts.js";
+export { buildSimulationEntryQuestions } from "./simulation-entry-state.js";
+import {
+  isInitialSimulationTopicDefinitionRun,
+  isSubmittedRequirementFollowup,
+  resolveSimulationEntryDecision,
+} from "./simulation-entry-state.js";
 import {
   ensureIndustrialDrawingFallback,
   ensureIndustrialDrawingPreviewFallback,
@@ -103,6 +129,25 @@ const activeRunUserInputHandlers = new Map<
   (response: RunAgentUserInputResponse) => boolean
 >();
 const LAZY_DEFAULT_WORKSPACE_ID = "__lazy_default__";
+const SIMULATION_WORLD_MODEL_SKILL = "skill-world-model";
+type SimulationScenario = Extract<
+  ChatPart,
+  { kind: "simulation_scenario" }
+>["scenario"];
+type SimulationNode = Extract<ChatPart, { kind: "simulation_node" }>["node"];
+
+function simulationTopicText(topic: SimulationScenario["topic"]): string {
+  if (typeof topic === "string") return topic;
+  const problem = topic.data?.problem;
+  return typeof problem === "string" && problem.trim()
+    ? problem
+    : topic.label || "未命名推演";
+}
+
+function mergeTraceById<T extends { id: string }>(items: T[]): T[] {
+  return [...new Map(items.map((item) => [item.id, item])).values()];
+}
+
 const pendingRunClarifications = new Map<
   string,
   {
@@ -114,7 +159,8 @@ const pendingRunClarifications = new Map<
       | "writing_requirements"
       | "ppt_requirements"
       | "3d_requirements"
-      | "video_requirements";
+      | "video_requirements"
+      | "simulation_requirements";
     questions: Array<{
       id: string;
       question: string;
@@ -220,6 +266,10 @@ export function submitRunClarification(
     });
   }
   pendingRunClarifications.delete(runId);
+  const req = activeRunRequests.get(runId);
+  if (req?.moduleId === "simulation") {
+    void advanceSimulationRound(req.sessionId);
+  }
   writer?.send("run.resumed", { runId });
   writer?.send("run.status", {
     runId,
@@ -235,6 +285,54 @@ export function getActiveRunIdForSession(sessionId: string): string | null {
 
 export function isSessionRunning(sessionId: string): boolean {
   return activeSessionRuns.has(sessionId);
+}
+
+export async function advanceSimulationRound(sessionId: string): Promise<void> {
+  const runtime = await loadSessionRuntime(sessionId);
+  const meta = runtime?.simulationMeta;
+  if (!meta) return;
+  const nextRoundId = `round_${meta.roundIds.length + 1}`;
+  await patchSessionRuntime(sessionId, {
+    simulationMeta: {
+      ...meta,
+      previousRoundId: meta.currentRoundId,
+      currentRoundId: nextRoundId,
+      roundIds: [...meta.roundIds, nextRoundId],
+    },
+  });
+}
+
+export async function resolveSimulationRunMetaForAccepted(input: {
+  sessionId: string;
+  priorRuntime: SessionRuntimeRecord | null;
+  topic: string;
+}): Promise<SimulationMeta> {
+  const topic = input.topic.trim().slice(0, 120) || "未命名推演";
+  const priorMeta = input.priorRuntime?.simulationMeta;
+  if (!priorMeta || priorMeta.roundIds.length === 0) {
+    return {
+      topic,
+      currentRoundId: "round_1",
+      roundIds: ["round_1"],
+    };
+  }
+
+  const snapshots = await listCanvasSnapshots(input.sessionId);
+  if (snapshots.length === 0) {
+    return {
+      ...priorMeta,
+      topic: priorMeta.topic || topic,
+    };
+  }
+
+  const nextRoundId = `round_${priorMeta.roundIds.length + 1}`;
+  return {
+    ...priorMeta,
+    topic: priorMeta.topic || topic,
+    previousRoundId: priorMeta.currentRoundId,
+    currentRoundId: nextRoundId,
+    roundIds: [...priorMeta.roundIds, nextRoundId],
+  };
 }
 
 function formatCliFailureMessage(
@@ -257,6 +355,36 @@ function waitingUserLabel(message?: string): boolean {
   return !!message && /确认|填写|选择|审批|授权|需要您|请补充/.test(message);
 }
 
+function looksLikePptBriefQuestion(text: string): boolean {
+  const normalized = text.replace(/\s+/g, "");
+  return (
+    /PPT|演示|幻灯片/i.test(text) &&
+    /还需要|需要.*信息|请.*告诉|请.*补充/.test(text) &&
+    /使用场景|主要给谁看|受众|目标|多少页|预计.*页|资料/.test(text) &&
+    !/刚才的文稿|文稿本体|文件路径|附件名/.test(text)
+  ) || /公司介绍PPT/.test(normalized);
+}
+
+function looksLikePptMissingSourceText(userText: string, assistantText: string): boolean {
+  return (
+    /基于.*(刚才|上面|前面).*文稿|基于.*文稿/.test(userText) &&
+    /缺.*文稿|文稿.*本体|文件路径|附件名/.test(assistantText)
+  );
+}
+
+function looksLikeWritingBriefQuestion(text: string): boolean {
+  const normalized = text.replace(/\s+/g, "");
+  return (
+    /还需要|需要.*信息|请.*告诉|请.*补充|直接按.*回复/.test(text) &&
+    /写|文章|文稿|报告|短文|分析/.test(text) &&
+    (
+      /体裁|受众|用途|篇幅|时间范围/.test(text) ||
+      /给谁看|用于|多少字|哪一段时间/.test(text) ||
+      /公众号|内部汇报|研究报告/.test(normalized)
+    )
+  );
+}
+
 function taskStartLabel(userText: string, agentId: string): string {
   const text = userText.toLowerCase();
   if (/(ppt|pptx|演示|幻灯片|deck|slides?)/i.test(text)) {
@@ -275,13 +403,9 @@ function buildStablePromptHash(instructionPrompt: string): string {
     .slice(0, 16);
 }
 
-function isSubmittedRequirementFollowup(content: string): boolean {
-  return content.trim().startsWith("我补充的信息如下，请继续完成刚才的任务：");
-}
-
 function buildPromptContextNotes(
   req: CreateRunRequest,
-  input?: { userText?: string },
+  input?: { userText?: string; canvasDigest?: string | null },
 ): string[] {
   const isRequirementFollowup = isSubmittedRequirementFollowup(
     input?.userText ?? "",
@@ -347,28 +471,36 @@ function buildPromptContextNotes(
 
   if (req.moduleId === "video") {
     const notes = [
-      "当前模块为视频制作，页面结构沿用写作 / PPT 的对话式工作流；P0 目标是生成可预览、可录屏的 Web Video Presentation 网页视频项目。",
+      "当前模块为视频制作，页面结构沿用写作 / PPT 的对话式工作流；P0 目标是生成可预览、可录屏的网页视频项目，并在 video-stage 与 screenplay-canvas 两条生产路径里选择其一。",
       req.lazyDefaultWorkspace
-        ? "当前 cwd 是本轮视频任务的临时工作区根；请直接写入 `script.md`、`outline.md`，并用 `skills/skill-vp-web-video-presentation/scripts/scaffold.sh ./presentation` 生成 `presentation/`。平台会在检测到真实文件后再登记为正式工作区。"
-        : "默认在当前工作区根目录写入 `script.md`、`outline.md` 和 `presentation/`；`presentation/` 必须可独立 `npm run dev`，预览入口为 `?reel=1`，录屏入口为 `?auto=1`。",
-      "视频 P0 交付前必须审计真实文件：`script.md`、`outline.md`、`presentation/package.json`、至少一个 `presentation/src/chapters/**/narrations.ts`。缺任一项就继续落盘，不要把计划描述成已生成。",
-      "默认尝试在 `presentation/` 下启动 `npm run dev` 并读取真实 localhost URL；若无法启动或无法确认端口，只给出启动命令 `cd presentation && npm run dev`。脚手架默认端口是 5174，不要硬写 5173。",
+        ? "当前 cwd 是本轮视频任务的临时工作区根；若走 `skill-vp-video-stage`，请写入 `script.md`、`outline.md` 并用 `skills/skill-vp-video-stage/scripts/scaffold.sh ./presentation` 生成 `presentation/`；若走 `skill-vp-screenplay-canvas`，请写入 `source.md`、`direction.md`、`beats.md` 并用 `skills/skill-vp-screenplay-canvas/scripts/scaffold.sh ./studio` 生成 `studio/`。平台会在检测到真实文件后再登记为正式工作区。"
+        : "默认在当前工作区根目录写入脚本与计划文件，并生成 `presentation/` 或 `studio/`；两者都必须可独立 `npm run dev`。video-stage 的预览入口是 `?reel=1`、录屏入口是 `?auto=1`；screenplay-canvas 的预览入口是 `?preview=1`、录屏入口是 `?capture=1`。",
+      "视频 P0 交付前必须审计真实文件：至少确认脚本文件、计划文件、项目 `package.json`，以及一个节拍真相源（`narrations.ts` 或 `cues.ts`）。缺任一项就继续落盘，不要把计划描述成已生成。",
+      "默认尝试在生成的项目目录下启动 `npm run dev` 并读取真实 localhost URL；若无法启动或无法确认端口，只给出对应目录的启动命令，不要虚构“已经启动”。",
       "P0 不调用 Remotion，不承诺自动 MP4，不做 text-to-video；如果用户要求 MP4，说明当前交付为网页视频项目 + 录屏路径，自动 MP4 属于 P1。",
     ];
     if (isRequirementFollowup) {
       notes.push(
-        "本轮是用户对视频需求表单/追问的补充回答，视为 brief 已确认：应输出 video_requirement_summary 和 video_outline，并继续生成 `script.md`、`outline.md` 与 `presentation/` 网页视频项目。",
+        "本轮是用户对视频需求表单/追问的补充回答，视为 brief 已确认：应输出 video_requirement_summary 和 video_outline，并继续生成对应生产路径所需的脚本、计划文件与网页视频项目。",
       );
     }
     return notes;
   }
 
   if (req.moduleId === "simulation") {
-    return [
+    const notes = [
       "当前模块为推演，页面结构沿用对话式工作流；目标是把复杂问题拆成主体、变量、假设、路径、触发条件和阶段性结论。",
       "推演不是一次性泛化回答：应先收敛推演边界，再给出结构化路径、关键变量和下一步可深挖方向。",
       "在专用推演画布协议完整接入前，优先输出清晰的推演方案、路径表和可落盘的推演报告草稿；不要声称已经生成交互画布，除非对应结构化产物已真实写入工作区。",
     ];
+    // F5a: 注入当前画布摘要作为 AI 的隐藏工作记忆。仅当画布已有内容时注入。
+    if (input?.canvasDigest) {
+      notes.push(
+        "以下是当前推演画布的状态摘要（事实源为画布快照，此摘要仅供你理解上下文，不要原样回显给用户）。请先判断用户这句话落在世界模型的哪个层级（新问题/优化定义/新增或质疑变量/补充证据/扩展节点/重算路径/仅备注等），并在回复开头用一句话说明「我把这句话理解为……」，再决定增量输出哪些 simulation_* 结构。只基于以下已确认的上游推理，不要重复已存在的节点：",
+        ...input.canvasDigest.split("\n").map((line) => `  ${line}`),
+      );
+    }
+    return notes;
   }
 
   return [];
@@ -379,6 +511,7 @@ function resolveTimeoutProfile(req: CreateRunRequest): RunTimeoutProfile {
   if (req.moduleId === "writing") return "writing";
   if (req.moduleId === "ppt") return "ppt";
   if (req.moduleId === "video") return "video";
+  if (req.moduleId === "simulation") return "simulation";
   if (
     req.binding.moduleId === "chat" &&
     normalizeChatMode(req.binding.mode) === "deep"
@@ -406,6 +539,7 @@ function requirementsKindForRun(input: {
   | "ppt_requirements"
   | "3d_requirements"
   | "video_requirements"
+  | "simulation_requirements"
   | null {
   if (
     input.moduleId === "writing" &&
@@ -424,6 +558,12 @@ function requirementsKindForRun(input: {
   }
   if (input.moduleId === "video" && input.processSkill === "skill-vp-base") {
     return "video_requirements";
+  }
+  if (
+    input.moduleId === "simulation" &&
+    input.processSkill === "skill-simulation-base"
+  ) {
+    return "simulation_requirements";
   }
   return null;
 }
@@ -669,7 +809,17 @@ async function executeRunLifecycle(
   let requirementsCardEmitted = false;
   let requirementSummaryEmitted = false;
   let outlinePartEmitted = false;
+  let simulationScenarioEmitted = false;
+  let simulationSummaryEmitted = false;
+  let simulationSuggestionEmitted = false;
+  let simulationTopicAnalysisStarted = false;
+  let simulationTopicAnalysisCompleted = false;
+  let latestSimulationScenario: SimulationScenario | null = null;
   const emittedPartKinds = new Set<string>();
+  const initialLastUserIndex = findLastUserMessageIndex(req.messages);
+  const initialLastUser =
+    initialLastUserIndex >= 0 ? req.messages[initialLastUserIndex] : undefined;
+  const initialUserText = initialLastUser?.content ?? "";
 
   const pushCanonicalEvent = (event: CanonicalEvent): void => {
     canonicalEvents.push(event);
@@ -685,12 +835,383 @@ async function executeRunLifecycle(
     return true;
   };
 
-  const emitStructuredAssistantParts = (): void => {
+  const appendPart = (part: { kind?: unknown }): void => {
+    writer.send("part.append", {
+      part,
+    });
+  };
+
+  const emitSimulationTopicAnalysisProgress = (input: {
+    callId: string;
+    status: "pending" | "running" | "success" | "error";
+    message: string;
+  }): void => {
+    writer.send("tool.progress", {
+      tool: "simulation_topic_analysis",
+      status: input.status,
+      message: input.message,
+      callId: input.callId,
+    });
+    emitCanonicalToolProgress(writer, {
+      runId,
+      tool: "simulation_topic_analysis",
+      status: input.status,
+      message: input.message,
+      callId: input.callId,
+    });
+    if (input.status === "success" || input.status === "error") {
+      pushCanonicalEvent({
+        type: "tool_finished",
+        runId,
+        timestamp: Date.now(),
+        callId: input.callId,
+        tool: "simulation_topic_analysis",
+        status: input.status === "error" ? "error" : "success",
+        message: input.message,
+      });
+      return;
+    }
+    pushCanonicalEvent({
+      type: "tool_started",
+      runId,
+      timestamp: Date.now(),
+      callId: input.callId,
+      tool: "simulation_topic_analysis",
+      message: input.message,
+    });
+  };
+
+  const startSimulationTopicAnalysis = (): void => {
+    if (
+      simulationTopicAnalysisStarted ||
+      !isInitialSimulationTopicDefinitionRun(req, initialUserText)
+    ) {
+      return;
+    }
+    simulationTopicAnalysisStarted = true;
+    emitSimulationTopicAnalysisProgress({
+      callId: "simulation_topic_analysis:read_prompt",
+      status: "success",
+      message: "已读取用户原问题",
+    });
+    emitSimulationTopicAnalysisProgress({
+      callId: "simulation_topic_analysis:infer_boundary",
+      status: "running",
+      message: "正在识别推演目标、时间范围、空间范围和行业",
+    });
+    emitSimulationTopicAnalysisProgress({
+      callId: "simulation_topic_analysis:prepare_confirmation",
+      status: "pending",
+      message: "等待生成问题定义确认卡片",
+    });
+  };
+
+  const completeSimulationTopicAnalysis = (message: string): void => {
+    if (
+      simulationTopicAnalysisCompleted ||
+      !isInitialSimulationTopicDefinitionRun(req, initialUserText)
+    ) {
+      return;
+    }
+    simulationTopicAnalysisCompleted = true;
+    emitSimulationTopicAnalysisProgress({
+      callId: "simulation_topic_analysis:infer_boundary",
+      status: "success",
+      message: "已完成问题边界识别",
+    });
+    emitSimulationTopicAnalysisProgress({
+      callId: "simulation_topic_analysis:prepare_confirmation",
+      status: "success",
+      message,
+    });
+  };
+
+  const saveLatestSimulationSnapshot = async (
+    scenario: SimulationScenario | null,
+  ): Promise<void> => {
+    if (!scenario) return;
+    try {
+      const runtime = await loadSessionRuntime(req.sessionId);
+      const roundId = runtime?.simulationMeta?.currentRoundId ?? "round_1";
+      const actionTrace = inferSimulationActionTrace({
+        userText: initialUserText,
+        roundId,
+        binding:
+          req.binding.moduleId === "simulation" ? req.binding : undefined,
+      });
+      const selectedPathId = actionTrace.selections.find(
+        (selection) => selection.type === "path",
+      )?.targetId;
+      const variableSelection = actionTrace.selections.find(
+        (selection) => selection.type === "variable",
+      );
+      const variables = scenario.variables.map((variable) =>
+        variableSelection?.targetId === variable.id
+          ? { ...variable, value: variableSelection.value }
+          : variable,
+      );
+      const topicNode: SimulationNode =
+        typeof scenario.topic === "string"
+          ? {
+              id: "topic_definition",
+              type: "topic",
+              label: simulationTopicText(scenario.topic),
+              roundId,
+            }
+          : scenario.topic;
+      const mergedScenario = mergeSimulationScenarioPreservingUpstream(
+        scenario,
+        {
+          topic: topicNode,
+          variables,
+        },
+      );
+      const nodes = mergedScenario.nodes ?? [];
+      const paths = mergedScenario.paths.map((path) =>
+        selectedPathId && path.id === selectedPathId
+          ? { ...path, status: "selected" as const }
+          : selectedPathId
+            ? { ...path, status: path.status === "selected" ? "available" as const : path.status }
+            : path,
+      );
+
+      // F4: 落盘前对合并后的图做转换语法校验。命中违规时发警告事件，
+      // 不删除边（避免破坏引用它的 path 与 preserving-upstream 语义）。
+      const grammarViolations = findGrammarViolations({
+        nodes,
+        edges: mergedScenario.edges,
+      });
+      if (grammarViolations.length > 0) {
+        emitCanonicalToolProgress(writer, {
+          runId,
+          tool: "simulation_grammar_check",
+          status: "success",
+          callId: `simulation_grammar_check:${roundId}`,
+          message: summarizeGrammarViolations(grammarViolations),
+          output: { violations: grammarViolations },
+        });
+      }
+
+      await saveCanvasSnapshot({
+        sessionId: req.sessionId,
+        snapshot: {
+          roundId,
+          parentRoundId: runtime?.simulationMeta?.previousRoundId,
+          promptNodeId: scenario.prompt?.id,
+          topicNodeId: topicNode.id,
+          nodes,
+          edges: mergedScenario.edges,
+          scenarios: mergedScenario.scenarios,
+          paths,
+          selections: actionTrace.selections,
+          actions: actionTrace.actions,
+          interventions: mergeTraceById([
+            ...(scenario.interventions ?? []),
+            ...actionTrace.interventions,
+          ]),
+          stageState: mergedScenario.stageState,
+          provenance: scenario.provenance,
+          createdAt: new Date().toISOString(),
+        },
+      });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "simulation snapshot save failed";
+      emitCanonicalToolProgress(writer, {
+        runId,
+        tool: "simulation_snapshot",
+        status: "error",
+        message,
+      });
+      pushCanonicalEvent({
+        type: "tool_finished",
+        runId,
+        timestamp: Date.now(),
+        callId: `simulation_snapshot:${Date.now()}`,
+        tool: "simulation_snapshot",
+        status: "error",
+        message,
+      });
+    }
+  };
+
+  const emitStructuredAssistantParts = async (): Promise<void> => {
     if (!requirementsCardEmitted && !requirementFollowup) {
       const requirementsPart = extractRequirementsPartFromAssistantMarkdown({
         moduleId: req.moduleId,
         processSkill: req.processSkill,
         assistantMarkdown: assistantText,
+      });
+      if (requirementsPart) {
+        requirementsCardEmitted = true;
+        waitingUserQuestion = requirementsPart.title;
+        latestStatusLabel = requirementsPart.title;
+        appendPartOnce(requirementsPart);
+        completeSimulationTopicAnalysis("已生成问题定义确认卡片，等待用户确认");
+        writer.send("run.waiting_user", {
+          runId,
+          waitingFor: "clarification",
+          question: requirementsPart.title,
+        });
+        emitRunStatus(writer, {
+          runId,
+          phase: "waiting_user",
+          label: requirementsPart.title,
+        });
+      }
+    }
+
+    const simulationEntryDecision = resolveSimulationEntryDecision({
+      req,
+      runId,
+      initialUserText,
+      requirementsCardEmitted,
+    });
+    if (simulationEntryDecision.action === "emit_boundary_fallback") {
+      requirementsCardEmitted = true;
+      waitingUserQuestion = simulationEntryDecision.part.title;
+      latestStatusLabel = simulationEntryDecision.part.title;
+      appendPartOnce(simulationEntryDecision.part);
+      completeSimulationTopicAnalysis("已生成问题定义确认卡片，等待用户确认");
+      writer.send("run.waiting_user", {
+        runId,
+        waitingFor: "clarification",
+        question: simulationEntryDecision.part.title,
+      });
+      emitRunStatus(writer, {
+        runId,
+        phase: "waiting_user",
+        label: simulationEntryDecision.part.title,
+      });
+      return;
+    }
+    if (simulationEntryDecision.shouldBlockWorldModel) {
+      return;
+    }
+
+    const extractedOutline =
+      outlinePartEmitted
+        ? null
+        : extractOutlinePartFromAssistantMarkdown({
+            assistantMarkdown: assistantText,
+          });
+    if (extractedOutline) {
+      outlinePartEmitted = true;
+      assistantText = extractedOutline.cleanedMarkdown;
+    }
+
+    const extractedSimulationScenario =
+      req.moduleId !== "simulation"
+        ? null
+        : extractSimulationScenarioPartFromAssistantMarkdown({
+            assistantMarkdown: assistantText,
+          });
+    if (extractedSimulationScenario) {
+      assistantText = extractedSimulationScenario.cleanedMarkdown;
+      latestSimulationScenario = mergeSimulationScenarioPreservingUpstream(
+        latestSimulationScenario,
+        extractedSimulationScenario.part.scenario,
+      );
+      if (!simulationScenarioEmitted) {
+        simulationScenarioEmitted = true;
+        const mergedScenarioPart: Extract<
+          ChatPart,
+          { kind: "simulation_scenario" }
+        > = {
+          ...extractedSimulationScenario.part,
+          scenario: latestSimulationScenario,
+        };
+        appendPartOnce(mergedScenarioPart);
+      }
+      await saveLatestSimulationSnapshot(latestSimulationScenario);
+    }
+
+    const extractedSimulationDeltas =
+      req.moduleId !== "simulation"
+        ? null
+        : extractSimulationDeltaPartsFromAssistantMarkdown({
+            assistantMarkdown: assistantText,
+          });
+    if (extractedSimulationDeltas) {
+      assistantText = extractedSimulationDeltas.cleanedMarkdown;
+      for (const part of extractedSimulationDeltas.parts) {
+        if (latestSimulationScenario) {
+          latestSimulationScenario = mergeSimulationDeltaIntoScenarioPreservingUpstream(
+            latestSimulationScenario,
+            part,
+          );
+        }
+        appendPart(part);
+      }
+      await saveLatestSimulationSnapshot(latestSimulationScenario);
+    }
+
+    const extractedSummary =
+      requirementSummaryEmitted
+        ? null
+        : extractRequirementSummaryPartFromAssistantMarkdown({
+            moduleId: req.moduleId,
+            processSkill: req.processSkill,
+            assistantMarkdown: assistantText,
+          });
+    if (extractedSummary) {
+      requirementSummaryEmitted = true;
+      assistantText = extractedSummary.cleanedMarkdown;
+      appendPartOnce(extractedSummary.part);
+    }
+
+    if (
+      req.moduleId === "writing" &&
+      !requirementFollowup &&
+      !requirementsCardEmitted &&
+      !requirementSummaryEmitted &&
+      !outlinePartEmitted &&
+      looksLikeWritingBriefQuestion(assistantText)
+    ) {
+      const requirementsPart = buildRequirementsPart({
+        runId,
+        toolUseId: `writing_natural_requirements:${runId}`,
+        moduleId: req.moduleId,
+        processSkill: req.processSkill,
+        rawInput: {
+          kind: "writing_requirements",
+          title: "请先补充这次写作任务的关键信息",
+          description: "我会先确认写作 brief，再进入大纲与正文。",
+        },
+        questions: [
+          {
+            id: "genre",
+            question: "这次更偏什么体裁？",
+            label: "体裁",
+            type: "text",
+            required: true,
+            placeholder: "例如：研究报告、公众号短文、内部汇报稿",
+          },
+          {
+            id: "audience",
+            question: "主要给谁看？",
+            label: "受众",
+            type: "text",
+            required: true,
+            placeholder: "例如：公司管理层、产业客户、业务团队",
+          },
+          {
+            id: "purpose",
+            question: "这篇文稿用于什么场景？",
+            label: "用途",
+            type: "text",
+            required: true,
+            placeholder: "例如：内部决策、对外传播、会议汇报",
+          },
+          {
+            id: "scope",
+            question: "篇幅和时间范围是什么？",
+            label: "篇幅与范围",
+            type: "textarea",
+            required: false,
+            placeholder: "例如：约 3000 字，分析 2026 年上半年中国市场",
+          },
+        ],
       });
       if (requirementsPart) {
         requirementsCardEmitted = true;
@@ -710,29 +1231,114 @@ async function executeRunLifecycle(
       }
     }
 
-    const extractedOutline =
-      outlinePartEmitted
-        ? null
-        : extractOutlinePartFromAssistantMarkdown({
-            assistantMarkdown: assistantText,
+    if (
+      req.moduleId === "ppt" &&
+      !requirementFollowup &&
+      !requirementsCardEmitted &&
+      !requirementSummaryEmitted &&
+      !outlinePartEmitted
+    ) {
+      if (looksLikePptMissingSourceText(initialUserText, assistantText)) {
+        const summaryPart = buildRequirementSummaryPart({
+          requirementsKind: "ppt_requirements",
+          answer: assistantText,
+        });
+        requirementSummaryEmitted = true;
+        appendPartOnce(summaryPart);
+        const outlinePart = buildFallbackOutlinePart({
+          kind: "ppt_outline",
+          briefText: assistantText,
+        });
+        outlinePartEmitted = true;
+        appendPartOnce(outlinePart);
+      } else if (looksLikePptBriefQuestion(assistantText)) {
+        const requirementsPart = buildRequirementsPart({
+          runId,
+          toolUseId: `ppt_natural_requirements:${runId}`,
+          moduleId: req.moduleId,
+          processSkill: req.processSkill,
+          rawInput: {
+            kind: "ppt_requirements",
+            title: "请先补充这次 PPT 任务的关键信息",
+            description: "我会先确认演示 brief，再进入页纲与内容生成。",
+          },
+          questions: [
+            {
+              id: "scenario",
+              question: "主要使用场景是什么？",
+              label: "使用场景",
+              type: "text",
+              required: true,
+              placeholder: "例如：售前沟通、投融资路演、内部介绍",
+            },
+            {
+              id: "audience",
+              question: "主要给谁看？",
+              label: "受众",
+              type: "text",
+              required: true,
+              placeholder: "例如：客户高层、合作伙伴、投资人、内部同事",
+            },
+            {
+              id: "goal",
+              question: "这次希望达成什么目标？",
+              label: "目标",
+              type: "textarea",
+              required: true,
+              placeholder: "例如：介绍公司、建立信任、推动合作",
+            },
+            {
+              id: "page_count",
+              question: "预计多少页？是否有官网、公司简介、产品资料？",
+              label: "页数与资料",
+              type: "textarea",
+              required: false,
+              placeholder: "例如：10 页；参考官网/公司简介/产品手册",
+            },
+          ],
+        });
+        if (requirementsPart) {
+          requirementsCardEmitted = true;
+          waitingUserQuestion = requirementsPart.title;
+          latestStatusLabel = requirementsPart.title;
+          appendPartOnce(requirementsPart);
+          writer.send("run.waiting_user", {
+            runId,
+            waitingFor: "clarification",
+            question: requirementsPart.title,
           });
-    if (extractedOutline) {
-      outlinePartEmitted = true;
-      assistantText = extractedOutline.cleanedMarkdown;
+          emitRunStatus(writer, {
+            runId,
+            phase: "waiting_user",
+            label: requirementsPart.title,
+          });
+        }
+      }
     }
 
-    const extractedSummary =
-      requirementSummaryEmitted
+    const extractedSimulationFollowups =
+      req.moduleId !== "simulation" ||
+      (simulationSummaryEmitted && simulationSuggestionEmitted)
         ? null
-        : extractRequirementSummaryPartFromAssistantMarkdown({
-            moduleId: req.moduleId,
-            processSkill: req.processSkill,
+        : extractSimulationFollowupPartsFromAssistantMarkdown({
             assistantMarkdown: assistantText,
+            includeSummary: !simulationSummaryEmitted,
+            includeSuggestion: !simulationSuggestionEmitted,
           });
-    if (extractedSummary) {
-      requirementSummaryEmitted = true;
-      assistantText = extractedSummary.cleanedMarkdown;
-      appendPartOnce(extractedSummary.part);
+    if (extractedSimulationFollowups) {
+      assistantText = extractedSimulationFollowups.cleanedMarkdown;
+      for (const part of extractedSimulationFollowups.parts) {
+        if (part.kind === "simulation_summary") {
+          simulationSummaryEmitted = true;
+        }
+        if (
+          part.kind === "simulation_suggestion" ||
+          part.kind === "simulation_next_action"
+        ) {
+          simulationSuggestionEmitted = true;
+        }
+        appendPartOnce(part);
+      }
     }
 
     if (extractedOutline) {
@@ -821,8 +1427,18 @@ async function executeRunLifecycle(
     timestamp: Date.now(),
     message: "正在加载 Skill 与运行环境…",
   });
+  const simulationMeta =
+    req.moduleId === "simulation"
+      ? await resolveSimulationRunMetaForAccepted({
+          sessionId: req.sessionId,
+          priorRuntime,
+          topic: initialUserText,
+        })
+      : undefined;
+
   await persistRuntimeStatus("accepted", {
     lastStatusLabel: "正在加载 Skill 与运行环境…",
+    ...(simulationMeta ? { simulationMeta } : {}),
   });
 
   const skillsRoot = resolveSkillsRoot();
@@ -842,22 +1458,32 @@ async function executeRunLifecycle(
       req.platformNormSkill = chatOrchestration.platformNormSkill;
     }
   }
+  if (req.moduleId === "simulation") {
+    req.supportSkillSlugs = Array.from(
+      new Set([...(req.supportSkillSlugs ?? []), SIMULATION_WORLD_MODEL_SKILL]),
+    );
+  }
 
   const skillBundle = loadSkillBundle({
     skillsRoot,
     processSkill: req.processSkill,
     platformNormSkill: req.platformNormSkill,
+    supportSkillSlugs: req.supportSkillSlugs,
   });
-  const injectedSkills = [
-    ...(skillBundle.platformNorm ? [skillBundle.platformNorm.slug] : []),
-    ...(skillBundle.process ? [skillBundle.process.slug] : []),
-  ];
+  const injectedSkills = Array.from(
+    new Set([
+      ...(skillBundle.platformNorm ? [skillBundle.platformNorm.slug] : []),
+      ...(skillBundle.process ? [skillBundle.process.slug] : []),
+      ...skillBundle.support.map((skill) => skill.slug),
+    ]),
+  );
 
   const agentKit =
     config.runMode === "cli"
       ? await stageAgentKitForRun({
           runId,
           processSkill: req.processSkill,
+          supportSkillSlugs: req.supportSkillSlugs,
           skillsRoot,
         })
       : null;
@@ -874,6 +1500,7 @@ async function executeRunLifecycle(
       baseProcessSkill:
         chatOrchestration?.baseProcessSkill ?? req.processSkill ?? null,
       platformNormSkill: req.platformNormSkill ?? null,
+      supportSkillSlugs: req.supportSkillSlugs ?? null,
       orchestrationMode: chatOrchestration?.orchestrationMode ?? null,
       catalogVersion: chatOrchestration?.catalogVersion ?? null,
       catalogSlugs: chatOrchestration?.catalogSlugs ?? null,
@@ -904,9 +1531,7 @@ async function executeRunLifecycle(
     });
   };
 
-  const lastUserIndex = findLastUserMessageIndex(req.messages);
-  const lastUser = lastUserIndex >= 0 ? req.messages[lastUserIndex] : undefined;
-  const userText = lastUser?.content ?? "";
+  const userText = initialUserText;
   const requirementFollowup = isSubmittedRequirementFollowup(userText);
   const mode: ChatModeId =
     req.binding.moduleId === "chat"
@@ -1030,15 +1655,38 @@ async function executeRunLifecycle(
         });
       }
 
+      // F5a: 推演模块在组装 prompt 前，读取当前 Round 的画布快照并生成 Digest，
+      // 作为 AI 的隐藏工作记忆注入。失败不阻断本轮运行。
+      let canvasDigest: string | null = null;
+      if (req.moduleId === "simulation") {
+        try {
+          const simRuntime = await loadSessionRuntime(req.sessionId);
+          const roundId = simRuntime?.simulationMeta?.currentRoundId;
+          if (roundId) {
+            const snapshot = await loadCanvasSnapshot({
+              sessionId: req.sessionId,
+              roundId,
+            });
+            canvasDigest = buildCanvasDigest({
+              snapshot,
+              topic: simRuntime?.simulationMeta?.topic,
+            });
+          }
+        } catch {
+          canvasDigest = null;
+        }
+      }
+
       let composed = composeAgentRunPayload({
         mode,
         userText,
         messages: runMessages,
         processSkill: req.processSkill,
         platformNormSkill: req.platformNormSkill,
+        supportSkillSlugs: req.supportSkillSlugs,
         agentKit,
         chatCatalog: chatOrchestration?.catalog ?? null,
-        contextNotes: buildPromptContextNotes(req, { userText }),
+        contextNotes: buildPromptContextNotes(req, { userText, canvasDigest }),
         agentId: req.agentId,
         cwd,
       });
@@ -1057,9 +1705,10 @@ async function executeRunLifecycle(
           messages: runMessages,
           processSkill: req.processSkill,
           platformNormSkill: req.platformNormSkill,
+          supportSkillSlugs: req.supportSkillSlugs,
           agentKit,
           chatCatalog: chatOrchestration?.catalog ?? null,
-          contextNotes: buildPromptContextNotes(req, { userText }),
+          contextNotes: buildPromptContextNotes(req, { userText, canvasDigest }),
           agentId: req.agentId,
           cwd,
         });
@@ -1200,6 +1849,7 @@ async function executeRunLifecycle(
           ? `${compressPrep.note ?? "已压缩会话"} · ${startLabel}`
           : startLabel,
       });
+      startSimulationTopicAnalysis();
 
       let beforeSnap = await snapshotWorkspace(cwd).catch(
         () => new Map<string, number>(),
@@ -1325,6 +1975,104 @@ async function executeRunLifecycle(
             });
           }
         }
+        if (
+          req.moduleId === "simulation" &&
+          !waitingUserQuestion &&
+          !latestSimulationScenario
+        ) {
+          try {
+            const runtime = await loadSessionRuntime(req.sessionId);
+            const roundId = runtime?.simulationMeta?.currentRoundId ?? "round_1";
+            const fallbackPart = buildSimulationScenarioFallback({
+              userText: initialUserText,
+              assistantText,
+              roundId,
+            });
+            latestSimulationScenario = fallbackPart.scenario;
+            simulationScenarioEmitted = true;
+            appendPartOnce(fallbackPart);
+            await saveLatestSimulationSnapshot(latestSimulationScenario);
+            emitCanonicalToolProgress(writer, {
+              runId,
+              tool: "simulation_scenario_fallback",
+              status: "success",
+              message: "已生成基础推演沙盘",
+              output: { roundId },
+            });
+            pushCanonicalEvent({
+              type: "tool_finished",
+              runId,
+              timestamp: Date.now(),
+              callId: `simulation_scenario_fallback:${Date.now()}`,
+              tool: "simulation_scenario_fallback",
+              status: "success",
+              message: "已生成基础推演沙盘",
+              output: { roundId },
+            });
+          } catch (err) {
+            emitCanonicalToolProgress(writer, {
+              runId,
+              tool: "simulation_scenario_fallback",
+              status: "error",
+              message:
+                err instanceof Error
+                  ? err.message
+                  : "simulation scenario fallback failed",
+            });
+          }
+        }
+        if (
+          req.moduleId === "simulation" &&
+          !waitingUserQuestion &&
+          latestSimulationScenario
+        ) {
+          try {
+            const runtime = await loadSessionRuntime(req.sessionId);
+            const roundId = runtime?.simulationMeta?.currentRoundId ?? "round_1";
+            const snapshot = await loadCanvasSnapshot({
+              sessionId: req.sessionId,
+              roundId,
+            });
+            const fallback = await ensureSimulationReportFallback({
+              cwd,
+              scenario: latestSimulationScenario,
+              snapshot,
+            });
+            if (fallback) {
+              touchedPaths.push(...fallback.relativePaths);
+              afterSnap = await snapshotWorkspace(cwd).catch(
+                () => new Map<string, number>(),
+              );
+              emitCanonicalToolProgress(writer, {
+                runId,
+                tool: "simulation_report_fallback",
+                status: "success",
+                message: "已生成推演 Markdown 报告",
+                output: { paths: fallback.relativePaths },
+              });
+              pushCanonicalEvent({
+                type: "tool_finished",
+                runId,
+                timestamp: Date.now(),
+                callId: `simulation_report_fallback:${Date.now()}`,
+                tool: "simulation_report_fallback",
+                status: "success",
+                message: "已生成推演 Markdown 报告",
+                output: { paths: fallback.relativePaths },
+              });
+            }
+          } catch (err) {
+            emitCanonicalToolProgress(writer, {
+              runId,
+              tool: "simulation_report_fallback",
+              status: "error",
+              message:
+                err instanceof Error
+                  ? err.message
+                  : "simulation report fallback failed",
+            });
+          }
+        }
         const payload = buildDeliverablesFromDiff(
           beforeSnap,
           afterSnap,
@@ -1366,6 +2114,23 @@ async function executeRunLifecycle(
           touchedPaths,
         );
         if (!finalPayload || finalPayload.items.length === 0) return;
+        if (
+          req.moduleId === "writing" &&
+          !waitingUserQuestion &&
+          !requirementsCardEmitted &&
+          !requirementSummaryEmitted
+        ) {
+          const summaryPart = buildRequirementSummaryPart({
+            requirementsKind: "writing_requirements",
+            answer:
+              assistantText.trim() ||
+              initialUserText ||
+              finalPayload.primaryPath ||
+              "已生成写作交付物。",
+          });
+          requirementSummaryEmitted = true;
+          appendPartOnce(summaryPart);
+        }
         canonicalArtifacts.push(
           ...finalPayload.items.map((item) => ({
             path: item.path,
@@ -1480,7 +2245,8 @@ async function executeRunLifecycle(
               requirementsPart?.kind === "writing_requirements" ||
               requirementsPart?.kind === "ppt_requirements" ||
               requirementsPart?.kind === "3d_requirements" ||
-              requirementsPart?.kind === "video_requirements"
+              requirementsPart?.kind === "video_requirements" ||
+              requirementsPart?.kind === "simulation_requirements"
                 ? requirementsPart.kind
                 : undefined,
           });
@@ -1499,6 +2265,7 @@ async function executeRunLifecycle(
             writer.send("part.append", {
               part: requirementsPart,
             });
+            completeSimulationTopicAnalysis("已生成问题定义确认卡片，等待用户确认");
           } else {
             writer.send("clarification.required", {
               runId,
@@ -1687,7 +2454,7 @@ async function executeRunLifecycle(
               : null);
 
           if (!gwFail) {
-            emitStructuredAssistantParts();
+            await emitStructuredAssistantParts();
             await emitWorkspaceDeliverables();
             emitCanonicalTerminalOutput(
               waitingUserQuestion
@@ -1878,7 +2645,7 @@ async function executeRunLifecycle(
         );
       }
 
-      emitStructuredAssistantParts();
+      await emitStructuredAssistantParts();
       await emitWorkspaceDeliverables();
       emitCanonicalTerminalOutput(
         waitingUserQuestion

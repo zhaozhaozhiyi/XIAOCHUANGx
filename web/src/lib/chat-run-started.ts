@@ -5,6 +5,7 @@ export type RunStartedPayload = {
   baseProcessSkill?: string | null;
   processSkill?: string | null;
   platformNormSkill?: string | null;
+  supportSkillSlugs?: string[] | null;
   orchestrationMode?: string | null;
   catalogVersion?: string | null;
   catalogSlugs?: string[] | null;
@@ -28,6 +29,9 @@ export function parseRunStartedPayload(
       typeof json.processSkill === "string" ? json.processSkill : null,
     platformNormSkill:
       typeof json.platformNormSkill === "string" ? json.platformNormSkill : null,
+    supportSkillSlugs: Array.isArray(json.supportSkillSlugs)
+      ? json.supportSkillSlugs.filter((s): s is string => typeof s === "string")
+      : null,
     orchestrationMode:
       typeof json.orchestrationMode === "string"
         ? json.orchestrationMode

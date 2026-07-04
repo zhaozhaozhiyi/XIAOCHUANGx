@@ -123,6 +123,31 @@ function pickPrimary(paths: string[]): string {
   return paths[0]!;
 }
 
+function preferMoreSpecificPath(current: string, candidate: string): string {
+  const currentDepth = current.split("/").length;
+  const candidateDepth = candidate.split("/").length;
+  if (candidateDepth !== currentDepth) {
+    return candidateDepth > currentDepth ? candidate : current;
+  }
+  return candidate.length > current.length ? candidate : current;
+}
+
+function findEquivalentDeliverablePath(
+  paths: Iterable<string>,
+  candidate: string,
+): string | undefined {
+  for (const path of paths) {
+    if (
+      path === candidate ||
+      path.endsWith(`/${candidate}`) ||
+      candidate.endsWith(`/${path}`)
+    ) {
+      return path;
+    }
+  }
+  return undefined;
+}
+
 /** 对比 Run 前后工作区，生成成品列表 */
 export function buildDeliverablesFromDiff(
   before: WorkspaceSnapshot,
@@ -161,7 +186,21 @@ export function buildDeliverablesFromDiff(
     }
   }
 
-  const paths = [...changed].sort();
+  const dedupedPaths = new Set<string>();
+  for (const path of changed) {
+    const equivalent = findEquivalentDeliverablePath(dedupedPaths, path);
+    if (!equivalent) {
+      dedupedPaths.add(path);
+      continue;
+    }
+    const preferred = preferMoreSpecificPath(equivalent, path);
+    if (preferred !== equivalent) {
+      dedupedPaths.delete(equivalent);
+      dedupedPaths.add(preferred);
+    }
+  }
+
+  const paths = [...dedupedPaths].sort();
   if (paths.length === 0) return null;
   const itemForPath = (path: string) => {
     const isPresentationDir =
@@ -218,13 +257,17 @@ export function extractPathFromToolMessage(
   if (
     !t.includes("write") &&
     !t.includes("edit") &&
+    !t.includes("bash") &&
+    !t.includes("shell") &&
+    !t.includes("terminal") &&
     t !== "write_file" &&
-    t !== "apply_patch"
+    t !== "apply_patch" &&
+    t !== "run_terminal"
   ) {
     return null;
   }
   const m = message.trim().match(
-    /(?:^|[\s"'`(])([\w./-]+(?:presentation|presentation\/package\.json|(?:\.(?:md|markdown|pdf|pptx|ppt|docx|png|jpe?g|webp|svg|csv|xlsx|json|html|scad|stl|dxf|off))))(?:[\s"'`),]|$)/i,
+    /(?:^|[\s"'`(])((?:\.{0,2}\/)?[^\s"'`),;|<>]+(?:presentation|presentation\/package\.json|(?:\.(?:md|markdown|pdf|pptx|ppt|docx|png|jpe?g|webp|svg|csv|xlsx|json|html|scad|stl|dxf|off))))(?:[\s"'`),;|<>]|$)/iu,
   );
   const path = m?.[1]?.replace(/^\.\//, "") ?? null;
   if (!path) return null;

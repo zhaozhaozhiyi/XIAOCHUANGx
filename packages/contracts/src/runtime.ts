@@ -233,6 +233,7 @@ export const createRunRequestSchema = z.object({
       visibleMessages: z.array(createRunMessageSchema).optional(),
       processSkill: z.string().optional(),
       platformNormSkill: z.string().optional(),
+      supportSkillSlugs: z.array(z.string()).optional(),
       workspaceHints: z
         .object({
           cwd: z.string().optional(),
@@ -336,6 +337,7 @@ export const runEventSchema = z.discriminatedUnion("type", [
     processSkill: z.string().nullable().optional(),
     baseProcessSkill: z.string().nullable().optional(),
     platformNormSkill: z.string().nullable().optional(),
+    supportSkillSlugs: z.array(z.string()).nullable().optional(),
     orchestrationMode: z.string().nullable().optional(),
     catalogVersion: z.string().nullable().optional(),
     catalogSlugs: z.array(z.string()).nullable().optional(),

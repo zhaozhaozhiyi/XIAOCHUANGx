@@ -1,0 +1,56 @@
+.md-hover {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 180px;
+  height: 64px;
+  z-index: 11;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 12px;
+}
+
+.md-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.84);
+  backdrop-filter: blur(20px);
+  color: #f4f4f5;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  padding: 8px 14px;
+  border-radius: 0 0 0 10px;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(-100%);
+  transition: opacity 280ms ease, transform 280ms ease;
+}
+
+.md-hover:hover .md-btn {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.md-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #888;
+}
+
+.md-manual .md-dot {
+  background: #888;
+}
+
+.md-voice .md-dot {
+  background: #facc15;
+  box-shadow: 0 0 8px rgba(250, 204, 21, 0.6);
+}
+
+.md-capture .md-dot {
+  background: #4ade80;
+  box-shadow: 0 0 8px rgba(74, 222, 128, 0.7);
+}

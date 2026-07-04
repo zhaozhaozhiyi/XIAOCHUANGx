@@ -14,7 +14,7 @@ import {
   buildCreateRunRequest,
   companionRunResponse,
 } from "@/lib/companion/run";
-import { chatExecutionMode } from "@/lib/companion/config";
+import { chatExecutionMode, companionConfig } from "@/lib/companion/config";
 import { assertAgentAvailableServer } from "@/lib/agents-server";
 import {
   assertAgentAvailable,
@@ -244,6 +244,22 @@ export async function POST(request: Request) {
     parsed.surfaceModuleId === "simulation"
       ? parsed.surfaceModuleId
       : "chat";
+
+  if (
+    mockSurfaceModuleId === "simulation" &&
+    (executionSource === "api" ||
+      chatExecutionMode() !== "companion" ||
+      companionConfig.useMock)
+  ) {
+    return Response.json(
+      {
+        error: "simulation_requires_companion",
+        message:
+          "推演模块已禁用前端 Mock / API 直连，需要通过真实 Companion 运行生成结构化画布数据。",
+      },
+      { status: 409 },
+    );
+  }
 
   if (executionSource === "api") {
     // 优先使用前端传来的配置，环境变量作为回退

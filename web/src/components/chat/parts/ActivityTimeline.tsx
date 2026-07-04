@@ -64,6 +64,8 @@ function ActivityTimelineStep({
   part,
   isLastEpisode,
   presentation,
+  sessionId,
+  runId,
   onClarificationSubmitted,
   onClarificationContinue,
   onClarificationDraftChange,
@@ -75,6 +77,8 @@ function ActivityTimelineStep({
   part: ChatPart;
   isLastEpisode: boolean;
   presentation: PartPresentation;
+  sessionId?: string;
+  runId?: string;
   onClarificationSubmitted?: (partId: string, answer: string) => void;
   onClarificationContinue?: (answer: string) => void;
   onClarificationDraftChange?: (
@@ -150,6 +154,8 @@ function ActivityTimelineStep({
           <PartRenderer
             part={part}
             presentation={presentation}
+            sessionId={sessionId}
+            runId={runId}
             onClarificationSubmitted={onClarificationSubmitted}
             onClarificationContinue={onClarificationContinue}
             onClarificationDraftChange={onClarificationDraftChange}
@@ -167,6 +173,8 @@ function ActivityTimelineStep({
 export function ActivityProcessList({
   parts,
   gapBefore,
+  sessionId,
+  runId,
   onClarificationSubmitted,
   onClarificationContinue,
   onClarificationDraftChange,
@@ -177,6 +185,8 @@ export function ActivityProcessList({
 }: {
   parts: ChatPart[];
   gapBefore: Map<string | null, string>;
+  sessionId?: string;
+  runId?: string;
   onClarificationSubmitted?: (partId: string, answer: string) => void;
   onClarificationContinue?: (answer: string) => void;
   onClarificationDraftChange?: (
@@ -214,6 +224,8 @@ export function ActivityProcessList({
                 <PartRenderer
                   part={part}
                   presentation="timeline"
+                  sessionId={sessionId}
+                  runId={runId}
                   onClarificationSubmitted={onClarificationSubmitted}
                   onClarificationContinue={onClarificationContinue}
                   onClarificationDraftChange={onClarificationDraftChange}
@@ -238,6 +250,8 @@ export function ActivityProcessList({
               part={part}
               isLastEpisode={isLastEpisode}
               presentation="timeline"
+              sessionId={sessionId}
+              runId={runId}
               onClarificationSubmitted={onClarificationSubmitted}
               onClarificationContinue={onClarificationContinue}
               onClarificationDraftChange={onClarificationDraftChange}

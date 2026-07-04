@@ -5,20 +5,24 @@ task: base
 version: "0.1"
 status: p0-ready
 name: skill-vp-base
-description: 视频模块默认基座 Skill：收敛主题、受众、时长、画幅与风格，P0 默认交接到 skill-vp-web-video-presentation，生成可预览、可录屏的网页视频项目；Remotion/自动 MP4 属于 P1，不在 P0 虚构承诺。
+description: 视频模块默认基座 Skill：收敛主题、受众、时长、画幅与风格，P0 选择并交接到网页视频生产 Skill。默认可路由到 skill-vp-video-stage，也支持更偏屏幕叙事的 skill-vp-screenplay-canvas；Remotion/自动 MP4 属于 P1，不在 P0 虚构承诺。
 ---
 
 # 视频制作 · 基座流程
 
 ## 目标
 
-把用户的视频制作需求收敛成可执行的 video brief，并在 P0 默认交接到
-`skill-vp-web-video-presentation`，产出可预览、可录屏的网页视频项目。
+把用户的视频制作需求收敛成可执行的 video brief，并在 P0 选择合适的网页视频
+生产 Skill，产出可预览、可录屏的项目。
 
 本 Skill 是视频模块的默认基座。当前阶段的首期闭环是：需求收敛 →
-口播稿 / outline → `presentation/` 网页视频项目 → `?reel=1` 预览 →
-可选 `?auto=1` 录屏。Remotion 渲染工具、`vp_*` 结构化卡片与 MP4
-下载能力属于 P1，不作为 P0 承诺。
+口播稿 / outline → 网页视频项目 → 预览 → 可选录屏。P0 有两条主路径：
+
+- `skill-vp-video-stage`：更像视频舞台，产物为 `presentation/`
+- `skill-vp-screenplay-canvas`：更像屏幕叙事工作室，产物为 `studio/`
+
+Remotion 渲染工具、`vp_*` 结构化卡片与 MP4 下载能力属于 P1，不作为
+P0 承诺。
 
 ## 适用场景
 
@@ -33,8 +37,7 @@ description: 视频模块默认基座 Skill：收敛主题、受众、时长、�
 - 不做 text-to-video 模型画面生成
 - 不声称已渲染 MP4，除非 `exports/*.mp4` 已真实写入工作区
 - P0 不调用 `remotion.*` 工具，不承诺自动 MP4
-- 不内置素材库、BGM 库、ASR；TTS 仅作为 `skill-vp-web-video-presentation`
-  的可选能力
+- 不内置素材库、BGM 库、ASR；TTS 仅作为网页视频生产 Skill 的可选能力
 
 ## 需求收敛
 
@@ -54,40 +57,47 @@ description: 视频模块默认基座 Skill：收敛主题、受众、时长、�
 P0 默认交付：
 
 - `script.md`：口播稿
-- `outline.md`：章节与 step 开发计划
-- `presentation/`：Vite + React + TypeScript 网页视频项目
-- 预览入口：`localhost:<port>/?reel=1`
-- 录屏入口：`localhost:<port>/?auto=1`
+- `outline.md` 或 `beats.md`：开发计划
+- `presentation/` 或 `studio/`：Vite + React + TypeScript 网页视频项目
+- 对应预览与录屏入口
 
 不要把“计划生成”表述成“已经生成”。只有文件真实写入工作区后，才能
-告诉用户对应文件已经生成。不要把 `?reel=1` 说成最终导出的 MP4；
-它是预览与验收入口。最终 P0 成片来自系统录屏 / OBS / 浏览器录制。
+告诉用户对应文件已经生成。不要把预览入口说成最终导出的 MP4；它是预览与
+验收入口。最终 P0 成片来自系统录屏 / OBS / 浏览器录制。
 
 输出前必须做最小文件审计：
 
 1. 确认 `script.md` 存在且非空；
-2. 确认 `outline.md` 存在且非空；
-3. 确认 `presentation/package.json` 存在；
-4. 确认至少一个章节目录含 `narrations.ts`；
-5. 若已启动 dev server，回传真实 localhost URL；若未启动，明确给出
-   `cd presentation && npm run dev`，不要虚构“已经启动”。
+2. 若走 `video-stage`：确认 `outline.md` 存在且非空；
+3. 若走 `screenplay-canvas`：确认 `beats.md` 或 `direction.md` 存在；
+4. 确认 `presentation/package.json` 或 `studio/package.json` 存在；
+5. 确认至少一个节拍真相源存在：`narrations.ts` 或 `cues.ts`；
+6. 若已启动 dev server，回传真实 localhost URL；若未启动，明确给出启动命令。
 
 ## P0 路由规则
 
-需求确认后，默认交接到 `skill-vp-web-video-presentation`。交接内容应包含：
+需求确认后，先判断走哪条网页视频生产路径：
+
+- 更强调“视频舞台 / 发布感 / 演示感 / 章节推进”：
+  交接到 `skill-vp-video-stage`
+- 更强调“屏幕叙事 / 分镜感 / cue 驱动 / 可导演讲述”：
+  交接到 `skill-vp-screenplay-canvas`
+
+交接内容应包含：
 
 1. 主题、受众、时长、画幅、使用场景
 2. 内容来源：用户原文 / 附件摘要 / 自然语言 brief
 3. 风格约束：正式、科技、发布会、研究解读、产品演示等
 4. 是否需要口播音频；若未明确，先按无音频网页预览推进
-5. 工作区目标结构：`article.md`、`script.md`、`outline.md`、`presentation/`
-6. 交付前审计要求：必须检查文件真实存在，预览 URL 必须来自实际 dev
-   server 地址；无法确认端口时使用脚手架默认 `localhost:5174`
+5. 工作区目标结构：
+   `video-stage` 路径：`article.md`、`script.md`、`outline.md`、`presentation/`
+   `screenplay-canvas` 路径：`source.md`、`script.md`、`direction.md`、`beats.md`、`studio/`
+6. 交付前审计要求：必须检查文件真实存在，预览 URL 必须来自实际 dev server 地址
 
 当用户明确要求“自动生成 MP4 / Remotion / 可编程渲染”时：
 
 - 先说明当前 P0 默认交付网页视频项目与录屏路径；
-- 如果用户接受，仍交接到 `skill-vp-web-video-presentation`；
+- 如果用户接受，按上面的 P0 路由规则选择生产 Skill；
 - 如果用户坚持自动 MP4，则标记为 P1 能力请求，不虚构渲染结果。
 
 ## 输出格式
@@ -102,14 +112,14 @@ P0 默认交付：
 - 时长：
 - 画幅：
 - 风格：
-- 生产路径：Web Video Presentation（P0）
-- 预览方式：?reel=1
-- 录屏方式：?auto=1
+- 生产路径：
+- 预览方式：
+- 录屏方式：
 
-## 交接给 skill-vp-web-video-presentation
+## 交接给生产 Skill
 - 内容来源：
 - 口播稿要求：
-- outline 密度：
+- outline / beat 密度：
 - 素材约束：
 - 开发模式：
 ```

@@ -97,6 +97,7 @@ export type RunAgentInput = {
   extraAllowedDirs?: string[];
   processSkill?: string | null;
   platformNormSkill?: string;
+  supportSkillSlugs?: string[];
 };
 
 export type RunAgentCallbacks = {

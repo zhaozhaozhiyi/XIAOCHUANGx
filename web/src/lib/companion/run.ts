@@ -1,9 +1,10 @@
-import { resolveChatOrchestration } from "@jlc/runtime-core";
+import { resolveChatOrchestration } from "@jlc/runtime-core/chat-orchestration";
 import {
   type ChatSurfaceModuleId,
   INDUSTRIAL_DRAWING_BASE_SKILL,
   PPT_DEFAULT_SKILL,
   SIMULATION_BASE_SKILL,
+  SIMULATION_WORLD_MODEL_SKILL,
   VIDEO_BASE_SKILL,
 } from "@/lib/module-chat-config";
 import { normalizeChatMode } from "@/lib/navigation";
@@ -44,8 +45,47 @@ type ChatAttachmentForRun = {
   [key: string]: unknown;
 };
 
+type SimulationBindingPatch = Omit<
+  Extract<CreateRunRequest["binding"], { moduleId: "simulation" }>,
+  "moduleId"
+>;
+
 function isAttachmentForRun(value: unknown): value is ChatAttachmentForRun {
   return !!value && typeof value === "object";
+}
+
+function firstLineMatch(text: string, pattern: RegExp): string | undefined {
+  return pattern.exec(text)?.[1]?.trim();
+}
+
+function inferSimulationBindingPatch(text: string): SimulationBindingPatch {
+  const pathId = firstLineMatch(text, /^路径 ID[：:]\s*(.+)$/m);
+  if (pathId) {
+    return {
+      scope: "path",
+      targetId: pathId,
+    };
+  }
+
+  const variableId = firstLineMatch(text, /^变量 ID[：:]\s*(.+)$/m);
+  if (variableId) {
+    const nextValue = firstLineMatch(text, /^新假设[：:]\s*(.+)$/m);
+    return {
+      scope: "variable",
+      targetId: variableId,
+      ...(nextValue
+        ? { variableOverrides: { [variableId]: nextValue } }
+        : {}),
+    };
+  }
+
+  if (/反事实|counterfactual/i.test(text)) {
+    return {
+      scope: "counterfactual",
+    };
+  }
+
+  return {};
 }
 
 async function syncMessageAttachmentsToWorkspace(
@@ -201,6 +241,14 @@ export async function buildCreateRunRequest(
     surfaceModuleId === "simulation"
       ? (moduleSkills?.platformNormSkill ?? orchestration.platformNormSkill)
       : orchestration.platformNormSkill;
+  const supportSkillSlugs =
+    surfaceModuleId === "simulation"
+      ? (moduleSkills?.supportSkillSlugs.length
+          ? moduleSkills.supportSkillSlugs
+          : [SIMULATION_WORLD_MODEL_SKILL])
+      : moduleSkills?.supportSkillSlugs.length
+        ? moduleSkills.supportSkillSlugs
+        : undefined;
   const executionMode = chatExecutionMode();
   const timeoutProfile =
     surfaceModuleId === "writing"
@@ -212,7 +260,7 @@ export async function buildCreateRunRequest(
           : surfaceModuleId === "video"
             ? "video"
             : surfaceModuleId === "simulation"
-              ? "deep"
+              ? "simulation"
         : mode === "deep"
           ? "deep"
           : mode === "fast"
@@ -266,6 +314,7 @@ export async function buildCreateRunRequest(
                 : surfaceModuleId === "simulation"
                   ? {
                       moduleId: "simulation" as const,
+                      ...inferSimulationBindingPatch(lastUser?.content ?? ""),
                     }
             : { moduleId: "chat" as const, mode },
       agentId: parsed.agentId,
@@ -274,6 +323,7 @@ export async function buildCreateRunRequest(
       useClientHistory: parsed.useClientHistory,
       processSkill,
       platformNormSkill,
+      supportSkillSlugs,
       timeoutProfile,
     },
   };
@@ -315,17 +365,37 @@ export async function companionRunResponse(
     body: JSON.stringify(req),
     signal,
   })
-    .then((upstream) => {
+    .then(async (upstream) => {
       if (!upstream.ok) {
-        return upstream.text().then((detail) =>
-          Response.json(
-            {
-              error: "companion_error",
-              status: upstream.status,
-              message: detail.slice(0, 500) || upstream.statusText,
-            },
-            { status: 502 },
-          ),
+        const detail = await upstream.text();
+        return Response.json(
+          {
+            error: "companion_error",
+            status: upstream.status,
+            message: detail.slice(0, 500) || upstream.statusText,
+          },
+          { status: 502 },
+        );
+      }
+
+      const upstreamExecutionMode = upstream.headers.get(
+        "X-JLC-Execution-Mode",
+      );
+      if (
+        req.moduleId === "simulation" &&
+        (upstreamExecutionMode === "mock" ||
+          upstreamExecutionMode === "simulate" ||
+          upstreamExecutionMode === "spawn")
+      ) {
+        await upstream.body?.cancel().catch(() => undefined);
+        return Response.json(
+          {
+            error: "simulation_requires_companion_cli",
+            mode: upstreamExecutionMode ?? "unknown",
+            message:
+              "推演模块需要 Companion 以真实 CLI 模式运行，已拒绝 simulate/spawn/mock 响应。",
+          },
+          { status: 409 },
         );
       }
 

@@ -1,6 +1,6 @@
 export async function submitRunClarification(input: {
   runId: string;
-  toolUseId: string;
+  toolUseId?: string;
   content: string;
 }): Promise<{ ok: true } | { ok: false; error?: string; message: string }> {
   const res = await fetch(
@@ -9,7 +9,7 @@ export async function submitRunClarification(input: {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        toolUseId: input.toolUseId,
+        ...(input.toolUseId ? { toolUseId: input.toolUseId } : {}),
         content: input.content,
       }),
     },

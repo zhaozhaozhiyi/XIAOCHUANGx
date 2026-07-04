@@ -16,6 +16,7 @@
     "@jlc/contracts": "workspace:*",
     "@jlc/runtime-core": "workspace:*",
     "@jvmr/pptx-to-html": "^1.0.1",
+    "@xyflow/react": "^12.11.1",
     "docx-preview": "^0.3.7",
     "lucide-react": "^1.16.0",
     "mermaid": "^11.15.0",
