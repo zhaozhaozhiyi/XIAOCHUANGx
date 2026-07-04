@@ -57,8 +57,9 @@ import {
   buildLayoutStorageKey,
   clonePositions,
   computeAlignmentGuides,
-  parseStoredPositions,
+  persistStoredLayoutPositions,
   positionsEqual,
+  readStoredLayoutPositions,
   SimulationAlignmentGuides,
   SimulationCanvasLayerFit,
   SimulationCanvasViewportFit,
@@ -222,9 +223,7 @@ export function SimulationCanvas({
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const storedPositions = parseStoredPositions(
-        window.localStorage.getItem(layoutStorageKey),
-      );
+      const storedPositions = readStoredLayoutPositions(layoutStorageKey);
       setManualPositions(storedPositions);
       setLayoutHydratedKey(layoutStorageKey);
       setLayoutHistory({ past: [], future: [] });
@@ -234,10 +233,7 @@ export function SimulationCanvas({
 
   useEffect(() => {
     if (layoutHydratedKey !== layoutStorageKey) return;
-    window.localStorage.setItem(
-      layoutStorageKey,
-      JSON.stringify(manualPositions),
-    );
+    persistStoredLayoutPositions(layoutStorageKey, manualPositions);
   }, [layoutHydratedKey, layoutStorageKey, manualPositions]);
 
   const pushLayoutSnapshot = useCallback(() => {

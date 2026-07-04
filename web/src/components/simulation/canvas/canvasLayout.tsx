@@ -195,6 +195,75 @@ export function parseStoredPositions(value: string | null): ManualNodePositions 
   }
 }
 
+const LAYOUT_STORAGE_PREFIX = "simulation-canvas-layout:";
+
+function isQuotaExceededError(error: unknown): boolean {
+  const maybeError = error as { code?: unknown; message?: unknown; name?: unknown };
+  const name = typeof maybeError.name === "string" ? maybeError.name : "";
+  const message = typeof maybeError.message === "string" ? maybeError.message : "";
+  const code = typeof maybeError.code === "number" ? maybeError.code : null;
+  return (
+    name === "QuotaExceededError" ||
+    name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+    code === 22 ||
+    code === 1014 ||
+    message.toLowerCase().includes("quota")
+  );
+}
+
+function removeOtherStoredLayouts(storageKey: string): void {
+  const storage = window.localStorage;
+  const keysToRemove: string[] = [];
+  try {
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index);
+      if (key?.startsWith(LAYOUT_STORAGE_PREFIX) && key !== storageKey) {
+        keysToRemove.push(key);
+      }
+    }
+  } catch {
+    return;
+  }
+
+  for (const key of keysToRemove) {
+    try {
+      storage.removeItem(key);
+    } catch {
+      // Best effort cleanup only; layout persistence must never block the page.
+    }
+  }
+}
+
+export function readStoredLayoutPositions(storageKey: string): ManualNodePositions {
+  try {
+    return parseStoredPositions(window.localStorage.getItem(storageKey));
+  } catch {
+    return {};
+  }
+}
+
+export function persistStoredLayoutPositions(
+  storageKey: string,
+  positions: ManualNodePositions,
+): void {
+  const hasPositions = Object.keys(positions).length > 0;
+  try {
+    if (!hasPositions) {
+      window.localStorage.removeItem(storageKey);
+      return;
+    }
+    window.localStorage.setItem(storageKey, JSON.stringify(positions));
+  } catch (error) {
+    if (!hasPositions || !isQuotaExceededError(error)) return;
+    removeOtherStoredLayouts(storageKey);
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(positions));
+    } catch {
+      // If storage is still full or unavailable, skip persistence and keep the UI usable.
+    }
+  }
+}
+
 export function buildLayoutStorageKey(
   normalized: NormalizedScenario,
   layoutScopeId: string,
