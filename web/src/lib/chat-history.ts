@@ -58,6 +58,12 @@ export type ChatHistoryProjectGroup = {
 
 const INDEX_KEY = "jlc-chat-history-index";
 const STARTED_PREFIX = "jlc-chat-started-";
+const LOW_PRIORITY_STORAGE_PREFIXES = [
+  STARTED_PREFIX,
+  "simulation-canvas-layout:",
+];
+let volatileIndex: ChatSessionRecord[] | null = null;
+const volatileStartedSessionIds = new Set<string>();
 
 /** 侧栏每个项目默认展示的会话条数 */
 export const SIDEBAR_SESSIONS_INITIAL = 8;
@@ -211,6 +217,62 @@ function normalizeSession(
   };
 }
 
+function isQuotaExceededError(error: unknown): boolean {
+  const maybeError = error as { code?: unknown; message?: unknown; name?: unknown };
+  const name = typeof maybeError.name === "string" ? maybeError.name : "";
+  const message = typeof maybeError.message === "string" ? maybeError.message : "";
+  const code = typeof maybeError.code === "number" ? maybeError.code : null;
+  return (
+    name === "QuotaExceededError" ||
+    name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+    code === 22 ||
+    code === 1014 ||
+    message.toLowerCase().includes("quota")
+  );
+}
+
+function removeLowPriorityStorageEntries(preserveKey: string): void {
+  const keysToRemove: string[] = [];
+  try {
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index);
+      if (
+        key &&
+        key !== preserveKey &&
+        LOW_PRIORITY_STORAGE_PREFIXES.some((prefix) => key.startsWith(prefix))
+      ) {
+        keysToRemove.push(key);
+      }
+    }
+  } catch {
+    return;
+  }
+
+  for (const key of keysToRemove) {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // Best effort cleanup only.
+    }
+  }
+}
+
+function trySetLocalStorageItem(key: string, value: string): boolean {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (error) {
+    if (!isQuotaExceededError(error)) return false;
+    removeLowPriorityStorageEntries(key);
+    try {
+      localStorage.setItem(key, value);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
 export function getSessionIndicator(
   session: ChatSessionRecord,
   options?: { isActive?: boolean },
@@ -233,6 +295,7 @@ export function isWaitingUserSignal(label: string, phase?: string): boolean {
 
 function readIndex(): ChatSessionRecord[] {
   if (typeof window === "undefined") return [...SEED_SESSIONS];
+  if (volatileIndex) return [...volatileIndex];
   try {
     const raw = localStorage.getItem(INDEX_KEY);
     if (!raw) {
@@ -251,15 +314,18 @@ function readIndex(): ChatSessionRecord[] {
         byId.set(s.id, normalizeSession(s));
       }
     }
-    return [...byId.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+    const sessions = [...byId.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+    volatileIndex = sessions;
+    return [...sessions];
   } catch {
-    return [...SEED_SESSIONS];
+    return volatileIndex ? [...volatileIndex] : [...SEED_SESSIONS];
   }
 }
 
 function writeIndex(sessions: ChatSessionRecord[]): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(INDEX_KEY, JSON.stringify(sessions));
+  volatileIndex = [...sessions];
+  trySetLocalStorageItem(INDEX_KEY, JSON.stringify(sessions));
   window.dispatchEvent(new Event("jlc-chat-history-updated"));
 }
 
@@ -273,12 +339,18 @@ export function isSessionStarted(sessionId: string): boolean {
     return SEED_SESSIONS.some((s) => s.id === sessionId);
   }
   if (SEED_SESSIONS.some((s) => s.id === sessionId)) return true;
-  return localStorage.getItem(`${STARTED_PREFIX}${sessionId}`) === "1";
+  if (volatileStartedSessionIds.has(sessionId)) return true;
+  try {
+    return localStorage.getItem(`${STARTED_PREFIX}${sessionId}`) === "1";
+  } catch {
+    return false;
+  }
 }
 
 export function markSessionStarted(sessionId: string): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(`${STARTED_PREFIX}${sessionId}`, "1");
+  volatileStartedSessionIds.add(sessionId);
+  trySetLocalStorageItem(`${STARTED_PREFIX}${sessionId}`, "1");
 }
 
 export function patchChatSession(

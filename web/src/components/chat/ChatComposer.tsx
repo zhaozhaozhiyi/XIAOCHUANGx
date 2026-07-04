@@ -9,7 +9,15 @@ import {
   Square,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import { createPortal } from "react-dom";
 import { useWorkspaceProject } from "@/components/workspace/WorkspaceProjectContext";
 import { useRouter } from "next/navigation";
@@ -92,7 +100,10 @@ const TEXT_ATTACHMENT_MAX_CHARS = 60_000;
 const COMPOSER_TEXTAREA_MIN_HEIGHT_PX = 22;
 const COMPOSER_TEXTAREA_MULTILINE_MIN_HEIGHT_PX = 24;
 const COMPOSER_TEXTAREA_MAX_HEIGHT_PX = 200;
-const COMPOSER_MULTILINE_THRESHOLD_PX = 30;
+// Use hysteresis so the inline/stacked switch does not bounce around
+// the wrap boundary when the available width changes.
+const COMPOSER_MULTILINE_ENTER_PX = 30;
+const COMPOSER_MULTILINE_EXIT_PX = 28;
 const TEXT_ATTACHMENT_EXTENSIONS = new Set([
   "css",
   "csv",
@@ -364,21 +375,6 @@ function ImagePreview({
 }
 
 
-function syncComposerTextareaHeight(
-  textarea: HTMLTextAreaElement | null,
-  minHeight: number = COMPOSER_TEXTAREA_MIN_HEIGHT_PX,
-): void {
-  if (!textarea) return;
-  textarea.style.height = "0px";
-  const next = Math.min(
-    Math.max(textarea.scrollHeight, minHeight),
-    COMPOSER_TEXTAREA_MAX_HEIGHT_PX,
-  );
-  textarea.style.height = `${next}px`;
-  textarea.style.overflowY =
-    textarea.scrollHeight > COMPOSER_TEXTAREA_MAX_HEIGHT_PX ? "auto" : "hidden";
-}
-
 function useComposerDockSync(
   stackRef: RefObject<HTMLDivElement | null>,
 ): void {
@@ -460,29 +456,59 @@ export function ChatComposer({
   const [selectedAttachments, setSelectedAttachments] = useState<File[]>([]);
   const [sending, setSending] = useState(false);
   const [isMultiline, setIsMultiline] = useState(false);
+  const isMultilineRef = useRef(false);
 
-  const syncTextareaHeight = useCallback((el?: HTMLTextAreaElement | null) => {
-    const textarea = el ?? textareaRef.current;
-    if (!textarea) return;
-    const minHeight = isMultiline
-      ? COMPOSER_TEXTAREA_MULTILINE_MIN_HEIGHT_PX
-      : COMPOSER_TEXTAREA_MIN_HEIGHT_PX;
-    syncComposerTextareaHeight(textarea, minHeight);
-    setIsMultiline(
-      textarea.value.includes("\n") ||
-        textarea.scrollHeight > COMPOSER_MULTILINE_THRESHOLD_PX,
-    );
-  }, [isMultiline]);
+  const resizeTextarea = useCallback(
+    (textarea: HTMLTextAreaElement, multiline = isMultilineRef.current) => {
+      const minHeight = multiline
+        ? COMPOSER_TEXTAREA_MULTILINE_MIN_HEIGHT_PX
+        : COMPOSER_TEXTAREA_MIN_HEIGHT_PX;
+      textarea.style.height = "0px";
+      const contentHeight = textarea.scrollHeight;
+      const nextHeight = Math.min(
+        Math.max(contentHeight, minHeight),
+        COMPOSER_TEXTAREA_MAX_HEIGHT_PX,
+      );
+      textarea.style.height = `${nextHeight}px`;
+      textarea.style.overflowY =
+        contentHeight > COMPOSER_TEXTAREA_MAX_HEIGHT_PX ? "auto" : "hidden";
+    },
+    [],
+  );
+
+  const syncTextareaHeight = useCallback(
+    (el?: HTMLTextAreaElement | null) => {
+      const textarea = el ?? textareaRef.current;
+      if (!textarea) return;
+      resizeTextarea(textarea);
+    },
+    [resizeTextarea],
+  );
+
+  const syncTextareaLayout = useCallback((textarea: HTMLTextAreaElement) => {
+    const value = textarea.value;
+    const currentMultiline = isMultilineRef.current;
+    textarea.style.height = "0px";
+    const contentHeight = textarea.scrollHeight;
+    const shouldUseMultiline =
+      value.length > 0 &&
+      (value.includes("\n") ||
+        contentHeight >
+          (currentMultiline
+            ? COMPOSER_MULTILINE_EXIT_PX
+            : COMPOSER_MULTILINE_ENTER_PX));
+    resizeTextarea(textarea, shouldUseMultiline);
+    if (shouldUseMultiline !== currentMultiline) {
+      isMultilineRef.current = shouldUseMultiline;
+      setIsMultiline(shouldUseMultiline);
+    }
+  }, [resizeTextarea]);
 
   useComposerDockSync(stackRef);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     syncTextareaHeight();
-  }, [text, selectedAttachments.length, syncTextareaHeight]);
-
-  useEffect(() => {
-    syncTextareaHeight();
-  }, [isMultiline, syncTextareaHeight]);
+  }, [text, selectedAttachments.length, isMultiline, syncTextareaHeight]);
 
   const projectId = controlledProjectId ?? internalProjectId;
   const setProjectId = onProjectIdChange ?? setInternalProjectId;
@@ -580,7 +606,7 @@ export function ChatComposer({
           if (detail?.focus !== false) el.focus();
           el.setSelectionRange(next.length, next.length);
           syncMention(next, next.length);
-          syncTextareaHeight(el);
+          syncTextareaLayout(el);
         });
         return next;
       });
@@ -588,7 +614,7 @@ export function ChatComposer({
     window.addEventListener("jlc-compose-prefill", handleComposePrefill);
     return () =>
       window.removeEventListener("jlc-compose-prefill", handleComposePrefill);
-  }, [syncMention]);
+  }, [syncMention, syncTextareaLayout]);
 
   const insertMention = (file: WorkspaceFileNode) => {
     const label = file.relativePath ?? file.name;
@@ -603,7 +629,7 @@ export function ChatComposer({
       if (!el) return;
       el.focus();
       el.setSelectionRange(pos, pos);
-      syncTextareaHeight(el);
+      syncTextareaLayout(el);
     });
   };
 
@@ -616,6 +642,7 @@ export function ChatComposer({
     setText("");
     setSelectedAttachments([]);
     setMentionOpen(false);
+    isMultilineRef.current = false;
     setIsMultiline(false);
     requestAnimationFrame(() => syncTextareaHeight());
     try {
@@ -877,7 +904,7 @@ export function ChatComposer({
       onChange={(e) => {
         setText(e.target.value);
         syncMention(e.target.value, e.target.selectionStart);
-        syncTextareaHeight(e.target);
+        syncTextareaLayout(e.target);
       }}
       onCompositionStart={() => {
         isComposingRef.current = true;
