@@ -358,6 +358,7 @@ export function useChatSend(
         surfaceModuleId,
         writingTemplateId: context.writingTemplateId,
         pptTemplateId: context.pptTemplateId,
+        videoTemplateId: context.videoTemplateId,
         attachments: uploadedAttachments,
       };
 

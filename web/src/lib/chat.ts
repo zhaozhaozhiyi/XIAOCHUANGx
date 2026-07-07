@@ -73,6 +73,7 @@ export type PendingSession = {
   projectId?: string;
   writingTemplateId?: string;
   pptTemplateId?: string;
+  videoTemplateId?: string;
 };
 
 export function setPendingSession(id: string, payload: PendingSession) {
@@ -275,7 +276,7 @@ export function getMockReply(
     mode === "auto" ? (isComplexDeepQuestion(text) ? "deep" : "fast") : mode;
   if (effectiveMode === "deep") {
     if (isComplexDeepQuestion(text)) {
-      return `${agentTag} 【深度分析摘要】\n· 主题：${text}\n· 信源：资讯 / 公告 / 研报 已分层归纳\n· 可导出可视化报告（功能接入后开放）`;
+      return `${agentTag} 【深度分析摘要】\n· 主题：${text}\n· 信源：资讯 / 公告 / 研报 已分层归纳\n· 可生成可视化报告（功能接入后开放）`;
     }
     return `${agentTag} 核心驱动仍来自供需边际变化，建议结合库存与开工率继续跟踪。\n\n（结论见上；推理过程见 Activity 区）`;
   }

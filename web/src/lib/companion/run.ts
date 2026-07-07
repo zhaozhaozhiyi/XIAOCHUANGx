@@ -192,6 +192,10 @@ export async function buildCreateRunRequest(
     surfaceModuleId === "ppt"
       ? parsed.pptTemplateId?.trim() || "pitch-deck"
       : "pitch-deck";
+  const videoTemplateId =
+    surfaceModuleId === "video"
+      ? parsed.videoTemplateId?.trim() || "auto"
+      : "auto";
 
   const moduleSkills =
     surfaceModuleId === "writing"
@@ -212,7 +216,7 @@ export async function buildCreateRunRequest(
           : surfaceModuleId === "video"
             ? resolveSkills({
                 moduleId: "video",
-                binding: {},
+                binding: { templateId: videoTemplateId },
               })
             : surfaceModuleId === "simulation"
               ? resolveSkills({
@@ -229,7 +233,7 @@ export async function buildCreateRunRequest(
         : surfaceModuleId === "3d"
           ? INDUSTRIAL_DRAWING_BASE_SKILL
           : surfaceModuleId === "video"
-            ? VIDEO_BASE_SKILL
+            ? (moduleSkills?.processSkill ?? VIDEO_BASE_SKILL)
             : surfaceModuleId === "simulation"
               ? SIMULATION_BASE_SKILL
         : orchestration.baseProcessSkill;
@@ -310,6 +314,7 @@ export async function buildCreateRunRequest(
               : surfaceModuleId === "video"
                 ? {
                     moduleId: "video" as const,
+                    templateId: videoTemplateId,
                   }
                 : surfaceModuleId === "simulation"
                   ? {

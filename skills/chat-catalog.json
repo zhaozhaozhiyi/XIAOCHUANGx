@@ -198,7 +198,7 @@
       "slug": "skill-vp-base",
       "kind": "workflow",
       "scope": ["chat", "video"],
-      "summary": "视频制作基座：收敛视频 brief，P0 默认交接网页视频生产 Skill，产出可预览、可录屏的 presentation 项目；Remotion/MP4 属于 P1"
+      "summary": "视频制作基座：收敛视频 brief，P0 默认交接网页视频生产 Skill，产出可预览、可录屏的 presentation、studio 或 p5.js sketch；Remotion/MP4 属于 P1"
     },
     {
       "slug": "skill-vp-video-stage",
@@ -211,6 +211,12 @@
       "kind": "workflow",
       "scope": ["chat", "video"],
       "summary": "屏幕叙事生产：从源材料生成 cue 驱动的 screenplay-canvas studio，支持 ?preview=1 预览、?voice=1 配音检查、?capture=1 录屏路径"
+    },
+    {
+      "slug": "skill-vp-poetic-visual-coding",
+      "kind": "workflow",
+      "scope": ["chat", "video"],
+      "summary": "诗意短动画生产：把一个词、概念、情绪或参考画面转成 10-25 秒 p5.js/Processing 风格视觉诗，可选时间线同步声音设计"
     },
     {
       "slug": "skill-simulation-base",

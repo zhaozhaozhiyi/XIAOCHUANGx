@@ -1,9 +1,11 @@
 import { isComplexDeepQuestion, type ChatModeId } from "./chat-mode.js";
+import type { ArtifactManifest } from "@jlc/contracts";
 
 export type SimulatedDeliverablesPayload = {
   headline: string;
   primaryPath: string;
   workspaceProjectId?: string;
+  manifest?: ArtifactManifest;
   items: Array<{
     path: string;
     label?: string;

@@ -51,7 +51,7 @@ const THREE_D_SUGGESTIONS: ChatHomeSuggestionGroup = {
     {
       id: "mounting-bracket",
       label:
-        "生成一个 L 型安装支架：底板 120×80×8mm，立板 90×70×8mm，4 个 M8 安装孔，可调孔距并导出 DXF/STL",
+        "生成一个 L 型安装支架：底板 120×80×8mm，立板 90×70×8mm，4 个 M8 安装孔，可调孔距并生成 DXF/STL",
       icon: "ruler",
     },
     {

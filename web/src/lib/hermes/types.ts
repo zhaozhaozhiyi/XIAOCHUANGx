@@ -34,6 +34,8 @@ export type ChatCompletionRequestBody = {
   writingTemplateId?: string;
   /** PPT Skill 模板 ID（pitch-deck / weekly-report / …） */
   pptTemplateId?: string;
+  /** 视频类型 ID（auto / stage / screenplay / poetic） */
+  videoTemplateId?: string;
 };
 
 export type OpenAIChatMessage = {

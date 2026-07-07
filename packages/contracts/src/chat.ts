@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ArtifactManifest } from "./artifact-manifest";
 
 /** 对话消息块协议版本（持久化、SSE part 事件共用） */
 export const CHAT_PARTS_PROTOCOL_VERSION = 1 as const;
@@ -780,6 +781,7 @@ export type DeliverablesPart = ChatPartBase & {
   headline?: string;
   primaryPath?: string;
   workspaceProjectId?: string;
+  manifest?: ArtifactManifest;
   items: DeliverableItem[];
 };
 

@@ -32,6 +32,10 @@ const MODULE_GALLERY_COPY: Record<
     title: "演示模板",
     subtitle: "真实幻灯片样张，可翻页预览后一键选用",
   },
+  video: {
+    title: "视频类型",
+    subtitle: "选择生产路径，和会话底栏类型同步",
+  },
 };
 
 export function TemplateSkillGallery({ module }: Props) {

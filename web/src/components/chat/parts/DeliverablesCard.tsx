@@ -8,6 +8,7 @@ import { useOpenFileAt } from "@/hooks/useOpenFileAt";
 import { ExternalLink, FileText, Folder, FolderOpen, ImageIcon, Presentation } from "lucide-react";
 import { useWorkspaceOptional } from "@/components/workspace/WorkspaceContext";
 import { useWorkspaceProject } from "@/components/workspace/WorkspaceProjectContext";
+import { isCadWorkbenchPath, selectMainCadPath } from "@/lib/cad-workbench";
 import { getSessionProjectId, NO_PROJECT_ID } from "@/lib/research-projects";
 
 function basename(path: string): string {
@@ -84,16 +85,129 @@ function isMarkdownPath(filePath: string): boolean {
   return filePath.toLowerCase().endsWith(".md");
 }
 
+function cadPreviewModeForPath(filePath: string) {
+  return isCadWorkbenchPath(filePath) ? "preview" as const : undefined;
+}
+
+type ManifestAction = NonNullable<
+  NonNullable<DeliverablesPart["manifest"]>["actions"]
+>[number];
+
+function ProjectManifestSummary({
+  part,
+  actionMessage,
+  onAction,
+}: {
+  part: DeliverablesPart;
+  actionMessage?: string | null;
+  onAction: (action: ManifestAction) => void;
+}) {
+  const manifest = part.manifest;
+  const config =
+    manifest?.moduleId === "ppt"
+      ? {
+          badge: "PPT 项目",
+          fallbackPrimary: "PPT 产物",
+          previewLabel: "已进入预览阶段",
+        }
+      : manifest?.moduleId === "writing"
+        ? {
+            badge: "文档项目",
+            fallbackPrimary: "文档产物",
+            previewLabel: "已生成可预览文稿",
+          }
+        : manifest?.moduleId === "3d"
+          ? {
+              badge: "3D 项目",
+              fallbackPrimary: "3D 产物",
+              previewLabel: "已生成可预览模型",
+            }
+        : null;
+  if (!manifest || !config) return null;
+  const primaryLabel =
+    manifest.primaryArtifact?.label ??
+    manifest.primaryArtifact?.path ??
+    part.primaryPath ??
+    config.fallbackPrimary;
+  const previewCount = manifest.previews?.length ?? 0;
+  const generatedFormatLabels =
+    manifest.generatedFormats
+      ?.filter((item) => item.status === "available")
+      .map((item) => item.type.toUpperCase()) ?? [];
+  const conversionLabels =
+    manifest.availableConversions?.map((item) =>
+      item.status === "planned" ? `${item.label}（待接入）` : item.label,
+    ) ?? [];
+  const actions = manifest.actions ?? [];
+  return (
+    <div className="rounded-[var(--radius-md)] border border-[color-mix(in_srgb,var(--accent)_18%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_7%,white)] px-3 py-2">
+      <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--fg-tertiary)]">
+        <span className="rounded-full bg-white/75 px-2 py-0.5 font-medium text-[var(--accent)]">
+          {config.badge}
+        </span>
+        <span>{manifest.stage === "preview" ? config.previewLabel : "结构化产物已就绪"}</span>
+        <span>·</span>
+        <span>{manifest.artifacts.length} 个产物</span>
+        {previewCount > 0 ? (
+          <>
+            <span>·</span>
+            <span>{previewCount} 个预览</span>
+          </>
+        ) : null}
+        {generatedFormatLabels.length > 0 ? (
+          <>
+            <span>·</span>
+            <span>已生成格式 {generatedFormatLabels.join(" / ")}</span>
+          </>
+        ) : null}
+        {conversionLabels.length > 0 ? (
+          <>
+            <span>·</span>
+            <span>可生成 {conversionLabels.join(" / ")}</span>
+          </>
+        ) : null}
+      </div>
+      <div className="mt-1 truncate text-sm font-medium text-[var(--fg)]">
+        {manifest.title}
+      </div>
+      <div className="mt-0.5 truncate text-xs text-[var(--fg-secondary)]">
+        主产物：{primaryLabel}
+      </div>
+      {actions.length > 0 ? (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {actions.map((action) => (
+            <button
+              key={action.id}
+              type="button"
+              className="rounded-md border border-[var(--border)] bg-white/80 px-2 py-1 text-xs text-[var(--fg-secondary)] transition hover:border-[color-mix(in_srgb,var(--accent)_28%,var(--border))] hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-[var(--border)] disabled:hover:text-[var(--fg-secondary)]"
+              disabled={!action.enabled}
+              title={
+                action.enabled ? undefined : "这个格式生成动作还未接入当前样板"
+              }
+              onClick={() => onAction(action)}
+            >
+              {action.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {actionMessage ? (
+        <p className="mt-1 text-xs text-[var(--danger)]">{actionMessage}</p>
+      ) : null}
+    </div>
+  );
+}
+
 function DeliverableRow({
   item,
   primary,
-  showDocxExport,
+  showDocxGeneration,
   projectId,
   workspaceProjectId,
 }: {
   item: DeliverableItem;
   primary?: boolean;
-  showDocxExport?: boolean;
+  showDocxGeneration?: boolean;
   projectId: string;
   workspaceProjectId?: string;
 }) {
@@ -103,8 +217,8 @@ function DeliverableRow({
     workspaceProjectId: activeWorkspaceProjectId,
     setWorkspaceProject,
   } = useWorkspaceProject();
-  const [exporting, setExporting] = useState(false);
-  const [exportError, setExportError] = useState<string | null>(null);
+  const [generatingDocx, setGeneratingDocx] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
   const [generatedPath, setGeneratedPath] = useState<string | null>(null);
   const [opening, setOpening] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
@@ -115,7 +229,7 @@ function DeliverableRow({
   const label = item.label ?? basename(item.path);
   const typeLabel =
     item.kind === "directory" ? "目录" : deliverableTypeLabel(item.path, item.mime);
-  const canExportDocx = showDocxExport && isMarkdownPath(item.path);
+  const canGenerateDocx = showDocxGeneration && isMarkdownPath(item.path);
   const itemWorkspaceProjectId = item.workspaceProjectId ?? workspaceProjectId;
   const canOpenInSystem =
     item.kind !== "directory" &&
@@ -143,7 +257,10 @@ function DeliverableRow({
       setOpening(true);
       setActionMessage(null);
       try {
-        const opened = await openFileAt(filePath);
+        const opened = await openFileAt({
+          path: filePath,
+          viewMode: cadPreviewModeForPath(filePath),
+        });
         if (!opened) {
           setActionMessage("未能在当前工作区定位该文件，请确认文件已写入当前会话工作区");
           return;
@@ -191,10 +308,10 @@ function DeliverableRow({
     ],
   );
 
-  const exportDocx = useCallback(async () => {
-    if (!canExportDocx || projectId === NO_PROJECT_ID) return;
-    setExporting(true);
-    setExportError(null);
+  const generateDocx = useCallback(async () => {
+    if (!canGenerateDocx || projectId === NO_PROJECT_ID) return;
+    setGeneratingDocx(true);
+    setGenerationError(null);
     try {
       const res = await fetch("/api/writing/export-docx", {
         method: "POST",
@@ -210,7 +327,7 @@ function DeliverableRow({
           message?: string;
           error?: string;
         };
-        throw new Error(json.message ?? json.error ?? `导出失败 (${res.status})`);
+        throw new Error(json.message ?? json.error ?? `生成失败 (${res.status})`);
       }
       const json = (await res.json()) as {
         path?: string;
@@ -223,11 +340,11 @@ function DeliverableRow({
       workspace?.refreshTree();
       void openFileAt(json.path);
     } catch (err) {
-      setExportError(err instanceof Error ? err.message : "生成 DOCX 失败");
+      setGenerationError(err instanceof Error ? err.message : "生成 DOCX 失败");
     } finally {
-      setExporting(false);
+      setGeneratingDocx(false);
     }
-  }, [canExportDocx, item.path, openFileAt, projectId, workspace]);
+  }, [canGenerateDocx, item.path, openFileAt, projectId, workspace]);
 
   const openInSystem = useCallback(async () => {
     if (!workspace?.openFileInSystemForProject && !workspace?.openFileInSystem) {
@@ -314,14 +431,14 @@ function DeliverableRow({
             <ExternalLink className="h-3 w-3" aria-hidden />
           </a>
         ) : null}
-        {canExportDocx ? (
+        {canGenerateDocx ? (
           <button
             type="button"
             className="rounded-md px-2 py-1 text-xs text-[var(--fg-secondary)] hover:bg-[var(--sidebar-hover)] disabled:opacity-50"
-            disabled={exporting}
-            onClick={() => void exportDocx()}
+            disabled={generatingDocx}
+            onClick={() => void generateDocx()}
           >
-            {exporting ? "生成中…" : "生成 DOCX"}
+            {generatingDocx ? "生成中…" : "生成 DOCX"}
           </button>
         ) : null}
         {canOpenInSystem ? (
@@ -357,8 +474,8 @@ function DeliverableRow({
         ) : null}
       </div>
     </div>
-      {exportError ? (
-        <p className="px-1 text-xs text-[var(--danger)]">{exportError}</p>
+      {generationError ? (
+        <p className="px-1 text-xs text-[var(--danger)]">{generationError}</p>
       ) : null}
       {actionMessage ? (
         <p className="px-1 text-xs text-[var(--danger)]">{actionMessage}</p>
@@ -437,7 +554,19 @@ function DeliverableRow({
 
 export function DeliverablesCard({ part }: { part: DeliverablesPart }) {
   const pathname = usePathname();
-  const showDocxExport = pathname.startsWith("/writing");
+  const { openFileAt } = useOpenFileAt();
+  const {
+    workspaceProjectId: activeWorkspaceProjectId,
+    setWorkspaceProject,
+  } = useWorkspaceProject();
+  const [manifestActionMessage, setManifestActionMessage] = useState<string | null>(
+    null,
+  );
+  const pendingManifestOpenRef = useRef<{
+    filePath: string;
+    projectId: string;
+  } | null>(null);
+  const showDocxGeneration = pathname.startsWith("/writing");
   const sessionId =
     pathname.match(/^\/writing\/([^/]+)$/)?.[1] ??
     pathname.match(/^\/ppt\/([^/]+)$/)?.[1] ??
@@ -460,14 +589,149 @@ export function DeliverablesCard({ part }: { part: DeliverablesPart }) {
       ? items.find((i) => basename(i.path) === primaryFilename)
       : undefined;
   const rest = items.filter((i) => i !== primary);
+  const manifestProjectId = part.workspaceProjectId ?? part.manifest?.projectId;
+
+  const continueWithManifestArtifact = useCallback((filePath?: string) => {
+    window.dispatchEvent(
+      new CustomEvent("jlc-compose-prefill", {
+        detail: {
+          text: filePath
+            ? `请基于工作区文件 @${filePath} 继续迭代：\n\n`
+            : "请继续修改这个项目：\n\n",
+          append: false,
+          focus: true,
+        },
+      }),
+    );
+  }, []);
+
+  const openManifestFile = useCallback(
+    async (
+      filePath: string,
+      options: { viewMode?: "preview" | "source" | "render" } = {},
+    ) => {
+      if (
+        manifestProjectId &&
+        activeWorkspaceProjectId !== manifestProjectId
+      ) {
+        setManifestActionMessage("正在切换到交付物工作区…");
+        pendingManifestOpenRef.current = {
+          filePath,
+          projectId: manifestProjectId,
+        };
+        setWorkspaceProject(manifestProjectId);
+        return;
+      }
+      setManifestActionMessage(null);
+      const opened = await openFileAt({
+        path: filePath,
+        viewMode: options.viewMode ?? cadPreviewModeForPath(filePath),
+      });
+      setManifestActionMessage(
+        opened ? null : "未能在当前工作区定位该文件，请确认文件已写入当前会话工作区",
+      );
+    },
+    [
+      activeWorkspaceProjectId,
+      manifestProjectId,
+      openFileAt,
+      setWorkspaceProject,
+    ],
+  );
+
+  useEffect(() => {
+    const pendingOpen = pendingManifestOpenRef.current;
+    if (!pendingOpen || activeWorkspaceProjectId !== pendingOpen.projectId) {
+      return;
+    }
+    const next = pendingOpen.filePath;
+    pendingManifestOpenRef.current = null;
+    void openManifestFile(next, { viewMode: cadPreviewModeForPath(next) });
+  }, [activeWorkspaceProjectId, openManifestFile]);
+
+  const handleManifestAction = useCallback(
+    (action: ManifestAction) => {
+      const manifest = part.manifest;
+      if (!manifest) return;
+      if (!action.enabled) {
+        setManifestActionMessage("这个格式生成动作还未接入当前样板");
+        return;
+      }
+      const targetArtifact = action.targetArtifactId
+        ? manifest.artifacts.find((artifact) => artifact.id === action.targetArtifactId)
+        : manifest.primaryArtifact;
+      if (action.kind === "preview") {
+        if (manifest.moduleId === "3d") {
+          const cadPath = selectMainCadPath([
+            targetArtifact?.path,
+            manifest.primaryArtifact?.path,
+            part.primaryPath,
+            ...manifest.artifacts.map((artifact) => artifact.path),
+            ...(manifest.previews ?? []).map((preview) => preview.path),
+            ...part.items.map((item) => item.path),
+          ]);
+          if (cadPath) {
+            void openManifestFile(cadPath, { viewMode: "preview" });
+            return;
+          }
+        }
+        const preview =
+          manifest.previews?.find((item) =>
+            targetArtifact?.path ? item.path === targetArtifact.path : false,
+          ) ?? manifest.previews?.[0];
+        if (preview?.url) {
+          window.open(preview.url, "_blank", "noopener,noreferrer");
+          setManifestActionMessage(null);
+          return;
+        }
+        const previewPath = preview?.path ?? targetArtifact?.path;
+        if (previewPath) {
+          void openManifestFile(previewPath);
+          return;
+        }
+        setManifestActionMessage("未找到可打开的预览文件");
+        return;
+      }
+      if (action.kind === "open") {
+        if (targetArtifact?.path) {
+          void openManifestFile(targetArtifact.path);
+          return;
+        }
+        setManifestActionMessage("未找到可打开的产物文件");
+        return;
+      }
+      if (action.kind === "continue" || action.kind === "revise") {
+        continueWithManifestArtifact(targetArtifact?.path);
+        setManifestActionMessage(null);
+        return;
+      }
+      if (action.kind === "generate_format") {
+        setManifestActionMessage("这个格式生成动作还未接入当前样板");
+        return;
+      }
+      setManifestActionMessage("该动作暂未接入当前样板");
+    },
+    [
+      continueWithManifestArtifact,
+      openManifestFile,
+      part.items,
+      part.manifest,
+      part.primaryPath,
+    ],
+  );
 
   return (
     <div className="chat-deliverables flex flex-col gap-2 text-sm">
+      <ProjectManifestSummary
+        part={part}
+        actionMessage={manifestActionMessage}
+        onAction={handleManifestAction}
+      />
       {primary ? (
         <DeliverableRow
           item={primary}
           primary
-          showDocxExport={showDocxExport}
+          showDocxGeneration={showDocxGeneration}
           projectId={projectId}
           workspaceProjectId={part.workspaceProjectId}
         />
@@ -476,7 +740,7 @@ export function DeliverablesCard({ part }: { part: DeliverablesPart }) {
         <DeliverableRow
           key={item.path}
           item={item}
-          showDocxExport={showDocxExport}
+          showDocxGeneration={showDocxGeneration}
           projectId={projectId}
           workspaceProjectId={part.workspaceProjectId}
         />

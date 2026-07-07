@@ -135,8 +135,10 @@ export {
 } from "./simulated-activity.js";
 export {
   snapshotWorkspace,
+  buildArtifactManifestFromDeliverables,
   buildDeliverablesFromDiff,
   extractPathFromToolMessage,
+  type BuildArtifactManifestInput,
   type WorkspaceSnapshot,
 } from "./run-deliverables.js";
 export { buildHermesSessionKey, buildHermesSessionId } from "./hermes-session.js";

@@ -16,6 +16,10 @@ const skipUi = args.has("--skip-ui") || process.env.JLC_3D_M1_SKIP_UI === "1";
 const skipWasmCompile =
   args.has("--skip-wasm-compile") ||
   process.env.JLC_3D_M1_SKIP_WASM_COMPILE === "1";
+const uiPort =
+  process.env.JLC_3D_M1_PLAYWRIGHT_PORT ||
+  process.env.PLAYWRIGHT_PORT ||
+  "3403";
 
 const checks = [
   {
@@ -70,7 +74,10 @@ const checks = [
             "--timeout=60000",
           ],
           env: {
+            CI: process.env.CI || "1",
             NEXT_PUBLIC_OPENSCAD_WASM_PREVIEW: "1",
+            PLAYWRIGHT_PORT: uiPort,
+            PORT: uiPort,
           },
         },
       ]),

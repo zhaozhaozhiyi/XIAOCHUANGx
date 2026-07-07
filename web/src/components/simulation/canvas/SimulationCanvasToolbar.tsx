@@ -2,9 +2,57 @@
 
 import type { ReactNode } from "react";
 import { Panel, useReactFlow, useViewport } from "@xyflow/react";
-import { Maximize2, Minus, Redo2, RotateCcw, Undo2, ZoomIn } from "lucide-react";
+import {
+  Maximize2,
+  Minus,
+  Palette,
+  Redo2,
+  RotateCcw,
+  Undo2,
+  ZoomIn,
+} from "lucide-react";
 import { SimulationLayerTabs } from "@/components/simulation/SimulationLayerTabs";
 import type { CanvasFlowEdge, CanvasFlowNode } from "./canvasTypes";
+import { SIMULATION_NODE_FAMILY_LEGEND } from "./canvasHelpers";
+
+function SimulationNodeFamilyLegend() {
+  const title = `节点颜色图例：${SIMULATION_NODE_FAMILY_LEGEND.map(
+    (item) => item.label,
+  ).join(" / ")}`;
+
+  return (
+    <details className="group relative">
+      <summary
+        role="button"
+        aria-label="节点颜色图例"
+        title={title}
+        className="simulation-canvas-actionbar__btn inline-flex h-8 w-8 shrink-0 list-none items-center justify-center rounded-[var(--radius-sm)] text-[var(--fg-secondary)] transition-colors hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] [&::-webkit-details-marker]:hidden"
+        style={{ listStyle: "none" }}
+      >
+        <Palette className="h-3.5 w-3.5" aria-hidden />
+      </summary>
+      <div className="pointer-events-none absolute left-0 top-[calc(100%+6px)] z-[230] hidden w-[11.5rem] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-elevated)] p-2 text-xs shadow-[0_0_0_1px_var(--composer-border),0_8px_22px_rgb(0_0_0_/_0.06)] group-open:block group-hover:block group-focus-within:block">
+        <div className="mb-1.5 text-[11px] font-medium text-[var(--fg-tertiary)]">
+          节点颜色
+        </div>
+        <div className="space-y-1">
+          {SIMULATION_NODE_FAMILY_LEGEND.map((item) => (
+            <div key={item.id} className="flex items-center gap-2">
+              <span
+                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: item.color }}
+                aria-hidden
+              />
+              <span className="text-[11px] text-[var(--fg-secondary)]">
+                {item.label}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </details>
+  );
+}
 
 export function SimulationCanvasSideRail({
   isRevealing,
@@ -58,6 +106,7 @@ export function SimulationCanvasSideRail({
           layerCounts={layerCounts}
           onLayerChange={onLayerChange}
         />
+        <SimulationNodeFamilyLegend />
 
         <div className="simulation-canvas-actionbar__divider" aria-hidden />
 

@@ -69,7 +69,7 @@ export function TemplateSkillCard({
         <span className="template-skill-card__cover-shine" aria-hidden />
         <span className="template-skill-card__cover-hover">
           <Eye className="h-4 w-4" strokeWidth={1.75} />
-          预览样张
+          预览
         </span>
         {selected ? (
           <span className="template-skill-card__badge" aria-hidden>
@@ -91,7 +91,7 @@ export function TemplateSkillCard({
           className={`template-skill-card__select ${selected ? "template-skill-card__select--active" : ""}`}
           onClick={onSelect}
         >
-          {selected ? "当前模板" : "选用模板"}
+          {selected ? "当前选择" : "选用"}
         </button>
       </div>
     </article>

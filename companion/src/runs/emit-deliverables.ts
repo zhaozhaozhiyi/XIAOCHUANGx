@@ -17,6 +17,7 @@ export function emitDeliverablesPart(
       ...(resolvedWorkspaceProjectId
         ? { workspaceProjectId: resolvedWorkspaceProjectId }
         : {}),
+      ...(payload.manifest ? { manifest: payload.manifest } : {}),
       items: payload.items.map((item) => ({
         ...item,
         ...(item.workspaceProjectId || !resolvedWorkspaceProjectId

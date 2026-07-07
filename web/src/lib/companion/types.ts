@@ -94,7 +94,7 @@ export type CreateRunBinding =
   | { moduleId: "writing"; templateId: string }
   | { moduleId: "ppt"; task: "deck"; templateId?: string }
   | { moduleId: "3d" }
-  | { moduleId: "video" }
+  | { moduleId: "video"; templateId?: string }
   | {
       moduleId: "simulation";
       previousRunId?: string;

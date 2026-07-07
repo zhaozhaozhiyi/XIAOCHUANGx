@@ -132,6 +132,7 @@ type WorkspaceContextValue = {
     relativePath: string;
     line?: number;
     endLine?: number;
+    viewMode?: FileViewMode;
   }) => Promise<boolean>;
   openFileInSystem: (relativePath: string) => Promise<boolean>;
   openFileInSystemForProject: (
@@ -962,11 +963,19 @@ export function WorkspaceProvider({
       input: {
         line?: number;
         endLine?: number;
+        viewMode?: FileViewMode;
       },
     ) => {
       setOpen(true);
       expandPanelToMax();
-      if (input.line != null) setFileViewMode("source");
+      const nextViewMode = input.viewMode ?? (input.line != null ? "source" : undefined);
+      if (nextViewMode) {
+        setFileViewModeState(nextViewMode);
+        setFileViewModesByFileId((prev) => {
+          if (prev[node.id] === nextViewMode) return prev;
+          return { ...prev, [node.id]: nextViewMode };
+        });
+      }
 
       setPendingReveal({
         fileId: node.id,
@@ -977,21 +986,27 @@ export function WorkspaceProvider({
       setFileActionMessage(null);
       return true;
     },
-    [expandPanelToMax, openFileTabById, setFileViewMode],
+    [expandPanelToMax, openFileTabById],
   );
 
   const openFileAt = useCallback(
-    async (input: { relativePath: string; line?: number; endLine?: number }) => {
+    async (input: {
+      relativePath: string;
+      line?: number;
+      endLine?: number;
+      viewMode?: FileViewMode;
+    }) => {
       const openReqId = ++openFileRequestRef.current;
       const parsed = parseFileRef(input.relativePath);
       const path = parsed.path || input.relativePath;
       const line = input.line ?? parsed.line;
       const endLine = input.endLine ?? parsed.endLine;
+      const viewMode = input.viewMode;
 
       const resolved = resolveFileInTree(root, path);
       if (resolved.ok) {
         if (openFileRequestRef.current !== openReqId) return false;
-        return openResolvedFileAt(resolved.node, { line, endLine });
+        return openResolvedFileAt(resolved.node, { line, endLine, viewMode });
       }
       if (resolved.reason !== "not_found") {
         setFileActionMessage(resolveFileMessage(resolved.reason));
@@ -1053,7 +1068,7 @@ export function WorkspaceProvider({
           return false;
         }
         if (isStaleOpenRequest()) return false;
-        return openResolvedFileAt(refreshed.node, { line, endLine });
+        return openResolvedFileAt(refreshed.node, { line, endLine, viewMode });
       } catch (err) {
         if (isStaleOpenRequest()) return false;
         setFileActionMessage(
@@ -1072,9 +1087,9 @@ export function WorkspaceProvider({
 
   useEffect(() => {
     const handleOpenWorkspaceFile = (event: Event) => {
-      const detail = (event as CustomEvent<{ path?: string }>).detail;
+      const detail = (event as CustomEvent<{ path?: string; viewMode?: FileViewMode }>).detail;
       if (!detail?.path) return;
-      void openFileAt({ relativePath: detail.path });
+      void openFileAt({ relativePath: detail.path, viewMode: detail.viewMode });
     };
     window.addEventListener("jlc-open-workspace-file", handleOpenWorkspaceFile);
     return () =>

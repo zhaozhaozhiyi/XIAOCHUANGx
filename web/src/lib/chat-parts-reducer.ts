@@ -113,6 +113,7 @@ function mergeRepeatedPart(existing: ChatPart, incoming: ChatPart): ChatPart {
       primaryPath: incoming.primaryPath ?? existing.primaryPath,
       workspaceProjectId:
         incoming.workspaceProjectId ?? existing.workspaceProjectId,
+      manifest: incoming.manifest ?? existing.manifest,
       items: Array.from(itemsByPath.values()),
       streamSeq,
     };

@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   applyTranscriptScope,
+  buildArtifactManifestFromDeliverables,
   buildDeliverablesFromDiff,
   buildHermesSessionKey,
   composeAgentRunPayload,
@@ -135,6 +136,15 @@ type SimulationScenario = Extract<
   { kind: "simulation_scenario" }
 >["scenario"];
 type SimulationNode = Extract<ChatPart, { kind: "simulation_node" }>["node"];
+
+function manifestTitleFromUserText(text: string, fallback: string): string {
+  const firstLine = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean);
+  if (!firstLine) return fallback;
+  return firstLine.length > 80 ? `${firstLine.slice(0, 80)}…` : firstLine;
+}
 
 function simulationTopicText(topic: SimulationScenario["topic"]): string {
   if (typeof topic === "string") return topic;
@@ -457,9 +467,9 @@ function buildPromptContextNotes(
       "当前模块为 3D / 工业制图，页面结构沿用写作和 PPT 的对话式工作流，但最终能力由工业制图 Skill 与工作区文件承载。",
       "当用户提出新建或修改工业结构、零件、支架、容器、管线、设备草模等需求时，应生成可继续编辑的参数化 CAD 文件，而不是只在聊天里解释方案。",
       req.lazyDefaultWorkspace
-        ? "当前 cwd 是本轮 3D 任务的临时工作区根；请直接在根目录写入 `drawing.scad`、`drawing.parameters.json`、简短 `README.md`，导出物写入 `exports/`。平台会在检测到真实文件后再登记为正式工作区。"
-        : "默认在当前工作区根目录写入 `drawing.scad`、`drawing.parameters.json` 和简短 `README.md`；若导出工具真实可用，再写入 `exports/drawing.stl`、`exports/drawing.dxf` 等文件。",
-      "不要声称已生成 STL、DXF 或其他导出文件，除非对应文件已经真实写入工作区；如果 OpenSCAD CLI/WASM 不可用，仍应交付 `.scad` 与参数 JSON，并说明导出尚未执行。",
+        ? "当前 cwd 是本轮 3D 任务的临时工作区根；请直接在根目录写入 `drawing.scad`、`drawing.parameters.json`、简短 `README.md`，派生格式文件写入 `exports/`。平台会在检测到真实文件后再登记为正式工作区。"
+        : "默认在当前工作区根目录写入 `drawing.scad`、`drawing.parameters.json` 和简短 `README.md`；若格式生成工具真实可用，再写入 `exports/drawing.stl`、`exports/drawing.dxf` 等文件。",
+      "不要声称已生成 STL、DXF 或其他派生格式文件，除非对应文件已经真实写入工作区；如果 OpenSCAD CLI/WASM 不可用，仍应交付 `.scad` 与参数 JSON，并说明格式生成尚未执行。",
     ];
     if (isRequirementFollowup) {
       notes.push(
@@ -470,15 +480,24 @@ function buildPromptContextNotes(
   }
 
   if (req.moduleId === "video") {
+    const templateId =
+      "templateId" in req.binding && typeof req.binding.templateId === "string"
+        ? req.binding.templateId.trim()
+        : "";
     const notes = [
-      "当前模块为视频制作，页面结构沿用写作 / PPT 的对话式工作流；P0 目标是生成可预览、可录屏的网页视频项目，并在 video-stage 与 screenplay-canvas 两条生产路径里选择其一。",
+      "当前模块为视频制作，页面结构沿用写作 / PPT 的对话式工作流；P0 目标是生成可预览、可录屏的网页视频项目，并在 video-stage、screenplay-canvas、poetic-visual-coding 三条生产路径里选择其一。",
       req.lazyDefaultWorkspace
-        ? "当前 cwd 是本轮视频任务的临时工作区根；若走 `skill-vp-video-stage`，请写入 `script.md`、`outline.md` 并用 `skills/skill-vp-video-stage/scripts/scaffold.sh ./presentation` 生成 `presentation/`；若走 `skill-vp-screenplay-canvas`，请写入 `source.md`、`direction.md`、`beats.md` 并用 `skills/skill-vp-screenplay-canvas/scripts/scaffold.sh ./studio` 生成 `studio/`。平台会在检测到真实文件后再登记为正式工作区。"
-        : "默认在当前工作区根目录写入脚本与计划文件，并生成 `presentation/` 或 `studio/`；两者都必须可独立 `npm run dev`。video-stage 的预览入口是 `?reel=1`、录屏入口是 `?auto=1`；screenplay-canvas 的预览入口是 `?preview=1`、录屏入口是 `?capture=1`。",
-      "视频 P0 交付前必须审计真实文件：至少确认脚本文件、计划文件、项目 `package.json`，以及一个节拍真相源（`narrations.ts` 或 `cues.ts`）。缺任一项就继续落盘，不要把计划描述成已生成。",
-      "默认尝试在生成的项目目录下启动 `npm run dev` 并读取真实 localhost URL；若无法启动或无法确认端口，只给出对应目录的启动命令，不要虚构“已经启动”。",
+        ? "当前 cwd 是本轮视频任务的临时工作区根；若走 `skill-vp-video-stage`，请写入 `script.md`、`outline.md` 并用 `skills/skill-vp-video-stage/scripts/scaffold.sh ./presentation` 生成 `presentation/`；若走 `skill-vp-screenplay-canvas`，请写入 `source.md`、`direction.md`、`beats.md` 并用 `skills/skill-vp-screenplay-canvas/scripts/scaffold.sh ./studio` 生成 `studio/`；若走 `skill-vp-poetic-visual-coding`，请按 `skills/skill-vp-poetic-visual-coding/SKILL.md` 生成 `direction.md`（可选但推荐）与可本地打开的 `sketch.html`。平台会在检测到真实文件后再登记为正式工作区。"
+        : "默认在当前工作区根目录写入脚本与计划文件，并生成 `presentation/`、`studio/` 或 p5.js `sketch.html`；Vite 项目必须可独立 `npm run dev`，单文件 sketch 可直接打开或用简单静态服务预览。video-stage 的预览入口是 `?reel=1`、录屏入口是 `?auto=1`；screenplay-canvas 的预览入口是 `?preview=1`、录屏入口是 `?capture=1`。",
+      "视频 P0 交付前必须审计真实文件：video-stage / screenplay-canvas 至少确认脚本文件、计划文件、项目 `package.json` 与节拍真相源（`narrations.ts` 或 `cues.ts`）；poetic-visual-coding 至少确认 `sketch.html` 非空。缺任一项就继续落盘，不要把计划描述成已生成。",
+      "默认尝试为生成的项目启动 `npm run dev` 或为单文件 sketch 提供可打开路径 / 静态预览 URL，并读取真实 localhost URL；若无法启动或无法确认端口，只给出对应目录的启动命令，不要虚构“已经启动”。",
       "P0 不调用 Remotion，不承诺自动 MP4，不做 text-to-video；如果用户要求 MP4，说明当前交付为网页视频项目 + 录屏路径，自动 MP4 属于 P1。",
     ];
+    if (templateId) {
+      notes.push(
+        `用户当前在前端选中的视频类型是「${templateId}」；若不是 auto，请按该类型直接执行对应视频 Skill，不要再二次路由到其他生产路径。`,
+      );
+    }
     if (isRequirementFollowup) {
       notes.push(
         "本轮是用户对视频需求表单/追问的补充回答，视为 brief 已确认：应输出 video_requirement_summary 和 video_outline，并继续生成对应生产路径所需的脚本、计划文件与网页视频项目。",
@@ -2077,6 +2096,7 @@ async function executeRunLifecycle(
           beforeSnap,
           afterSnap,
           touchedPaths,
+          { moduleId: req.moduleId },
         );
         if (!payload || payload.items.length === 0) return;
         if (isLazyDefaultWorkspace && !materializedLazyProject) {
@@ -2112,6 +2132,7 @@ async function executeRunLifecycle(
           beforeSnap,
           afterSnap,
           touchedPaths,
+          { moduleId: req.moduleId },
         );
         if (!finalPayload || finalPayload.items.length === 0) return;
         if (
@@ -2170,7 +2191,35 @@ async function executeRunLifecycle(
             timestamp,
           });
         }
-        emitDeliverablesPart(writer, finalPayload, req.workspaceProjectId);
+        const manifestModuleId =
+          req.moduleId === "ppt" ||
+          req.moduleId === "writing" ||
+          req.moduleId === "3d"
+            ? req.moduleId
+            : null;
+        const payloadWithManifest =
+          manifestModuleId
+            ? {
+                ...finalPayload,
+                manifest: buildArtifactManifestFromDeliverables(finalPayload, {
+                  moduleId: manifestModuleId,
+                  runId,
+                  sessionId: req.sessionId,
+                  projectId: req.workspaceProjectId ?? req.projectId,
+                  title: manifestTitleFromUserText(
+                    userText,
+                    finalPayload.primaryPath ||
+                      (manifestModuleId === "writing"
+                        ? "文档项目"
+                        : manifestModuleId === "3d"
+                          ? "3D 项目"
+                          : "PPT 项目"),
+                  ),
+                  stage: "preview",
+                }),
+              }
+            : finalPayload;
+        emitDeliverablesPart(writer, payloadWithManifest, req.workspaceProjectId);
         deliverablesEmitted = true;
       };
 

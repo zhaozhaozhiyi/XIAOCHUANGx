@@ -55,6 +55,22 @@ const COVER_THEMES: Record<string, TemplateCoverTheme> = {
     gradient: "linear-gradient(160deg, #f0fdf4 0%, #dcfce7 50%, #bbf7d0 100%)",
     accent: "#15803d",
   },
+  auto: {
+    gradient: "linear-gradient(160deg, #f8fafc 0%, #e2e8f0 48%, #cbd5e1 100%)",
+    accent: "#475569",
+  },
+  stage: {
+    gradient: "linear-gradient(150deg, #111827 0%, #334155 52%, #f59e0b 100%)",
+    accent: "#fbbf24",
+  },
+  screenplay: {
+    gradient: "linear-gradient(150deg, #f8fafc 0%, #dbeafe 45%, #99f6e4 100%)",
+    accent: "#0f766e",
+  },
+  poetic: {
+    gradient: "linear-gradient(155deg, #f4f0e8 0%, #d8e2dc 48%, #6b7280 100%)",
+    accent: "#9f5138",
+  },
 };
 
 function withTheme(
@@ -132,9 +148,41 @@ const PPT_PREVIEWS: TemplatePreviewConfig[] = [
   }),
 ];
 
+const VIDEO_PREVIEWS: TemplatePreviewConfig[] = [
+  withTheme({
+    templateId: "auto",
+    kind: "images",
+    assetUrl: "/template-previews/video/auto",
+    pageCount: 1,
+    coverLabel: "智能选择",
+  }),
+  withTheme({
+    templateId: "stage",
+    kind: "images",
+    assetUrl: "/template-previews/video/stage",
+    pageCount: 1,
+    coverLabel: "视频舞台",
+  }),
+  withTheme({
+    templateId: "screenplay",
+    kind: "images",
+    assetUrl: "/template-previews/video/screenplay",
+    pageCount: 1,
+    coverLabel: "屏幕分镜",
+  }),
+  withTheme({
+    templateId: "poetic",
+    kind: "images",
+    assetUrl: "/template-previews/video/poetic",
+    pageCount: 1,
+    coverLabel: "诗意短动画",
+  }),
+];
+
 const BY_MODULE: Record<ModuleSkillPickerKind, TemplatePreviewConfig[]> = {
   writing: WRITING_PREVIEWS,
   ppt: PPT_PREVIEWS,
+  video: VIDEO_PREVIEWS,
 };
 
 export function getTemplatePreview(

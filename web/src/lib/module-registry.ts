@@ -133,7 +133,7 @@ export const PPT_SKILL_CATALOG = [
   {
     templateId: "deck",
     label: "演示文稿（默认流程）",
-    description: "HTML 幻灯片默认生成与 PPTX 导出",
+    description: "HTML 幻灯片默认生成与 PPTX 本地生成",
     skill: "skill-ppt-deck",
     templatePackId: "tpl-ppt-default",
     kind: "workflow",
@@ -249,7 +249,7 @@ export const PPT_SKILL_CATALOG = [
   {
     templateId: "fidelity-audit",
     label: "保真度审计",
-    description: "HTML 与 PPTX 导出对照与修复",
+    description: "HTML 与 PPTX 生成对照与修复",
     skill: "skill-ppt-fidelity-audit",
     kind: "utility",
   },
@@ -283,12 +283,62 @@ export const PPT_TEMPLATE_CATALOG = PPT_SKILL_CATALOG.map(
   }),
 );
 
+/** 视频类型 templateId → 流程 Skill */
+export const VIDEO_SKILL_CATALOG = [
+  {
+    templateId: "auto",
+    label: "智能选择",
+    description: "根据需求自动判断视频生产路径",
+    skill: "skill-vp-base",
+    templatePackId: "tpl-vp-product-intro",
+    kind: "workflow",
+  },
+  {
+    templateId: "stage",
+    label: "视频舞台",
+    description: "文章 / 口播稿生成可录屏网页视频",
+    skill: "skill-vp-video-stage",
+    templatePackId: "tpl-vp-video-stage",
+    kind: "workflow",
+  },
+  {
+    templateId: "screenplay",
+    label: "屏幕分镜",
+    description: "cue 驱动的导演式屏幕叙事",
+    skill: "skill-vp-screenplay-canvas",
+    templatePackId: "tpl-vp-screenplay-canvas",
+    kind: "workflow",
+  },
+  {
+    templateId: "poetic",
+    label: "诗意短动画",
+    description: "p5.js 概念视觉诗与可选音画同步",
+    skill: "skill-vp-poetic-visual-coding",
+    templatePackId: "tpl-vp-poetic-visual-coding",
+    kind: "workflow",
+  },
+] as const;
+
+export type VideoSkillCatalogEntry = (typeof VIDEO_SKILL_CATALOG)[number];
+
+export const VIDEO_TEMPLATE_SKILL: Record<string, string> = {
+  ...Object.fromEntries(
+    VIDEO_SKILL_CATALOG.map((e) => [e.templateId, e.skill]),
+  ),
+};
+
+export const VIDEO_TEMPLATE_PACK: Record<string, string> = {
+  ...Object.fromEntries(
+    VIDEO_SKILL_CATALOG.map((e) => [e.templateId, e.templatePackId]),
+  ),
+};
+
 export type SkillResolveInput =
   | { moduleId: "chat"; binding: { mode: string } }
   | { moduleId: "writing"; binding?: { templateId?: string } }
   | { moduleId: "ppt"; binding: { task: "deck"; templateId?: string } }
   | { moduleId: "3d"; binding?: Record<string, never> }
-  | { moduleId: "video"; binding?: Record<string, never> }
+  | { moduleId: "video"; binding?: { templateId?: string } }
   | { moduleId: "simulation"; binding?: Record<string, never> };
 
 export type ResolvedSkills = {
@@ -339,8 +389,13 @@ export function resolveSkills(input: SkillResolveInput): ResolvedSkills {
       return base;
     }
     case "video": {
-      base.processSkill = "skill-vp-base";
-      base.templatePackId = "tpl-vp-product-intro";
+      const tid = input.binding?.templateId?.trim() || "auto";
+      base.processSkill =
+        VIDEO_TEMPLATE_SKILL[tid] ??
+        VIDEO_TEMPLATE_SKILL.auto ??
+        "skill-vp-base";
+      base.templatePackId =
+        VIDEO_TEMPLATE_PACK[tid] ?? VIDEO_TEMPLATE_PACK.auto ?? null;
       return base;
     }
     case "simulation": {

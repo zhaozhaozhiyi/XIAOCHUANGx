@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback } from "react";
-import { useWorkspaceOptional } from "@/components/workspace/WorkspaceContext";
+import {
+  useWorkspaceOptional,
+  type FileViewMode,
+} from "@/components/workspace/WorkspaceContext";
 import {
   parseFileRef,
   resolveFileMessage,
@@ -11,6 +14,7 @@ import {
 export type OpenFileAtInput = ParsedFileRef & {
   /** 原始路径字符串（含行号后缀时自动 parse） */
   path?: string;
+  viewMode?: FileViewMode;
 };
 
 export function useOpenFileAt() {
@@ -28,11 +32,13 @@ export function useOpenFileAt() {
         typeof input === "string"
           ? parsed.endLine
           : (input.endLine ?? parsed.endLine);
+      const viewMode = typeof input === "string" ? undefined : input.viewMode;
       if (!ws) return false;
       return ws.openFileAt({
         relativePath: parsed.path,
         line,
         endLine,
+        viewMode,
       });
     },
     [ws],
