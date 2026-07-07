@@ -700,7 +700,7 @@ function buildFallbackOutlineItems(input: {
       { title: "关键参数", bullets: ["外形尺寸", "板厚/壁厚", "孔位/开槽", "公差假设"] },
       { title: "主体结构", bullets: ["基座", "立板/侧壁", "加强筋/倒角"] },
       { title: "参数化策略", bullets: ["尺寸变量", "可复用参数表", "命名约定"] },
-      { title: "导出计划", bullets: ["SCAD 源文件", "STL 预览", "可选 DXF"] },
+      { title: "交付文件计划", bullets: ["SCAD 源文件", "STL 预览", "可选 DXF"] },
     ];
   }
 

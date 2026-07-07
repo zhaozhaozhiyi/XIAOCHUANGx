@@ -1,0 +1,4 @@
+interface:
+  display_name: "Poetic Visual Coding"
+  short_description: "Poetic p5.js animation with synced sound"
+  default_prompt: "Use $skill-vp-poetic-visual-coding to turn a concept into a quiet p5.js animation with a reviewed technical plan and optional synced sound."

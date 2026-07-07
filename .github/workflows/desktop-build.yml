@@ -96,6 +96,14 @@ jobs:
           echo "release=${release}" >> "${GITHUB_OUTPUT}"
           echo "release=${release}"
 
+      - name: Resolve desktop package version
+        id: desktop_version
+        shell: bash
+        run: |
+          version="$(node -p "require('./apps/desktop/package.json').version")"
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "desktop version=${version}"
+
       - name: Prepare OpenSCAD license notices
         if: steps.mode.outputs.release == 'true'
         shell: bash
@@ -206,7 +214,7 @@ jobs:
       - name: Upload desktop artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact_name }}-${{ github.run_number }}
+          name: ${{ matrix.platform == 'win32' && format('小窗-win-{0}', steps.desktop_version.outputs.version) || format('{0}-{1}', matrix.artifact_name, github.run_number) }}
           if-no-files-found: error
           path: |
             apps/desktop/release/*.dmg

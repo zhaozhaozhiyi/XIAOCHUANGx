@@ -45,6 +45,7 @@ function mockSseStream(
     surfaceModuleId?: "chat" | "writing" | "ppt" | "3d" | "video" | "simulation";
     writingTemplateId?: string;
     pptTemplateId?: string;
+    videoTemplateId?: string;
   },
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
@@ -62,6 +63,8 @@ function mockSseStream(
       ? options?.writingTemplateId
       : moduleId === "ppt"
         ? options?.pptTemplateId
+        : moduleId === "video"
+          ? options?.videoTemplateId
         : undefined;
   const mockAiUiFlow = buildMockAiUiFlow({
     moduleId,
@@ -182,6 +185,10 @@ function parseBody(body: unknown): ChatCompletionRequestBody | null {
     typeof b.pptTemplateId === "string" && b.pptTemplateId.trim()
       ? b.pptTemplateId.trim()
       : undefined;
+  const videoTemplateId =
+    typeof b.videoTemplateId === "string" && b.videoTemplateId.trim()
+      ? b.videoTemplateId.trim()
+      : undefined;
   const apiProvider =
     b.apiProvider && typeof b.apiProvider === "object"
       ? (b.apiProvider as ChatCompletionRequestBody["apiProvider"])
@@ -199,6 +206,7 @@ function parseBody(body: unknown): ChatCompletionRequestBody | null {
     surfaceModuleId,
     writingTemplateId,
     pptTemplateId,
+    videoTemplateId,
     useClientHistory: b.useClientHistory === true,
   };
 }
@@ -394,6 +402,7 @@ export async function POST(request: Request) {
         surfaceModuleId: mockSurfaceModuleId,
         writingTemplateId: parsed.writingTemplateId,
         pptTemplateId: parsed.pptTemplateId,
+        videoTemplateId: parsed.videoTemplateId,
       }),
       {
         headers: {

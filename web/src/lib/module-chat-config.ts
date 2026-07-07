@@ -1,6 +1,7 @@
 import {
   type ModuleId,
   PPT_SKILL_CATALOG,
+  VIDEO_SKILL_CATALOG,
   WRITING_BASE_SKILL,
   WRITING_DEFAULT_SKILL,
 } from "@/lib/module-registry";
@@ -19,7 +20,7 @@ export type ChatSurfaceModuleId = Extract<
 
 export type ModuleSkillPickerKind = Extract<
   ChatSurfaceModuleId,
-  "writing" | "ppt"
+  "writing" | "ppt" | "video"
 >;
 
 export const PPT_DEFAULT_SKILL = "skill-ppt-base";
@@ -68,9 +69,23 @@ export type PptSkillTemplateId =
 
 export const DEFAULT_PPT_SKILL_TEMPLATE_ID: PptSkillTemplateId = "pitch-deck";
 
+/** 视频 Composer 底栏类型（与 VIDEO_SKILL_CATALOG 对齐） */
+export const VIDEO_SKILL_OPTIONS: readonly ModuleSkillOption[] =
+  VIDEO_SKILL_CATALOG.map(({ templateId, label, description }) => ({
+    templateId,
+    label,
+    description,
+  }));
+
+export type VideoSkillTemplateId =
+  (typeof VIDEO_SKILL_CATALOG)[number]["templateId"];
+
+export const DEFAULT_VIDEO_SKILL_TEMPLATE_ID: VideoSkillTemplateId = "auto";
+
 const SKILL_STORAGE_PREFIX: Record<ModuleSkillPickerKind, string> = {
   writing: "jlc-writing-skill",
   ppt: "jlc-ppt-skill",
+  video: "jlc-video-skill",
 };
 
 const SKILL_OPTIONS: Record<
@@ -79,11 +94,13 @@ const SKILL_OPTIONS: Record<
 > = {
   writing: WRITING_SKILL_OPTIONS,
   ppt: PPT_SKILL_OPTIONS,
+  video: VIDEO_SKILL_OPTIONS,
 };
 
 const DEFAULT_SKILL_TEMPLATE_ID: Record<ModuleSkillPickerKind, string> = {
   writing: DEFAULT_WRITING_SKILL_TEMPLATE_ID,
   ppt: DEFAULT_PPT_SKILL_TEMPLATE_ID,
+  video: DEFAULT_VIDEO_SKILL_TEMPLATE_ID,
 };
 
 export function moduleSkillStorageKey(
@@ -158,7 +175,7 @@ export type ModuleChatSurfaceConfig = {
   threadTitleFallback: string;
   defaultSessionTitle: string;
   showModePicker: boolean;
-  /** 底栏 Skill 下拉（写作 / PPT） */
+  /** 底栏 Skill 下拉（写作 / PPT / 视频） */
   skillPicker?: ModuleSkillPickerKind;
   defaultProcessSkill: string | null;
   ensureModuleId: ModuleId;
@@ -215,7 +232,7 @@ export const MODULE_CHAT_SURFACES: Record<
     newSessionHref: "/3d/new",
     newSessionLabel: "新建 3D 图纸",
     homeTitle: "今天要画什么工业结构？",
-    homeSubtitle: "描述零件、支架、容器或设备草模需求，助手将按工业制图 Skill 链路生成可继续预览与导出的图纸结果",
+    homeSubtitle: "描述零件、支架、容器或设备草模需求，助手将按工业制图 Skill 链路生成可继续预览与本地交付的图纸结果",
     threadTitleFallback: "3D",
     defaultSessionTitle: "新 3D 图纸",
     showModePicker: false,
@@ -232,6 +249,7 @@ export const MODULE_CHAT_SURFACES: Record<
     threadTitleFallback: "视频",
     defaultSessionTitle: "新视频",
     showModePicker: false,
+    skillPicker: "video",
     defaultProcessSkill: VIDEO_BASE_SKILL,
     ensureModuleId: "video",
   },

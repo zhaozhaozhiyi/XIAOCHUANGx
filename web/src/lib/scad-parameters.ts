@@ -205,7 +205,7 @@ export function parametersToJson(input: {
         group: parameter.group || undefined,
         type: parameter.type,
       })),
-      exports: [
+      generatedFormats: [
         { format: "scad", path: "drawing.scad", status: "generated" },
         {
           format: "stl",

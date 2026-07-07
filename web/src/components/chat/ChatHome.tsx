@@ -22,7 +22,9 @@ import type { AgentId } from "@/lib/settings";
 import { uploadChatAttachments } from "@/lib/chat-attachments";
 import {
   MODULE_CHAT_SURFACES,
+  readStoredModuleSkillTemplateId,
   sessionPath,
+  writeStoredModuleSkillTemplateId,
   type ChatSurfaceModuleId,
 } from "@/lib/module-chat-config";
 import { getChatHomeSuggestions } from "@/lib/chat-home-suggestions";
@@ -67,12 +69,28 @@ export function ChatHome({
     attachments?: ChatComposerSendPayload["attachments"],
     writingTemplateId?: ChatComposerSendPayload["writingTemplateId"],
     pptTemplateId?: ChatComposerSendPayload["pptTemplateId"],
+    videoTemplateId?: ChatComposerSendPayload["videoTemplateId"],
   ) => {
     const trimmed = text.trim();
     if (!trimmed && !attachments?.length) return;
     setSending(true);
     try {
       const id = createSessionId();
+      const selectedTemplateId =
+        surface.moduleId === "writing"
+          ? writingTemplateId
+          : surface.moduleId === "ppt"
+            ? pptTemplateId
+            : surface.moduleId === "video"
+              ? videoTemplateId
+              : undefined;
+      if (surface.skillPicker && selectedTemplateId) {
+        writeStoredModuleSkillTemplateId(
+          surface.skillPicker,
+          selectedTemplateId,
+          id,
+        );
+      }
       const uploadedAttachments = await uploadChatAttachments(
         id,
         attachments,
@@ -87,6 +105,9 @@ export function ChatHome({
           ? { writingTemplateId }
           : {}),
         ...(surface.moduleId === "ppt" && pptTemplateId ? { pptTemplateId } : {}),
+        ...(surface.moduleId === "video" && videoTemplateId
+          ? { videoTemplateId }
+          : {}),
         executionSource,
         agentId,
         agentModel,
@@ -151,13 +172,17 @@ export function ChatHome({
                 payload.attachments,
                 payload.writingTemplateId,
                 payload.pptTemplateId,
+                payload.videoTemplateId,
               )
             }
           />
           {suggestions ? (
             <ChatHomeTaskSuggestions
               group={suggestions}
-              onSelect={(q) =>
+              onSelect={(q) => {
+                const selectedSkillId = surface.skillPicker
+                  ? readStoredModuleSkillTemplateId(surface.skillPicker)
+                  : undefined;
                 void startChat(
                   q,
                   surfaceModuleId === "chat" ? "auto" : "deep",
@@ -165,8 +190,18 @@ export function ChatHome({
                   agentId,
                   agentModel,
                   projectId,
-                )
-              }
+                  undefined,
+                  surface.moduleId === "writing"
+                    ? (selectedSkillId as ChatComposerSendPayload["writingTemplateId"])
+                    : undefined,
+                  surface.moduleId === "ppt"
+                    ? (selectedSkillId as ChatComposerSendPayload["pptTemplateId"])
+                    : undefined,
+                  surface.moduleId === "video"
+                    ? (selectedSkillId as ChatComposerSendPayload["videoTemplateId"])
+                    : undefined,
+                );
+              }}
             />
           ) : null}
         </div>

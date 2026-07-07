@@ -3,7 +3,7 @@
 | 属性 | 内容 |
 |------|------|
 | 文档版本 | v1.0 |
-| 更新日期 | 2026-07-01 |
+| 更新日期 | 2026-07-07 |
 | 权威来源 | `skills/skill-*/SKILL.md`、`skills/chat-catalog.json`、`web/src/lib/module-registry.ts` |
 | 关联文档 | [README.md](./README.md)、[chat-catalog.json](./chat-catalog.json)、[chat-core-architecture.md](../docs/technical/chat-core-architecture.md) |
 
@@ -28,9 +28,9 @@
 
 | 维度 | 数量 |
 |------|------|
-| 磁盘 Skill 总数 | 47 |
-| `chat-catalog.json` 条目 | 37 |
-| workflow | 42 |
+| 磁盘 Skill 总数 | 48 |
+| `chat-catalog.json` 条目 | 38 |
+| workflow | 43 |
 | tool | 5 |
 | 不在 Catalog 中 | 10 |
 
@@ -126,13 +126,14 @@ PPT `templateId` → Skill 见 `PPT_SKILL_CATALOG` / `PPT_TEMPLATE_SKILL`（`mod
 
 ---
 
-## 5. 视频 `video`（3）
+## 5. 视频 `video`（4）
 
 | # | Slug | 类型 | Catalog | 角色 | 说明 |
 |---|------|------|---------|------|------|
 | 35 | `skill-vp-base` | workflow | ✅ | **基座** | 收敛视频 brief；P0 路由到网页视频生产 Skill |
 | 36 | `skill-vp-video-stage` | workflow | ✅ | 生产 | 视频舞台 → `presentation/`；`?reel=1` / `?auto=1` |
 | 37 | `skill-vp-screenplay-canvas` | workflow | ✅ | 生产 | 屏幕叙事 → `studio/`；`?preview=1` / `?capture=1` |
+| 38 | `skill-vp-poetic-visual-coding` | workflow | ✅ | 生产 | 诗意短动画 → p5.js `sketch.html`；概念 / 情绪 / 参考画面驱动 |
 
 Remotion / 自动 MP4 为 **P1**，非当前 Skill 路径承诺（见 `skill-vp-base`）。
 
@@ -142,8 +143,8 @@ Remotion / 自动 MP4 为 **P1**，非当前 Skill 路径承诺（见 `skill-vp-
 
 | # | Slug | 类型 | Catalog | 角色 | 说明 |
 |---|------|------|---------|------|------|
-| 38 | `skill-simulation-base` | workflow | ✅ | **基座** | 收敛边界；拆解主体、变量、假设、路径与推演报告 |
-| 39 | `skill-world-model` | workflow | ✅ | 生产 | 按 wave 增量构建逻辑自洽的世界模型；节点、边、路径必须遵守本体论、推导语法并可追溯 |
+| 39 | `skill-simulation-base` | workflow | ✅ | **基座** | 收敛边界；拆解主体、变量、假设、路径与推演报告 |
+| 40 | `skill-world-model` | workflow | ✅ | 生产 | 按 wave 增量构建逻辑自洽的世界模型；节点、边、路径必须遵守本体论、推导语法并可追溯 |
 
 ---
 
@@ -151,7 +152,7 @@ Remotion / 自动 MP4 为 **P1**，非当前 Skill 路径承诺（见 `skill-vp-
 
 | # | Slug | 类型 | Catalog | 角色 | 说明 |
 |---|------|------|---------|------|------|
-| 40 | `skill-kb-qa` | workflow | ✅ | 按需 | 库内 RAG 问答；限定已上传文档，带引用锚点 |
+| 41 | `skill-kb-qa` | workflow | ✅ | 按需 | 库内 RAG 问答；限定已上传文档，带引用锚点 |
 
 ---
 
@@ -159,9 +160,9 @@ Remotion / 自动 MP4 为 **P1**，非当前 Skill 路径承诺（见 `skill-vp-
 
 | # | Slug | 类型 | Catalog | 角色 | 说明 |
 |---|------|------|---------|------|------|
-| 41 | `skill-tr-text` | workflow | ✅ | 按需 | 片段中英互译；≥ 2 个备选译文 |
-| 42 | `skill-tr-doc` | workflow | ✅ | 按需 | 整篇文档翻译；保留层级与表格 |
-| 43 | `skill-tr-polish` | workflow | ✅ | 按需 | 译文润色；语气/术语/文体对照 |
+| 42 | `skill-tr-text` | workflow | ✅ | 按需 | 片段中英互译；≥ 2 个备选译文 |
+| 43 | `skill-tr-doc` | workflow | ✅ | 按需 | 整篇文档翻译；保留层级与表格 |
+| 44 | `skill-tr-polish` | workflow | ✅ | 按需 | 译文润色；语气/术语/文体对照 |
 
 ---
 
@@ -169,10 +170,10 @@ Remotion / 自动 MP4 为 **P1**，非当前 Skill 路径承诺（见 `skill-vp-
 
 | # | Slug | 类型 | Catalog | 角色 | 说明 |
 |---|------|------|---------|------|------|
-| 44 | `skill-mm-summary` | workflow | — | 占位 | 通用会议纪要（5 区块结构） |
-| 45 | `skill-mm-daily-standup` | workflow | — | 占位 | 站会 / 周会速记 |
-| 46 | `skill-mm-client-review` | workflow | — | 占位 | 客户沟通纪要 |
-| 47 | `skill-mm-internal-decision` | workflow | — | 占位 | 内部研讨 / 投决 |
+| 45 | `skill-mm-summary` | workflow | — | 占位 | 通用会议纪要（5 区块结构） |
+| 46 | `skill-mm-daily-standup` | workflow | — | 占位 | 站会 / 周会速记 |
+| 47 | `skill-mm-client-review` | workflow | — | 占位 | 客户沟通纪要 |
+| 48 | `skill-mm-internal-decision` | workflow | — | 占位 | 内部研讨 / 投决 |
 
 ---
 
@@ -193,7 +194,7 @@ Remotion / 自动 MP4 为 **P1**，非当前 Skill 路径承诺（见 `skill-vp-
 | `skill-mm-client-review` | 同上 |
 | `skill-mm-internal-decision` | 同上 |
 
-其余 **37** 个 Skill 中，**31** 个在 Catalog；**6** 个为模块基座或生产 Skill，基座本身不在 Catalog，其下游生产 Skill 在 Catalog 中。
+其余 **38** 个 Skill 均已写入 Catalog，其中 **32** 个带 `chat` scope，**6** 个为模块专属模板 / 工具 Skill。
 
 ---
 
@@ -230,6 +231,7 @@ Remotion / 自动 MP4 为 **P1**，非当前 Skill 路径承诺（见 `skill-vp-
 | `skill-tr-polish` | workflow | chat, translate |
 | `skill-tr-text` | workflow | chat, translate |
 | `skill-vp-base` | workflow | chat, video |
+| `skill-vp-poetic-visual-coding` | workflow | chat, video |
 | `skill-vp-screenplay-canvas` | workflow | chat, video |
 | `skill-vp-video-stage` | workflow | chat, video |
 | `skill-writing-general` | workflow | chat, writing |

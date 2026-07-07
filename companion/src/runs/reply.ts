@@ -32,7 +32,7 @@ export function buildSimulatedReply(
   const modeNote =
     effectiveMode === "deep"
       ? isComplexDeepQuestion(userText)
-        ? "【深度 · 完整研究】将展示研究导图与可导出摘要（演示）。"
+        ? "【深度 · 完整研究】将展示研究导图与可生成摘要文件（演示）。"
         : "【深度 · 分步推理】如下（演示）："
       : "";
 

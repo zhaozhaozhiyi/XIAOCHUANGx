@@ -2,7 +2,7 @@
 
 交付时**优先改本目录下的 `SKILL.md` 与 `references/`**，以及并列的 [`prompts/platform/`](../prompts/platform/)（平台身份、模式说明、对话编排指引），无需改 Web/Companion 业务代码（绑定关系见 `web/src/lib/module-registry.ts`；完整约定见 PRD §6.10 **F-RT-003**、**F-RT-008**）。
 
-**全量清单：** [SKILL-INVENTORY.md](./SKILL-INVENTORY.md)（47 个 Skill，37 条 Catalog，含模块绑定与角色说明）。
+**全量清单：** [SKILL-INVENTORY.md](./SKILL-INVENTORY.md)（48 个 Skill，38 条 Catalog，含模块绑定与角色说明）。
 
 ## 目录约定
 

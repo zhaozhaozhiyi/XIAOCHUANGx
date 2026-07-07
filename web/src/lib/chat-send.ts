@@ -21,5 +21,7 @@ export type ChatSendContext = {
   writingTemplateId?: string;
   /** PPT 模块 Skill 模板 ID */
   pptTemplateId?: string;
+  /** 视频模块类型 ID */
+  videoTemplateId?: string;
   attachments?: ChatPendingAttachment[];
 };

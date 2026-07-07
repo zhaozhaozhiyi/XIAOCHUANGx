@@ -69,7 +69,7 @@ export const NAV_MODULES: NavModule[] = [
       {
         label: "3D绘图",
         href: "/3d/new",
-        description: "参数化工业几何生成、预览与导出",
+        description: "参数化工业几何生成、预览与本地交付",
       },
     ],
   },

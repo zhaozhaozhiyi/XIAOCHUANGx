@@ -99,6 +99,7 @@ async function main(): Promise<void> {
     before,
     after,
     previewFallback?.relativePaths ?? [],
+    { moduleId: "3d" },
   );
   const paths = deliverables?.items.map((item) => item.path).sort() ?? [];
   const required = [

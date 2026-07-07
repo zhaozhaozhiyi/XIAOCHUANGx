@@ -12,12 +12,12 @@ test.describe("MVP settings menu", () => {
     await openUserMenu(page);
     await page.getByRole("menuitem", { name: "智能体与模型" }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
-    await expect(page.getByText("预置智能体组件")).toBeVisible();
+    await expect(page.getByText("已登记 CLI 智能体")).toBeVisible();
     await expect(page.getByText("Codex CLI")).toBeVisible();
 
     await page.getByRole("tab", { name: "模型 API" }).click();
-    await expect(page.getByText("启用模型 API")).toBeVisible();
-    await expect(page.getByRole("button", { name: "保存配置" })).toBeVisible();
+    await expect(page.getByText("添加模型厂商")).toBeVisible();
+    await expect(page.getByText("尚未配置模型厂商")).toBeVisible();
 
     await page.getByRole("button", { name: "账号与权限" }).click();
     await expect(page.getByText("登录手机号")).toBeVisible();
@@ -25,7 +25,7 @@ test.describe("MVP settings menu", () => {
 
     await page.getByRole("button", { name: "关于与帮助" }).click();
     await expect(page.getByText("复制诊断信息")).toBeVisible();
-    await expect(page.getByText("模拟管理员视图（原型）")).toBeVisible();
+    await expect(page.getByText("使用帮助与反馈")).toBeVisible();
   });
 
   test("sanitizes provider auth errors in settings notices", async ({ page }) => {
@@ -48,13 +48,8 @@ test.describe("MVP settings menu", () => {
 
     const providerCard = page.locator(".model-provider-card").first();
     await providerCard.getByRole("checkbox").check();
-    await providerCard
-      .locator('input.model-provider-input')
-      .nth(2)
-      .fill("https://api.openai.com/v1");
-    await providerCard
-      .getByPlaceholder("sk-...")
-      .fill("sk-proj-abc123xyz");
+    await providerCard.getByLabel("Base URL").fill("https://api.openai.com/v1");
+    await providerCard.getByLabel("API Key").fill("sk-proj-abc123xyz");
     await providerCard.getByRole("button", { name: "测试连接" }).click();
 
     await expect(

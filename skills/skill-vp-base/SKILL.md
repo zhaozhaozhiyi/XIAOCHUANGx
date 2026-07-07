@@ -5,7 +5,7 @@ task: base
 version: "0.1"
 status: p0-ready
 name: skill-vp-base
-description: 视频模块默认基座 Skill：收敛主题、受众、时长、画幅与风格，P0 选择并交接到网页视频生产 Skill。默认可路由到 skill-vp-video-stage，也支持更偏屏幕叙事的 skill-vp-screenplay-canvas；Remotion/自动 MP4 属于 P1，不在 P0 虚构承诺。
+description: 视频模块默认基座 Skill：收敛主题、受众、时长、画幅与风格，P0 选择并交接到网页视频生产 Skill。默认可路由到 skill-vp-video-stage、skill-vp-screenplay-canvas，也支持概念驱动的 p5.js 诗意短动画 skill-vp-poetic-visual-coding；Remotion/自动 MP4 属于 P1，不在 P0 虚构承诺。
 ---
 
 # 视频制作 · 基座流程
@@ -16,10 +16,11 @@ description: 视频模块默认基座 Skill：收敛主题、受众、时长、�
 生产 Skill，产出可预览、可录屏的项目。
 
 本 Skill 是视频模块的默认基座。当前阶段的首期闭环是：需求收敛 →
-口播稿 / outline → 网页视频项目 → 预览 → 可选录屏。P0 有两条主路径：
+口播稿 / outline → 网页视频项目 → 预览 → 可选录屏。P0 有三条主路径：
 
 - `skill-vp-video-stage`：更像视频舞台，产物为 `presentation/`
 - `skill-vp-screenplay-canvas`：更像屏幕叙事工作室，产物为 `studio/`
+- `skill-vp-poetic-visual-coding`：更像诗意短动画工作室，产物为可本地打开或预览的 p5.js `sketch.html`
 
 Remotion 渲染工具、`vp_*` 结构化卡片与 MP4 下载能力属于 P1，不作为
 P0 承诺。
@@ -29,6 +30,7 @@ P0 承诺。
 - 产品介绍片、研究结论讲解片、活动回顾、路演短片
 - 用户希望从报告、PPT 或自然语言 brief 生成视频脚本
 - 用户希望生成“像视频一样播放”的网页演示，并通过录屏得到成片
+- 用户希望把一个词、概念、情绪或参考画面做成 10-25 秒的 p5.js 诗意短动画
 - 用户明确要求 Remotion / 自动 MP4 时，说明该能力属于 P1；P0 可先交付网页视频项目
 
 ## 非范围
@@ -52,6 +54,11 @@ P0 承诺。
 如果信息不足，只追问缺失项。若信息已经足够，直接整理为视频需求摘要，
 并进入 P0 网页视频生产路径。
 
+若用户明确要求 `p5.js 动画`、`诗意动效`、`视觉复刻`、`音画同步`、一个词 /
+概念 / 情绪短片，或输入本身就是适合短动画的概念种子，不要强制追问完整
+受众、使用场景与长视频时长；概念足够时即可路由到
+`skill-vp-poetic-visual-coding`，画幅默认 3:4，时长默认 10-25 秒。
+
 ## 当前交付要求
 
 P0 默认交付：
@@ -59,6 +66,7 @@ P0 默认交付：
 - `script.md`：口播稿
 - `outline.md` 或 `beats.md`：开发计划
 - `presentation/` 或 `studio/`：Vite + React + TypeScript 网页视频项目
+- `sketch.html`：p5.js 诗意短动画单文件（仅走 poetic visual coding 时）
 - 对应预览与录屏入口
 
 不要把“计划生成”表述成“已经生成”。只有文件真实写入工作区后，才能
@@ -67,12 +75,13 @@ P0 默认交付：
 
 输出前必须做最小文件审计：
 
-1. 确认 `script.md` 存在且非空；
+1. 若走 `video-stage` / `screenplay-canvas`：确认 `script.md` 存在且非空；
 2. 若走 `video-stage`：确认 `outline.md` 存在且非空；
 3. 若走 `screenplay-canvas`：确认 `beats.md` 或 `direction.md` 存在；
-4. 确认 `presentation/package.json` 或 `studio/package.json` 存在；
-5. 确认至少一个节拍真相源存在：`narrations.ts` 或 `cues.ts`；
-6. 若已启动 dev server，回传真实 localhost URL；若未启动，明确给出启动命令。
+4. 若走 `poetic-visual-coding`：确认 `sketch.html` 存在且非空，若单独写了 `direction.md` 也确认非空；
+5. 若走 `video-stage` / `screenplay-canvas`：确认 `presentation/package.json` 或 `studio/package.json` 存在；
+6. 若走 `video-stage` / `screenplay-canvas`：确认至少一个节拍真相源存在：`narrations.ts` 或 `cues.ts`；
+7. 若已启动 dev server，回传真实 localhost URL；若未启动，明确给出启动命令。
 
 ## P0 路由规则
 
@@ -82,6 +91,9 @@ P0 默认交付：
   交接到 `skill-vp-video-stage`
 - 更强调“屏幕叙事 / 分镜感 / cue 驱动 / 可导演讲述”：
   交接到 `skill-vp-screenplay-canvas`
+- 更强调“p5.js / Processing / 诗意动效 / 概念短片 / 视觉复刻 / 音画同步 /
+  一个词或情绪生成 10-25 秒动画”：
+  交接到 `skill-vp-poetic-visual-coding`
 
 交接内容应包含：
 
@@ -92,6 +104,7 @@ P0 默认交付：
 5. 工作区目标结构：
    `video-stage` 路径：`article.md`、`script.md`、`outline.md`、`presentation/`
    `screenplay-canvas` 路径：`source.md`、`script.md`、`direction.md`、`beats.md`、`studio/`
+   `poetic-visual-coding` 路径：`direction.md`（可选但推荐）、`sketch.html`、可选 `sound-design.md`
 6. 交付前审计要求：必须检查文件真实存在，预览 URL 必须来自实际 dev server 地址
 
 当用户明确要求“自动生成 MP4 / Remotion / 可编程渲染”时：

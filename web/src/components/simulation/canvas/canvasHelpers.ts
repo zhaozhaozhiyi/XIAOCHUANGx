@@ -68,47 +68,79 @@ export function nodeKindLabel(kind: CanvasKind): string {
   }
 }
 
+export type NodeFamily =
+  | "boundary"
+  | "evidence"
+  | "reasoning"
+  | "risk"
+  | "action"
+  | "output";
+
+const KIND_TO_FAMILY: Record<CanvasKind, NodeFamily> = {
+  prompt: "boundary",
+  topic: "boundary",
+  entity: "boundary",
+  variable: "boundary",
+  evidence: "evidence",
+  hypothesis: "reasoning",
+  inference: "reasoning",
+  conclusion: "reasoning",
+  risk: "risk",
+  event: "risk",
+  recovery: "risk",
+  decision: "action",
+  action: "action",
+  next_action: "action",
+  suggestion: "action",
+  scenario: "output",
+  path: "output",
+  summary: "output",
+  report: "output",
+  history: "output",
+};
+
+const FAMILY_LABEL: Record<NodeFamily, string> = {
+  boundary: "边界/骨架",
+  evidence: "证据",
+  reasoning: "推理",
+  risk: "风险/异常",
+  action: "行动",
+  output: "产出",
+};
+
+const FAMILY_COLOR: Record<NodeFamily, string> = {
+  boundary: "#64748b",
+  evidence: "#0891b2",
+  reasoning: "#7c3aed",
+  risk: "#dc2626",
+  action: "#16a34a",
+  output: "#0f766e",
+};
+
+export const SIMULATION_NODE_FAMILY_LEGEND: Array<{
+  id: NodeFamily;
+  label: string;
+  color: string;
+}> = (Object.keys(FAMILY_LABEL) as NodeFamily[]).map((id) => ({
+  id,
+  label: FAMILY_LABEL[id],
+  color: FAMILY_COLOR[id],
+}));
+
+export function nodeFamily(kind: CanvasKind): NodeFamily {
+  return KIND_TO_FAMILY[kind];
+}
+
+export function nodeFamilyLabel(kind: CanvasKind): string {
+  return FAMILY_LABEL[nodeFamily(kind)];
+}
+
+export function nodeFamilyColor(family: NodeFamily): string {
+  return FAMILY_COLOR[family];
+}
+
 export function nodeColor(kind: CanvasKind): string {
-  switch (kind) {
-    case "prompt":
-      return "#64748b";
-    case "topic":
-      return "#111827";
-    case "entity":
-      return "#2563eb";
-    case "variable":
-      return "#7c3aed";
-    case "hypothesis":
-      return "#9333ea";
-    case "path":
-    case "scenario":
-      return "#059669";
-    case "risk":
-      return "#dc2626";
-    case "evidence":
-      return "#0891b2";
-    case "suggestion":
-    case "next_action":
-      return "#ca8a04";
-    case "inference":
-      return "#0d9488";
-    case "decision":
-      return "#ea580c";
-    case "action":
-      return "#65a30d";
-    case "history":
-      return "#475569";
-    case "summary":
-      return "#0f766e";
-    case "report":
-      return "#475569";
-    case "recovery":
-      return "#b45309";
-    case "conclusion":
-      return "#16a34a";
-    case "event":
-      return "#4f46e5";
-  }
+  return nodeFamilyColor(nodeFamily(kind));
 }
 
 export function nodeLayer(kind: CanvasKind): CanvasLayerId {

@@ -97,7 +97,7 @@ export function TemplatePreviewModal({
             className="btn btn-primary px-4 py-2 text-sm"
             onClick={onUseTemplate}
           >
-            使用此模板
+            使用此选择
           </button>
         </footer>
       </div>

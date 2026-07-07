@@ -130,6 +130,34 @@ async function main() {
     throw new Error("simulation variable intent was not preserved in binding");
   }
 
+  const videoPoeticRun = await buildCreateRunRequest({
+    sessionId: "video-poetic-binding-smoke",
+    projectId: NO_PROJECT_ID,
+    surfaceModuleId: "video",
+    videoTemplateId: "poetic",
+    mode: "deep",
+    agentId: "codex",
+    agentModel: "default",
+    messages: [
+      {
+        role: "user",
+        content: "用 p5.js 做一个关于迟疑的 15 秒诗意短动画",
+      },
+    ],
+  });
+  if (
+    videoPoeticRun.request.binding.moduleId !== "video" ||
+    videoPoeticRun.request.binding.templateId !== "poetic" ||
+    videoPoeticRun.request.processSkill !== "skill-vp-poetic-visual-coding"
+  ) {
+    throw new Error(
+      `video poetic type was not preserved: ${JSON.stringify({
+        binding: videoPoeticRun.request.binding,
+        processSkill: videoPoeticRun.request.processSkill,
+      })}`,
+    );
+  }
+
   console.log(
     JSON.stringify(
       {
@@ -140,6 +168,8 @@ async function main() {
           path: simulationPathRun.request.binding,
           variable: simulationVariableRun.request.binding,
         },
+        videoBinding: videoPoeticRun.request.binding,
+        videoProcessSkill: videoPoeticRun.request.processSkill,
       },
       null,
       2,

@@ -232,11 +232,19 @@ test.describe("MVP chat", () => {
   });
 
   test("opens an existing seeded history session", async ({ page }) => {
-    await page.getByRole("link", { name: /历史会话/ }).click();
+    await page.goto("/chat/history");
     await page.waitForURL("**/chat/history");
-    await page.getByRole("link", { name: /螺纹钢社会库存环比分析/ }).click();
+    await expect(page.getByRole("heading", { name: "历史会话" })).toBeVisible();
+    await page
+      .getByRole("main")
+      .getByRole("link", { name: /螺纹钢社会库存环比分析/ })
+      .click();
     await page.waitForURL("**/chat/1");
-    await expect(page.getByText("上周螺纹钢社会库存环比变化是多少？")).toBeVisible();
+    await expect(
+      page.locator(".bubble-user").filter({
+        hasText: "上周螺纹钢社会库存环比变化是多少？",
+      }),
+    ).toBeVisible();
     await expect(page.getByText("据已接入数据源，上周螺纹钢社会库存环比下降 2.3%。")).toBeVisible();
   });
 
@@ -316,6 +324,7 @@ test.describe("MVP chat", () => {
     const storageKey = `jlc-chat-messages-${sessionId}`;
 
     await page.addInitScript(([seedSessionId, seedStorageKey]) => {
+      if (window.localStorage.getItem(seedStorageKey)) return;
       const messages = [
         {
           id: "outline-user",
@@ -437,10 +446,22 @@ test.describe("MVP chat", () => {
         `jlc-chat-messages-${seedSessionId}`,
         JSON.stringify(messages),
       );
+      window.localStorage.setItem(
+        `jlc-chat-project-${seedSessionId}`,
+        "proj-mengdian",
+      );
+      window.localStorage.setItem(`jlc-chat-started-${seedSessionId}`, "1");
     }, [sessionId]);
 
+    const projectTreeReady = page.waitForResponse(
+      (response) =>
+        response.url().includes("/api/projects/proj-mengdian/tree") &&
+        response.status() === 200,
+    );
     await page.goto(`/chat/${sessionId}`);
     await expect(page.getByText("结果文件：")).toBeVisible();
+    await expect(page.getByRole("main").getByText("蒙电十五五")).toBeVisible();
+    await projectTreeReady;
 
     await page.getByRole("link", { name: "docs/product/PRD-小窗.md" }).click();
 
