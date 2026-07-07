@@ -62,6 +62,7 @@ mac:
 
 win:
   icon: build/icon.png
+  artifactName: "小窗-win-${version}.${ext}"
   target:
     - nsis
 
