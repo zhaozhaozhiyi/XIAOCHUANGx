@@ -49,6 +49,7 @@ asar: true
 mac:
   category: public.app-category.productivity
   icon: build/icon.icns
+  artifactName: "小窗-macos-${version}.${ext}"
   extendInfo:
     CFBundleName: 小窗
     CFBundleDisplayName: 小窗
