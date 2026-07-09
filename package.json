@@ -62,11 +62,11 @@
     "desktop:icons": "node scripts/generate-brand-icons.mjs",
     "desktop:dev": "pnpm --filter @jlc/desktop dev",
     "desktop:build": "pnpm --filter @jlc/desktop build",
-    "desktop:pack": "pnpm desktop:icons && pnpm --filter web build && pnpm --filter @jlc/desktop pack",
-    "desktop:pack:dir": "pnpm desktop:icons && pnpm --filter web build && pnpm --filter @jlc/desktop pack:dir",
-    "desktop:pack:release": "pnpm desktop:icons && pnpm --filter web build && pnpm --filter @jlc/desktop pack:release",
-    "desktop:pack:ci": "pnpm desktop:icons && pnpm --filter web build && pnpm --filter @jlc/desktop pack:ci",
-    "desktop:pack:ci:release": "pnpm desktop:icons && pnpm --filter web build && pnpm --filter @jlc/desktop pack:ci:release"
+    "desktop:pack": "pnpm desktop:icons && pnpm --filter web build && pnpm --filter @jlc/desktop run pack",
+    "desktop:pack:dir": "pnpm desktop:icons && pnpm --filter web build && pnpm --filter @jlc/desktop run pack:dir",
+    "desktop:pack:release": "pnpm desktop:icons && pnpm --filter web build && pnpm --filter @jlc/desktop run pack:release",
+    "desktop:pack:ci": "pnpm desktop:icons && pnpm --filter web build && pnpm --filter @jlc/desktop run pack:ci",
+    "desktop:pack:ci:release": "pnpm desktop:icons && pnpm --filter web build && pnpm --filter @jlc/desktop run pack:ci:release"
   },
   "engines": {
     "node": ">=20"
