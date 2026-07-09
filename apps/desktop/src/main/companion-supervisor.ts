@@ -57,6 +57,7 @@ const CRASH_THRESHOLD = 3; // 连续 3 次 health 失败 → crashed
 const RESTART_WINDOW_MS = 5 * 60 * 1000; // 5min 滑动窗口
 const RESTART_LIMIT = 3; // 5min 内 ≥3 次 → needs-manual-start
 const SPAWN_GRACE_MS = 8_000; // spawn 后给 8s 让 Companion 监听端口
+const READY_POLL_MS = 250;
 
 // -----------------------------------------------------------------------------
 // sidecar bundle 定位（D1.4 desktop-v1.1-roadmap.md §6）
@@ -180,6 +181,31 @@ export class CompanionSupervisor {
 
   getStatus(): CompanionStatus {
     return { ...this.status };
+  }
+
+  /**
+   * 首次启动桌面壳时给内置 Companion 一个就绪窗口，避免渲染层首屏在
+   * Companion 半启动状态下抢跑。超时后返回 false，后台轮询仍会继续接管。
+   */
+  async waitUntilHealthy(timeoutMs = SPAWN_GRACE_MS): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs;
+
+    while (!this.stopping) {
+      const health = await getCompanionHealth();
+      if (health.ok) {
+        this.consecutiveFailures = 0;
+        this.markRunning({
+          external: !this.child,
+          healthBody: health.body,
+        });
+        return true;
+      }
+
+      if (Date.now() >= deadline) return false;
+      await new Promise((resolve) => setTimeout(resolve, READY_POLL_MS));
+    }
+
+    return false;
   }
 
   /**

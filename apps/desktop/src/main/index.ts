@@ -27,6 +27,7 @@ import { resolveWebAppUrl } from "./web-url.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const LEGACY_PROJECT_ROOT = resolve(process.cwd(), "..");
+const PACKAGED_COMPANION_READY_TIMEOUT_MS = 12_000;
 
 function companionBaseUrl(): string {
   return (process.env.COMPANION_BASE_URL ?? "http://127.0.0.1:9477").replace(
@@ -143,7 +144,7 @@ async function createWindow(): Promise<void> {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   installDesktopBranding();
 
   ipcMain.handle("desktop:pick-and-import", async () => pickAndImportFolder());
@@ -152,7 +153,7 @@ app.whenReady().then(() => {
   // V1.1 D1.1：Companion 自动启动 / 健康守护（desktop-v1.1-roadmap.md §3）
   // 模块级单例；start() 异步触发，状态变化通过 IPC 'companion:status' 广播
   const supervisor = getCompanionSupervisor();
-  void supervisor.start();
+  await supervisor.start();
   ipcMain.handle("companion:get-status", () => supervisor.getStatus());
   ipcMain.handle("companion:restart", async () => supervisor.restart());
 
@@ -161,6 +162,10 @@ app.whenReady().then(() => {
   // 的状态会是默认 "starting" 占位 —— 也无所谓，supervisor 会在下一次
   // health 探测后再广播一遍真实状态。
   getTrayManager().install();
+
+  if (app.isPackaged) {
+    await supervisor.waitUntilHealthy(PACKAGED_COMPANION_READY_TIMEOUT_MS);
+  }
 
   // V1.1 D1.3：HMAC 注册（desktop-v1.1-roadmap.md §5）
   // - supervisor 状态首次到 running 时触发 ensureRegistered

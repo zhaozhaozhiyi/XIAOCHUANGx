@@ -51,7 +51,7 @@ async function findFreePort(): Promise<number> {
 async function waitForHttpReady(url: string, attempts = 60): Promise<boolean> {
   for (let i = 0; i < attempts; i += 1) {
     try {
-      const res = await fetch(`${url}/api/runtime/health`, {
+      const res = await fetch(url, {
         signal: AbortSignal.timeout(2000),
       });
       if (res.ok || res.status < 500) return true;
