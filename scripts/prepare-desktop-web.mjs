@@ -30,8 +30,23 @@ async function exists(path) {
   }
 }
 
+function isMissingPathError(err) {
+  return (
+    err &&
+    typeof err === "object" &&
+    "code" in err &&
+    err.code === "ENOENT"
+  );
+}
+
 async function copyPathResolvingSymlinks(source, target, active = new Set()) {
-  const sourceStat = await lstat(source);
+  let sourceStat;
+  try {
+    sourceStat = await lstat(source);
+  } catch (err) {
+    if (isMissingPathError(err)) return;
+    throw err;
+  }
 
   if (sourceStat.isSymbolicLink()) {
     const linkTarget = resolve(dirname(source), await readlink(source));
