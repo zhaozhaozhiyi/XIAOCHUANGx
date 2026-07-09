@@ -4,7 +4,7 @@
  */
 import {
   access,
-  cp,
+  copyFile,
   lstat,
   mkdir,
   readdir,
@@ -30,6 +30,35 @@ async function exists(path) {
   }
 }
 
+async function copyPathResolvingSymlinks(source, target, active = new Set()) {
+  const sourceStat = await lstat(source);
+
+  if (sourceStat.isSymbolicLink()) {
+    const linkTarget = resolve(dirname(source), await readlink(source));
+    return copyPathResolvingSymlinks(linkTarget, target, active);
+  }
+
+  const key = resolve(source);
+  if (sourceStat.isDirectory()) {
+    if (active.has(key)) return;
+    active.add(key);
+    await mkdir(target, { recursive: true });
+    for (const entry of await readdir(source, { withFileTypes: true })) {
+      await copyPathResolvingSymlinks(
+        join(source, entry.name),
+        join(target, entry.name),
+        active,
+      );
+    }
+    active.delete(key);
+    return;
+  }
+
+  await mkdir(dirname(target), { recursive: true });
+  await rm(target, { recursive: true, force: true });
+  await copyFile(source, target);
+}
+
 async function copyNextRuntimeDependencies(root, appRoot) {
   const pnpmDir = join(root, "node_modules", ".pnpm");
   if (!(await exists(pnpmDir))) return;
@@ -50,11 +79,7 @@ async function copyNextRuntimeDependencies(root, appRoot) {
     if (entry.name === "next" || entry.name === ".bin") continue;
     const source = join(nextNodeModules, entry.name);
     const target = join(appNodeModules, entry.name);
-    await cp(source, target, {
-      recursive: true,
-      dereference: true,
-      force: true,
-    });
+    await copyPathResolvingSymlinks(source, target);
   }
 }
 
@@ -68,7 +93,7 @@ async function main() {
 
   await rm(dest, { recursive: true, force: true });
   await mkdir(dirname(dest), { recursive: true });
-  await cp(standaloneSrc, dest, { recursive: true, dereference: true });
+  await copyPathResolvingSymlinks(standaloneSrc, dest);
 
   const appRoot = (await exists(join(dest, "web")))
     ? join(dest, "web")
@@ -77,21 +102,18 @@ async function main() {
   if (await exists(staticSrc)) {
     const staticDest = join(appRoot, ".next", "static");
     await mkdir(dirname(staticDest), { recursive: true });
-    await cp(staticSrc, staticDest, { recursive: true, dereference: true });
+    await copyPathResolvingSymlinks(staticSrc, staticDest);
   }
 
   if (await exists(publicSrc)) {
-    await cp(publicSrc, join(appRoot, "public"), {
-      recursive: true,
-      dereference: true,
-    });
+    await copyPathResolvingSymlinks(publicSrc, join(appRoot, "public"));
   }
 
   const nextLink = join(appRoot, "node_modules", "next");
   if ((await exists(nextLink)) && (await lstat(nextLink)).isSymbolicLink()) {
     const target = resolve(dirname(nextLink), await readlink(nextLink));
     await rm(nextLink, { recursive: true, force: true });
-    await cp(target, nextLink, { recursive: true, dereference: true });
+    await copyPathResolvingSymlinks(target, nextLink);
   }
 
   await copyNextRuntimeDependencies(dest, appRoot);
