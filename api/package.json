@@ -1,6 +1,6 @@
 {
   "name": "@jlc/api",
-  "version": "0.1.4-alpha",
+  "version": "0.1.4-alpha.1",
   "private": true,
   "scripts": {
     "prebuild": "prisma generate",

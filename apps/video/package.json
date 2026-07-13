@@ -1,6 +1,6 @@
 {
   "name": "@jlc/video",
-  "version": "0.1.4-alpha",
+  "version": "0.1.4-alpha.1",
   "private": true,
   "type": "module",
   "scripts": {

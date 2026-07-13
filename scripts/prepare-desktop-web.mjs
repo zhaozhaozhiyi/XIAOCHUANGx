@@ -2,8 +2,8 @@
  * 将 web/ 的 Next standalone 产物复制到 apps/desktop/resources/web-standalone
  * 供 electron-builder extraResources 与打包态内嵌 Web 服务使用。
  */
-import { access, cp, lstat, mkdir, readlink, rm } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { access, cp, mkdir, readdir, rm, stat } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -22,6 +22,88 @@ async function exists(path) {
   }
 }
 
+async function isDirectory(path) {
+  try {
+    return (await stat(path)).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+async function copyPackage(source, targetNodeModules, packageName, copied) {
+  if (copied.has(packageName) || !(await isDirectory(source))) {
+    return false;
+  }
+
+  const target = join(targetNodeModules, ...packageName.split("/"));
+  await mkdir(dirname(target), { recursive: true });
+  await rm(target, { recursive: true, force: true });
+  await cp(source, target, { recursive: true, dereference: true });
+  copied.add(packageName);
+  return true;
+}
+
+async function materializePnpmStore(sourceNodeModules, targetNodeModules) {
+  const store = join(sourceNodeModules, ".pnpm");
+  if (!(await exists(store))) {
+    return 0;
+  }
+
+  await mkdir(targetNodeModules, { recursive: true });
+
+  const copied = new Set();
+  for (const storeEntry of await readdir(store, { withFileTypes: true })) {
+    if (!storeEntry.isDirectory() || storeEntry.name === "node_modules") {
+      continue;
+    }
+
+    const packageNodeModules = join(store, storeEntry.name, "node_modules");
+    if (!(await exists(packageNodeModules))) {
+      continue;
+    }
+
+    for (const packageEntry of await readdir(packageNodeModules, {
+      withFileTypes: true,
+    })) {
+      if (packageEntry.name.startsWith(".")) {
+        continue;
+      }
+
+      const packageSource = join(packageNodeModules, packageEntry.name);
+      if (packageEntry.name.startsWith("@")) {
+        if (!(await isDirectory(packageSource))) {
+          continue;
+        }
+
+        for (const scopedEntry of await readdir(packageSource, {
+          withFileTypes: true,
+        })) {
+          if (scopedEntry.name.startsWith(".")) {
+            continue;
+          }
+
+          await copyPackage(
+            join(packageSource, scopedEntry.name),
+            targetNodeModules,
+            `${packageEntry.name}/${scopedEntry.name}`,
+            copied,
+          );
+        }
+        continue;
+      }
+
+      await copyPackage(
+        packageSource,
+        targetNodeModules,
+        packageEntry.name,
+        copied,
+      );
+    }
+  }
+
+  return copied.size;
+}
+
 async function main() {
   if (!(await exists(standaloneSrc))) {
     console.error(
@@ -38,6 +120,15 @@ async function main() {
     ? join(dest, "web")
     : dest;
 
+  const materializedPackages = await materializePnpmStore(
+    join(dest, "node_modules"),
+    join(appRoot, "node_modules"),
+  );
+
+  if (appRoot !== dest) {
+    await rm(join(dest, "node_modules"), { recursive: true, force: true });
+  }
+
   if (await exists(staticSrc)) {
     const staticDest = join(appRoot, ".next", "static");
     await mkdir(dirname(staticDest), { recursive: true });
@@ -51,14 +142,8 @@ async function main() {
     });
   }
 
-  const nextLink = join(appRoot, "node_modules", "next");
-  if ((await exists(nextLink)) && (await lstat(nextLink)).isSymbolicLink()) {
-    const target = resolve(dirname(nextLink), await readlink(nextLink));
-    await rm(nextLink, { recursive: true, force: true });
-    await cp(target, nextLink, { recursive: true, verbatimSymlinks: true });
-  }
-
   console.log("desktop web bundle:", dest);
+  console.log("materialized packages:", materializedPackages);
 }
 
 main().catch((err) => {

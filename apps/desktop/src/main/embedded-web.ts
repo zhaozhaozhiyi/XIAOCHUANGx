@@ -71,12 +71,21 @@ export async function startEmbeddedWebServer(): Promise<string | null> {
   if (startedUrl) return startedUrl;
 
   const serverJs = await resolveStandaloneServerJs();
-  if (!serverJs) return null;
+  if (!serverJs) {
+    console.error("[desktop] embedded web server.js not found", {
+      packaged: app.isPackaged,
+      resourcesPath: process.resourcesPath,
+      root: standaloneResourceRoot(),
+    });
+    return null;
+  }
 
   const port = await findFreePort();
   const cwd = dirname(serverJs);
   const hostname = "127.0.0.1";
   const url = `http://${hostname}:${port}`;
+
+  console.info("[desktop] starting embedded web", { serverJs, cwd, url });
 
   const spawned = spawn(process.execPath, [serverJs], {
     cwd,
@@ -87,22 +96,33 @@ export async function startEmbeddedWebServer(): Promise<string | null> {
       HOSTNAME: hostname,
       NODE_ENV: "production",
     },
-    stdio: "ignore",
+    stdio: ["ignore", "ignore", "pipe"],
   });
 
   child = spawned;
 
-  spawned.on("exit", () => {
+  spawned.stderr?.on("data", (chunk: Buffer) => {
+    console.error("[desktop] embedded web stderr:", chunk.toString("utf8"));
+  });
+
+  spawned.on("error", (err) => {
+    console.error("[desktop] embedded web spawn failed:", err);
+  });
+
+  spawned.on("exit", (code, signal) => {
+    console.warn("[desktop] embedded web exited", { code, signal });
     child = null;
     startedUrl = null;
   });
 
   const ready = await waitForHttpReady(url);
   if (!ready) {
+    console.error("[desktop] embedded web did not become ready", { url });
     stopEmbeddedWebServer();
     return null;
   }
 
+  console.info("[desktop] embedded web ready", { url, pid: spawned.pid });
   startedUrl = url;
   return url;
 }
