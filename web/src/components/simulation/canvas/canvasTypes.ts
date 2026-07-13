@@ -111,6 +111,7 @@ export type CanvasEdgeData = Record<string, unknown> & {
   label?: string;
   isSelected?: boolean;
   isHovered?: boolean;
+  isImpactHighlighted?: boolean;
   sourceLabel?: string;
   targetLabel?: string;
   onInsertNode?: (request: EdgeInsertRequest) => void;
@@ -148,6 +149,83 @@ export type InterventionImpact = {
   // 排除 locked 节点（受 preserving-upstream 保护，不自动作废）。
   // 用于向 AI 明确告知哪些节点需要重新评估，驱动 wave-protocol 的 rerun 语义。
   staleCandidates: SimulationNode[];
+};
+
+export type CanvasActionReceiptStatus =
+  | "queued"
+  | "sent"
+  | "running"
+  | "failed"
+  | "done";
+
+export type CanvasActionReceipt = {
+  id: string;
+  actionId: string;
+  targetId?: string;
+  targetLabel?: string;
+  targetKind?: string;
+  title: string;
+  body: string;
+  status: CanvasActionReceiptStatus;
+  impactSummary?: {
+    nodes: number;
+    edges: number;
+    paths: number;
+    scenarios: number;
+  };
+  impactLines?: string[];
+  createsNewRound?: boolean;
+  oldRoundPreserved?: boolean;
+  autoCollapse?: boolean;
+};
+
+export type CanvasActionFeedbackInput = {
+  actionId: string;
+  title?: string;
+  body: string;
+  targetId?: string;
+  targetLabel?: string;
+  targetKind?: string;
+  impact?: InterventionImpact | null;
+  impactSummary?: CanvasActionReceipt["impactSummary"];
+  impactLines?: string[];
+  createsNewRound?: boolean;
+  oldRoundPreserved?: boolean;
+  status?: CanvasActionReceiptStatus;
+  autoCollapse?: boolean;
+};
+
+export type CanvasOperationLogEntry = {
+  id: string;
+  actionId: string;
+  title: string;
+  targetId?: string;
+  targetLabel?: string;
+  targetKind?: string;
+  status: CanvasActionReceiptStatus;
+  createdAt: number;
+  createsNewRound: boolean;
+  requestsReport: boolean;
+};
+
+export type SimulationBoundaryDraft = {
+  question: string;
+  goal: string;
+  timeRange: string;
+  spaceRange: string;
+  industry: string;
+  actors: string;
+  keyVariables: string;
+  initialAssumptions: string;
+  note: string;
+};
+
+export type SimulationBoundaryChange = {
+  field: keyof SimulationBoundaryDraft;
+  label: string;
+  before: string;
+  after: string;
+  core: boolean;
 };
 
 export type CanvasLayerId =

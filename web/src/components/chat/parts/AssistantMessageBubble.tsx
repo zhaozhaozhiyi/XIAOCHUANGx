@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
+import { useSettings } from "@/components/settings/SettingsContext";
 import type { ChatMessage } from "@/lib/chat";
+import { localizeAgentMentions } from "@/lib/settings";
 import type { ChatPart, OutlineCommitPayload } from "@/lib/chat-parts";
 import { computeThinkingGaps } from "@/lib/chat-thinking-gap";
 import { selectHasAssistantSummaryContent } from "@/lib/chat-message-selectors";
@@ -82,9 +84,13 @@ export function AssistantMessageBubble({
   onRequirementsDraftChange,
   onOutlineCommitted,
 }: Props) {
+  const { settings } = useSettings();
   const status = message.status ?? "complete";
   const hasSummary = selectHasAssistantSummaryContent(message);
   const viewModel = useMemo(() => buildTurnViewModel(message), [message]);
+  const waitingMessage = viewModel.waitingMessage
+    ? localizeAgentMentions(viewModel.waitingMessage, settings.agentAliases)
+    : null;
   const gaps = useMemo(
     () =>
       computeThinkingGaps(message.parts ?? [], {
@@ -129,8 +135,8 @@ export function AssistantMessageBubble({
   return (
     <div className="bubble-assistant">
       <div className="chat-assistant-message">
-        {viewModel.waitingMessage ? (
-          <WaitingUserCallout message={viewModel.waitingMessage} />
+        {waitingMessage ? (
+          <WaitingUserCallout message={waitingMessage} />
         ) : null}
 
         {hasContent ? (

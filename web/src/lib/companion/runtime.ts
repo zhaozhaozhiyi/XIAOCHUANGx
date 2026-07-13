@@ -54,8 +54,9 @@ export async function fetchRunEvents(
 export async function fetchSimulationRounds(
   sessionId: string,
 ): Promise<CompanionSimulationRoundsResponse> {
+  const q = new URLSearchParams({ sessionId });
   return fetchJson<CompanionSimulationRoundsResponse>(
-    `/api/sessions/${encodeURIComponent(sessionId)}/simulation/rounds`,
+    `/api/simulation-rounds?${q}`,
   );
 }
 
@@ -63,7 +64,11 @@ export async function fetchSimulationSnapshot(input: {
   sessionId: string;
   roundId: string;
 }): Promise<CompanionSimulationSnapshotResponse> {
+  const q = new URLSearchParams({
+    sessionId: input.sessionId,
+    roundId: input.roundId,
+  });
   return fetchJson<CompanionSimulationSnapshotResponse>(
-    `/api/sessions/${encodeURIComponent(input.sessionId)}/simulation/rounds/${encodeURIComponent(input.roundId)}`,
+    `/api/simulation-snapshot?${q}`,
   );
 }

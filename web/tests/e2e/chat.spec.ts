@@ -29,7 +29,11 @@ test.describe("MVP chat", () => {
   test.beforeEach(async ({ page }) => {
     await seedAuthenticatedSession(page);
     await page.goto("/chat");
-    await expect(page.getByText("今天要处理什么？")).toBeVisible();
+    await expect(
+      page.getByRole("main").getByRole("heading", {
+        name: "今天要处理什么？",
+      }),
+    ).toBeVisible();
   });
 
   test("creates a new chat and receives a mock streamed reply", async ({

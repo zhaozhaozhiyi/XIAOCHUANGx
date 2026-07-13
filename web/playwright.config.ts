@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 import fs from "node:fs";
 
-const PORT = Number(process.env.PLAYWRIGHT_PORT ?? 3000);
+const PORT = Number(process.env.PLAYWRIGHT_PORT ?? process.env.PORT ?? 3100);
 const baseURL = `http://localhost:${PORT}`;
 const configuredWorkers = Number(process.env.PLAYWRIGHT_WORKERS ?? 1);
 const workers =
@@ -19,6 +19,7 @@ const hasChrome = fs.existsSync(chromePath);
 const webServerEnv = Object.fromEntries(
   Object.entries({
     ...process.env,
+    PORT: String(PORT),
     CHAT_EXECUTION: "companion",
     COMPANION_USE_MOCK: "true",
     HERMES_USE_MOCK: "true",
@@ -51,11 +52,11 @@ export default defineConfig({
       : undefined,
   },
   webServer: {
-    command: "npm run dev",
+    command: `npm run dev -- --port ${PORT}`,
     url: baseURL,
     cwd: ".",
     env: webServerEnv,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: process.env.PLAYWRIGHT_REUSE_SERVER === "1",
     timeout: 120_000,
   },
   projects: [

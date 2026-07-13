@@ -1,4 +1,5 @@
 import type { AgentId } from "@/lib/settings";
+import { getAgentDisplayName } from "@/lib/settings";
 import type { CompanionAgentState } from "@/lib/companion/types";
 import type { ChatExecutionMode } from "@/lib/companion/config";
 
@@ -33,22 +34,27 @@ export async function fetchRuntimeHealth(): Promise<RuntimeHealthResponse> {
 export function runtimeStatusTitle(
   health: RuntimeHealthResponse,
   selectedAgentId?: AgentId,
+  agentAliases?: Partial<Record<AgentId, string>>,
 ): string {
   if (health.execution === "companion") {
     if (!health.ok) {
       return `Companion 未连接 · ${health.error ?? "请启动本机 Companion 或开启 COMPANION_USE_MOCK"}`;
     }
     if (health.mode === "mock") {
-      return selectedAgentId
-        ? `Companion Mock · 将模拟 spawn ${selectedAgentId} CLI`
+      const agentName = selectedAgentId
+        ? getAgentDisplayName(selectedAgentId, agentAliases)
+        : null;
+      return agentName
+        ? `Companion Mock · 将模拟 spawn ${agentName}`
         : "Companion Mock · 本机 CLI 模拟";
     }
     const agent = health.agents?.find((a) => a.agentId === selectedAgentId);
     const runSuffix = health.runMode ? ` · ${health.runMode}` : "";
     if (selectedAgentId && agent) {
+      const agentName = getAgentDisplayName(selectedAgentId, agentAliases);
       return agent.status === "available"
-        ? `Companion 已连接 · ${selectedAgentId} CLI 可用${runSuffix}`
-        : `Companion 已连接 · ${selectedAgentId}: ${agent.status}${runSuffix}`;
+        ? `Companion 已连接 · ${agentName} 可用${runSuffix}`
+        : `Companion 已连接 · ${agentName}: ${agent.status}${runSuffix}`;
     }
     if (health.agentsStatus === "skipped") {
       return `Companion 已连接${runSuffix} · Agent 状态请在设置中检测`;

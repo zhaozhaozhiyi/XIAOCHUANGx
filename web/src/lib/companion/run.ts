@@ -186,16 +186,16 @@ export async function buildCreateRunRequest(
   const orchestration = resolveChatOrchestration({ mode });
   const writingTemplateId =
     surfaceModuleId === "writing"
-      ? parsed.writingTemplateId?.trim() || "general"
-      : "general";
+      ? parsed.writingTemplateId?.trim() || undefined
+      : undefined;
   const pptTemplateId =
     surfaceModuleId === "ppt"
-      ? parsed.pptTemplateId?.trim() || "pitch-deck"
-      : "pitch-deck";
+      ? parsed.pptTemplateId?.trim() || undefined
+      : undefined;
   const videoTemplateId =
     surfaceModuleId === "video"
-      ? parsed.videoTemplateId?.trim() || "auto"
-      : "auto";
+      ? parsed.videoTemplateId?.trim() || undefined
+      : undefined;
 
   const moduleSkills =
     surfaceModuleId === "writing"
@@ -299,13 +299,13 @@ export async function buildCreateRunRequest(
         surfaceModuleId === "writing"
           ? {
               moduleId: "writing" as const,
-              templateId: writingTemplateId,
+              ...(writingTemplateId ? { templateId: writingTemplateId } : {}),
             }
           : surfaceModuleId === "ppt"
             ? {
                 moduleId: "ppt" as const,
                 task: "deck" as const,
-                templateId: pptTemplateId,
+                ...(pptTemplateId ? { templateId: pptTemplateId } : {}),
               }
             : surfaceModuleId === "3d"
               ? {
@@ -314,7 +314,7 @@ export async function buildCreateRunRequest(
               : surfaceModuleId === "video"
                 ? {
                     moduleId: "video" as const,
-                    templateId: videoTemplateId,
+                    ...(videoTemplateId ? { templateId: videoTemplateId } : {}),
                   }
                 : surfaceModuleId === "simulation"
                   ? {

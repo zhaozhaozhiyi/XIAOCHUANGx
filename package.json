@@ -1,6 +1,6 @@
 {
   "name": "jlc-research-platform",
-  "version": "0.1.3-alpha",
+  "version": "0.1.4-alpha",
   "private": true,
   "scripts": {
     "dev": "node scripts/dev-all.mjs",
@@ -33,6 +33,7 @@
     "smoke:3d:licenses": "node scripts/smoke-openscad-licenses.mjs",
     "smoke:video": "pnpm smoke:video:module-routes && pnpm smoke:video:ai-ui-parts && pnpm smoke:video:web-presentation && pnpm smoke:video:reel && pnpm smoke:video:auto",
     "smoke:simulation": "pnpm -C companion exec tsx --tsconfig ../web/tsconfig.json ../scripts/smoke-simulation-p0.ts",
+    "smoke:simulation:actions": "pnpm -C companion exec tsx --tsconfig ../web/tsconfig.json ../scripts/verify-simulation-action-registry.ts",
     "smoke:simulation:ui": "pnpm --filter web exec node ../scripts/smoke-simulation-ui.mjs",
     "smoke:video:module-routes": "pnpm -C companion exec tsx --tsconfig ../web/tsconfig.json ../scripts/smoke-module-session-paths.ts",
     "smoke:video:ai-ui-parts": "pnpm -C companion exec tsx --tsconfig ../web/tsconfig.json ../scripts/smoke-video-ai-ui-parts.ts",

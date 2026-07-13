@@ -6,7 +6,7 @@ import type {
 } from "@/lib/companion/types";
 import {
   AGENT_DEFINITIONS,
-  agentLabel,
+  getAgentDisplayName,
   type AgentDefinition,
   type AgentId,
   type CliStatus,
@@ -124,24 +124,26 @@ export function resolveSelectableAgentIdRuntime(
 export function assertAgentAvailableRuntime(
   runtime: AgentsRuntimeState,
   agentId: AgentId,
+  aliases?: Partial<Record<AgentId, string>>,
 ): string | null {
+  const name = getAgentDisplayName(agentId, aliases);
   if (runtime.execution === "companion" && runtime.mode === "live") {
     if (!runtime.loaded) return null;
     const state = getAgentRuntimeState(runtime, agentId);
     if (!state) {
-      return `${agentLabel(agentId)} 状态未知，请在设置中重新检测`;
+      return `${name} 状态未知，请在设置中重新检测`;
     }
     if (state.status === "available") return null;
     if (state.status === "needs_login") {
-      return `${agentLabel(agentId)} 需要先完成登录${state.hint ? `：${state.hint}` : ""}`;
+      return `${name} 需要先完成登录${state.hint ? `：${state.hint}` : ""}`;
     }
     if (state.status === "not_installed") {
-      return `${agentLabel(agentId)} 未安装，请在设置中查看安装指引`;
+      return `${name} 未安装，请在设置中查看安装指引`;
     }
     if (state.status === "timeout") {
-      return `${agentLabel(agentId)} 探测超时${state.hint ? `：${state.hint}` : ""}`;
+      return `${name} 探测超时${state.hint ? `：${state.hint}` : ""}`;
     }
-    return `${agentLabel(agentId)} 版本过低，请按安装指引升级后重试`;
+    return `${name} 版本过低，请按安装指引升级后重试`;
   }
   return null;
 }

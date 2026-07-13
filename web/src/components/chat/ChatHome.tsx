@@ -10,7 +10,6 @@ import { ChatTopBar } from "./ChatTopBar";
 import type { ChatComposerSendPayload } from "./ChatComposer";
 import { useChatAgentSelection } from "./useChatAgentSelection";
 import { setPendingSession } from "@/lib/chat";
-import { useSidebarCollapsed } from "@/components/layout/SidebarLayoutContext";
 import { useWorkspaceProject } from "@/components/workspace/WorkspaceProjectContext";
 import {
   getResearchProject,
@@ -42,7 +41,6 @@ export function ChatHome({
   const suggestions = getChatHomeSuggestions(surfaceModuleId);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const sidebarCollapsed = useSidebarCollapsed();
   const { executionSource, agentId, agentModel, selectAgentModel } =
     useChatAgentSelection();
   const [projectId, setProjectId] = useState(() => {
@@ -124,7 +122,6 @@ export function ChatHome({
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <ChatTopBar
-        sidebarCollapsed={sidebarCollapsed}
         left={
           <ChatAgentModelPicker
             executionSource={executionSource}

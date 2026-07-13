@@ -20,6 +20,8 @@ type DecisionBranchPrompt = {
 export type SimulationInterventionAction = {
   label: string;
   prompt: string;
+  actionId?: string;
+  createsNewRound?: boolean;
 };
 
 export function composePromptLines(lines: Array<string | undefined | null | false>) {
@@ -70,6 +72,8 @@ export function buildInterventionActions({
       return [
         {
           label: "确认边界并开始",
+          actionId: "topic.generateWorldModel",
+          createsNewRound: true,
           prompt: withBase(
             "我确认这个问题定义，可以开始第 1 轮推演。",
             "请从 Topic 继续生成世界模型层：Entity、Variable、Hypothesis，并保留 Prompt→Topic 的问题层关系。",
@@ -77,6 +81,8 @@ export function buildInterventionActions({
         },
         {
           label: "补充边界",
+          actionId: "topic.addBoundaryCondition",
+          createsNewRound: false,
           prompt: withBase(
             "我需要补充这个问题定义。",
             "请先指出当前 Topic 还缺哪些边界字段，并生成可修改的问题定义节点。",
@@ -87,6 +93,8 @@ export function buildInterventionActions({
       return [
         {
           label: "调整变量重算",
+          actionId: "variable.recalculate",
+          createsNewRound: true,
           prompt: withBase(
             "我要调整这个变量并重新推演。",
             "请先给出影响预览：会影响哪些节点、边、Scenario 和结论；确认后生成新 Round。",
@@ -94,6 +102,8 @@ export function buildInterventionActions({
         },
         {
           label: "锁定变量",
+          actionId: "variable.lock",
+          createsNewRound: false,
           prompt: withBase(
             "请锁定这个变量。",
             "后续推演保持该变量不被自动改写，并说明它会限制哪些路径变化。",
@@ -104,6 +114,8 @@ export function buildInterventionActions({
       return [
         {
           label: "假设发生",
+          actionId: "event.assumeHappens",
+          createsNewRound: true,
           prompt: withBase(
             "假设这个事件发生。",
             "请按 IF/THEN 重新推演下游 Inference、Risk、Conclusion 和 Scenario。",
@@ -111,6 +123,8 @@ export function buildInterventionActions({
         },
         {
           label: "假设未发生",
+          actionId: "event.assumeNotHappens",
+          createsNewRound: true,
           prompt: withBase(
             "假设这个事件未发生。",
             "请保留原事件为历史假设，并生成不发生时的替代路径。",
@@ -121,6 +135,8 @@ export function buildInterventionActions({
       return [
         {
           label: "修改假设",
+          actionId: "hypothesis.replace",
+          createsNewRound: true,
           prompt: withBase(
             "我要修改这个假设。",
             "请先说明该假设影响的变量、推理链和情景路径，再等待我给出新假设值。",
@@ -128,6 +144,8 @@ export function buildInterventionActions({
         },
         {
           label: "生成分支",
+          actionId: "hypothesis.branch",
+          createsNewRound: true,
           prompt: withBase(
             "请基于这个假设生成分支。",
             "将当前假设和替代假设分别形成 Scenario，不覆盖当前轮次。",
@@ -138,6 +156,8 @@ export function buildInterventionActions({
       return [
         {
           label: "重新推理",
+          actionId: "inference.recalculate",
+          createsNewRound: true,
           prompt: withBase(
             "请重新推理这一段。",
             "只重算该 Inference 的下游节点，并说明依据、置信度和变化点。",
@@ -145,6 +165,8 @@ export function buildInterventionActions({
         },
         {
           label: "寻找反证",
+          actionId: "inference.counterEvidence",
+          createsNewRound: true,
           prompt: withBase(
             "请挑战这段推理。",
             "生成反证、替代解释和可能被影响的结论节点。",
@@ -155,6 +177,8 @@ export function buildInterventionActions({
       return [
         {
           label: "加入缓释措施",
+          actionId: "risk.addMitigation",
+          createsNewRound: true,
           prompt: withBase(
             "请为这个风险加入缓释措施。",
             "生成 Action 节点，并重新评估风险概率、影响和可控程度。",
@@ -165,6 +189,8 @@ export function buildInterventionActions({
       return [
         {
           label: "比较分支",
+          actionId: "decision.compareBranches",
+          createsNewRound: false,
           prompt: withBase(
             "请比较这个决策的所有分支。",
             "为每个分支生成对应 Scenario，并列出关键变量和阶段结论差异。",
@@ -175,6 +201,8 @@ export function buildInterventionActions({
       return [
         {
           label: "模拟行动效果",
+          actionId: "action.simulate",
+          createsNewRound: true,
           prompt: withBase(
             "请模拟这个行动的效果。",
             "说明该 Action 会改变哪些变量、风险、推理链和情景路径。",
@@ -185,6 +213,8 @@ export function buildInterventionActions({
       return [
         {
           label: "挑战结论",
+          actionId: "conclusion.challenge",
+          createsNewRound: true,
           prompt: withBase(
             "请挑战这个阶段结论。",
             "生成反驳路径、支撑证据缺口和需要重新推理的节点。",
@@ -195,6 +225,8 @@ export function buildInterventionActions({
       return [
         {
           label: "对比情景",
+          actionId: "scenario.compareBaseline",
+          createsNewRound: false,
           prompt: withBase(
             "请对比这个情景与 Baseline。",
             "高亮差异节点、差异边、关键变量、风险等级和阶段结论。",
@@ -205,6 +237,8 @@ export function buildInterventionActions({
       return [
         {
           label: "核验证据",
+          actionId: "evidence.verify",
+          createsNewRound: false,
           prompt: withBase(
             "请核验这个证据。",
             "说明来源可信度、更新时间、引用位置，以及它支撑或削弱了哪些推理。",
@@ -626,7 +660,11 @@ export function buildTopicBoundaryPrompt({
   const confirmationInstruction =
     operation === "确认"
       ? "如果操作是确认：请先将 Topic 节点标记为 status=confirmed，并将 data.state 设置为 modeling_world；然后再生成世界模型层节点。"
-      : "如果操作不是确认：只更新问题定义表单，保持 data.state=waiting_boundary_confirmation，暂不要生成世界模型层节点。";
+      : operation === "继续"
+        ? "如果操作是继续：请基于当前已确认世界模型生成下一轮推演，保留旧 Round 可回看，并明确新增节点、路径和结论变化。"
+        : operation === "影响"
+          ? "如果操作是查看影响：只输出影响范围分析，不修改图结构，也不要开始重算。"
+          : "如果操作是修改或补充：只更新问题定义表单，保持 data.state=waiting_boundary_confirmation；若触及核心边界，必须等待用户确认生成新版世界模型，暂不要静默覆盖旧 Round。";
   return composePromptLines([
     "请基于这个问题定义节点继续推演：",
     `Topic ID：${node.id}`,

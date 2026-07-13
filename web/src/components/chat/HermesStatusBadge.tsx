@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSettings } from "@/components/settings/SettingsContext";
 import {
   fetchRuntimeHealth,
   runtimeStatusTitle,
@@ -17,6 +18,7 @@ type HermesStatusDotProps = {
 
 /** 对话顶栏：运行时连通状态（Companion 或 Hermes 开发捷径） */
 export function HermesStatusDot({ framed = false, agentId }: HermesStatusDotProps) {
+  const { settings } = useSettings();
   const [health, setHealth] = useState<RuntimeHealthResponse | { status: "loading" }>({
     status: "loading",
   });
@@ -55,7 +57,7 @@ export function HermesStatusDot({ framed = false, agentId }: HermesStatusDotProp
 
   const title = loading
     ? "连接中…"
-    : runtimeStatusTitle(ready!, agentId);
+    : runtimeStatusTitle(ready!, agentId, settings.agentAliases);
 
   const dot = (
     <span

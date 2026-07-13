@@ -6,8 +6,10 @@ import { ChatMarkdown } from "@/components/chat/parts/ChatMarkdown";
 import { DeliverablesCard } from "@/components/chat/parts/DeliverablesCard";
 import {
   SimulationActionButton,
+  SimulationActionMoreMenu,
   SimulationActionButtonRow,
 } from "@/components/simulation/SimulationActionButtons";
+import { SimulationActionReceipt } from "@/components/simulation/SimulationActionReceipt";
 import {
   SimulationImpactPreviewCard,
   SimulationStructuredInfoCard,
@@ -41,6 +43,8 @@ import {
 import type { SimulationNode, SimulationPath } from "@/lib/chat-parts";
 import type {
   CanvasNodeData,
+  CanvasActionFeedbackInput,
+  CanvasActionReceipt,
   DetailRow,
   InterventionImpact,
   NormalizedScenario,
@@ -76,6 +80,7 @@ type SimulationCanvasInspectorProps = {
   selectedDecisionBranches: SimulationDecisionBranch[];
   selectedRelatedPaths: SimulationPath[];
   pendingIntervention: PendingIntervention | null;
+  actionReceipt: CanvasActionReceipt | null;
   effectiveSelectedNodeId: string | null;
   scenario: Scenario;
   normalizedScenario: NormalizedScenario;
@@ -86,6 +91,8 @@ type SimulationCanvasInspectorProps = {
   setSelectedNodeId: Dispatch<SetStateAction<string | null>>;
   setPendingIntervention: Dispatch<SetStateAction<PendingIntervention | null>>;
   setVariableDrafts: Dispatch<SetStateAction<Record<string, string>>>;
+  onActionFeedback: (input: CanvasActionFeedbackInput) => void;
+  onDismissActionReceipt: () => void;
 };
 
 export function SimulationCanvasInspector({
@@ -103,6 +110,7 @@ export function SimulationCanvasInspector({
   selectedDecisionBranches,
   selectedRelatedPaths,
   pendingIntervention,
+  actionReceipt,
   effectiveSelectedNodeId,
   scenario,
   normalizedScenario,
@@ -113,11 +121,21 @@ export function SimulationCanvasInspector({
   setSelectedNodeId,
   setPendingIntervention,
   setVariableDrafts,
+  onActionFeedback,
+  onDismissActionReceipt,
 }: SimulationCanvasInspectorProps) {
   const inspectorFrameStyle = {
     maxHeight: embedded
       ? "calc(100% - var(--chat-composer-dock-h, 0px) - 1.5rem)"
       : "calc(100% - 1.5rem)",
+  };
+  const sendPromptAction = ({
+    message,
+    ...feedback
+  }: CanvasActionFeedbackInput & { message: string }) => {
+    if (!onContinueAsMessage) return;
+    onActionFeedback(feedback);
+    onContinueAsMessage(message);
   };
 
   return (
@@ -140,6 +158,7 @@ export function SimulationCanvasInspector({
               <button
                 type="button"
                 aria-label="关闭节点详情"
+                data-simulation-inspector-close="true"
                 onClick={() => setSelectedNodeId(null)}
                 className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--fg-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--fg)]"
               >
@@ -166,38 +185,51 @@ export function SimulationCanvasInspector({
                       </div>
                       <SimulationActionButtonRow>
                         {[
-                          {
-                            label: "继续追问",
-                            value: "追问",
-                            instruction:
-                              "请基于本轮总结继续追问未确定因素，并生成需要新增或复核的节点。",
-                          },
-                          {
-                            label: "生成报告",
-                            value: "报告",
-                            instruction:
-                              "请基于本轮总结生成可追溯报告，包含关键变量、证据、假设、风险、情景和结论来源。",
-                          },
-                          {
-                            label: "提取 Next Action",
-                            value: "下一步",
-                            instruction:
-                              "请从本轮总结中提取 3 个可点击执行的 Next Action，分别指向补数据、重推理或生成报告。",
+	                          {
+	                            label: "继续追问",
+	                            value: "追问",
+	                            actionId: "summary.followUp",
+	                            instruction:
+	                              "请基于本轮总结继续追问未确定因素，并生成需要新增或复核的节点。",
+	                          },
+	                          {
+	                            label: "生成报告",
+	                            value: "报告",
+	                            actionId: "summary.generateReport",
+	                            instruction:
+	                              "请基于本轮总结生成可追溯报告，包含关键变量、证据、假设、风险、情景和结论来源。",
+	                          },
+	                          {
+	                            label: "提取 Next Action",
+	                            value: "下一步",
+	                            actionId: "summary.extractNextActions",
+	                            instruction:
+	                              "请从本轮总结中提取 3 个可点击执行的 Next Action，分别指向补数据、重推理或生成报告。",
                           },
                         ].map((item) => (
-                          <SimulationActionButton
-                            key={item.value}
-                            onClick={() => {
-                              const summary = selected.summary;
-                              if (!summary) return;
-                              onContinueAsMessage(
-                                buildSummaryActionPrompt({
-                                  summary,
-                                  operation: item.value,
-                                  instruction: item.instruction,
-                                }),
-                              );
-                            }}
+	                          <SimulationActionButton
+	                            key={item.value}
+	                            actionId={item.actionId}
+	                            onClick={() => {
+	                              const summary = selected.summary;
+	                              if (!summary) return;
+	                              sendPromptAction({
+	                                actionId: item.actionId,
+	                                title: `已请求${item.label}`,
+	                                body: "系统将基于本轮总结继续生成输出或下一步建议。",
+	                                targetId: `summary:${summary.id}`,
+	                                targetLabel: selected.label,
+	                                targetKind: "summary",
+	                                createsNewRound: false,
+	                                status: "sent",
+	                                autoCollapse: true,
+	                                message: buildSummaryActionPrompt({
+	                                  summary,
+	                                  operation: item.value,
+	                                  instruction: item.instruction,
+	                                }),
+	                              });
+	                            }}
                           >
                             {item.label}
                           </SimulationActionButton>
@@ -206,6 +238,12 @@ export function SimulationCanvasInspector({
                     </div>
                   ) : null}
                 </div>
+              ) : null}
+              {actionReceipt ? (
+                <SimulationActionReceipt
+                  receipt={actionReceipt}
+                  onDismiss={onDismissActionReceipt}
+                />
               ) : null}
               <SimulationStructuredInfoCard rows={selectedNodeDetailRows} />
               {selectedNode && selectedImpact ? (
@@ -216,6 +254,21 @@ export function SimulationCanvasInspector({
                 <SimulationPendingInterventionCard
                   intervention={pendingIntervention}
                   onConfirm={() => {
+                    onActionFeedback({
+                      actionId: pendingIntervention.actionId ?? "pending.confirm",
+                      title: `${pendingIntervention.title}已确认`,
+                      body: pendingIntervention.createsNewRound
+                        ? "确认已发送，系统将生成新 Round 并保留旧 Round 可回看。"
+                        : "确认已发送，系统将按当前上下文继续处理。",
+                      targetId: pendingIntervention.targetNodeId,
+                      targetLabel: pendingIntervention.targetLabel,
+                      targetKind: pendingIntervention.targetKind,
+                      impactLines: pendingIntervention.impactLines,
+                      createsNewRound: pendingIntervention.createsNewRound,
+                      oldRoundPreserved: pendingIntervention.oldRoundPreserved,
+                      status: "sent",
+                      autoCollapse: true,
+                    });
                     onContinueAsMessage(pendingIntervention.message);
                     setPendingIntervention(null);
                   }}
@@ -224,10 +277,18 @@ export function SimulationCanvasInspector({
               ) : null}
               {selectedNode?.type === "prompt" || selectedNode?.type === "topic" ? (
                 <SimulationQuestionLayerPanel
-                  node={selectedNode}
-                  topicLabel={normalizedScenario.topic.label}
-                  impactLines={selectedImpactLines}
+	                  node={selectedNode}
+	                  topicLabel={normalizedScenario.topic.label}
+	                  impactLines={selectedImpactLines}
+	                  impact={selectedImpact}
+                  hasWorldModel={
+                    normalizedScenario.nodes.length > 0 ||
+                    normalizedScenario.edges.length > 0 ||
+                    normalizedScenario.topic.status === "confirmed"
+                  }
                   onContinueAsMessage={onContinueAsMessage}
+                  onPendingIntervention={setPendingIntervention}
+                  onActionFeedback={onActionFeedback}
                 />
               ) : null}
               {selected.kind === "history" && onContinueAsMessage ? (
@@ -250,30 +311,33 @@ export function SimulationCanvasInspector({
                   </div>
                   <SimulationActionButtonRow>
                     {[
-                      {
-                        label: "对比最新",
-                        value: "对比最新",
-                        instruction:
-                          "请对比该历史轮次与最新轮次，列出新增/删除/更新的节点、边、变量、风险和结论。",
+                          {
+                            label: "对比最新",
+                            value: "对比最新",
+                            actionId: "history.compareLatest",
+                            instruction:
+                              "请对比该历史轮次与最新轮次，列出新增/删除/更新的节点、边、变量、风险和结论。",
+                          },
+                          {
+                            label: "回到最新",
+                            value: "回到最新",
+                            actionId: "history.backToLatest",
+                            instruction:
+                              "请回到最新推演视图，并说明当前历史轮次与最新轮次的主要差异。",
+                          },
+                          {
+                            label: "从此继续",
+                            value: "从此继续",
+                            actionId: "history.continueFrom",
+                            instruction:
+                              "请以该历史轮次为分支起点继续推演，生成新的 Round，并保留原最新轮次作为对照。",
                       },
-                      {
-                        label: "回到最新",
-                        value: "回到最新",
-                        instruction:
-                          "请回到最新推演视图，并说明当前历史轮次与最新轮次的主要差异。",
-                      },
-                      {
-                        label: "从此继续",
-                        value: "从此继续",
-                        instruction:
-                          "请以该历史轮次为分支起点继续推演，生成新的 Round，并保留原最新轮次作为对照。",
-                      },
-                    ].map((item) => (
-                      <SimulationActionButton
-                        key={item.value}
-                        onClick={() =>
-                          onContinueAsMessage(
-                            buildHistoryActionPrompt({
+	                    ].map((item) => (
+	                      <SimulationActionButton
+	                        key={item.value}
+	                        actionId={item.actionId}
+	                        onClick={() => {
+                            const message = buildHistoryActionPrompt({
                               label: selected.label,
                               roundId: selected.dependencyLabel,
                               operation: item.value,
@@ -286,13 +350,51 @@ export function SimulationCanvasInspector({
                                 normalizedScenario.interventions,
                               ),
                               instruction: item.instruction,
-                            }),
-                          )
-                        }
-                      >
-                        {item.label}
-                      </SimulationActionButton>
-                    ))}
+                            });
+                            if (item.actionId === "history.continueFrom") {
+                              setPendingIntervention({
+                                actionId: item.actionId,
+                                targetKind: "history",
+                                title: "历史轮次继续确认",
+                                targetNodeId:
+                                  effectiveSelectedNodeId ?? `history:${selected.label}`,
+                                targetLabel: selected.label,
+                                impactLines: [
+                                  `历史轮次：${selected.dependencyLabel ?? selected.label}`,
+                                  `当前节点：${nodeCount} 个`,
+                                  `当前路径：${pathStatusLabel}`,
+                                  "将从该历史轮次生成新分支或新 Round。",
+                                ],
+                                message,
+                                createsNewRound: true,
+                                oldRoundPreserved: true,
+                                confirmLabel: "确认从此继续",
+                              });
+                              return;
+                            }
+                            sendPromptAction({
+                              actionId: item.actionId,
+                              title: `已请求${item.label}`,
+                              body:
+                                item.actionId === "history.backToLatest"
+                                  ? "系统将回到最新推演视图，并说明历史轮次差异。"
+                                  : "系统将对比该历史轮次与最新轮次的差异。",
+                              targetId: effectiveSelectedNodeId ?? `history:${selected.label}`,
+                              targetLabel: selected.label,
+                              targetKind: "history",
+                              createsNewRound: false,
+                              status:
+                                item.actionId === "history.backToLatest"
+                                  ? "done"
+                                  : "sent",
+                              autoCollapse: true,
+                              message,
+                            });
+                          }}
+	                      >
+	                        {item.label}
+	                      </SimulationActionButton>
+	                    ))}
                   </SimulationActionButtonRow>
                 </div>
               ) : null}
@@ -300,11 +402,13 @@ export function SimulationCanvasInspector({
               selectedNode?.type === "decision" ||
               selectedNode?.type === "hypothesis" ? (
                 <SimulationWorldChoicePanel
-                  node={selectedNode}
-                  decisionBranches={selectedDecisionBranches}
-                  impactLines={selectedImpactLines}
+	                  node={selectedNode}
+	                  decisionBranches={selectedDecisionBranches}
+	                  impactLines={selectedImpactLines}
+	                  impact={selectedImpact}
                   onContinueAsMessage={onContinueAsMessage}
                   onPendingIntervention={setPendingIntervention}
+                  onActionFeedback={onActionFeedback}
                 />
               ) : null}
               {selectedNode?.type === "inference" && onContinueAsMessage ? (
@@ -342,28 +446,34 @@ export function SimulationCanvasInspector({
                     ) : null}
                   </div>
                   <SimulationActionButtonRow>
-                    {[
-                      {
-                        label: "查看证据",
+	                    {(() => {
+                        const items = [
+	                      {
+	                        label: "查看证据",
                         value: "查看证据",
+                        actionId: "inference.viewEvidence",
                         instruction:
                           "请列出支撑该 Inference 的 Evidence 节点、引用位置、可信度和原文摘要，并高亮可疑或缺失证据。",
                       },
                       {
                         label: "重新推理",
                         value: "重推",
+                        actionId: "inference.recalculate",
                         instruction:
                           "请只重算该 Inference 及其下游节点，说明推理依据、置信度、证据引用和变化点。",
                       },
                       {
                         label: "寻找反证",
                         value: "反证",
-                        instruction:
-                          "请挑战这段推理，生成反证、替代解释、证据缺口，以及可能被影响的结论和情景。",
-                      },
-                    ].map((item) => (
-                      <SimulationActionButton
+                        actionId: "inference.counterEvidence",
+	                        instruction:
+	                          "请挑战这段推理，生成反证、替代解释、证据缺口，以及可能被影响的结论和情景。",
+	                      },
+	                    ];
+                        const renderItem = (item: (typeof items)[number]) => (
+	                      <SimulationActionButton
                         key={item.value}
+                        actionId={item.actionId}
                         onClick={() => {
                           const impactLines = formatInterventionImpact(selectedImpact);
                           const inferenceLines = [
@@ -402,22 +512,46 @@ export function SimulationCanvasInspector({
                           });
                           if (item.value === "重推" || item.value === "反证") {
                             setPendingIntervention({
+                              actionId: item.actionId,
+                              targetKind: "inference",
                               title:
                                 item.value === "重推" ? "推理重算确认" : "推理反证确认",
                               targetNodeId: selectedNode.id,
                               targetLabel: `${selectedNode.label} / ${item.value}`,
                               impactLines: [...inferenceLines, ...impactLines],
                               message,
+                              createsNewRound: true,
+                              oldRoundPreserved: true,
+                              confirmLabel: "确认并生成新 Round",
                             });
                             return;
                           }
-                          onContinueAsMessage(message);
-                        }}
-                      >
-                        {item.label}
-                      </SimulationActionButton>
-                    ))}
-                  </SimulationActionButtonRow>
+	                          sendPromptAction({
+	                            actionId: item.actionId,
+	                            title: `已请求${item.label}`,
+	                            body: "系统将列出支撑证据与引用位置，不重算当前推理链。",
+	                            targetId: selectedNode.id,
+	                            targetLabel: selectedNode.label,
+	                            targetKind: "inference",
+	                            impact: selectedImpact,
+	                            impactLines,
+	                            createsNewRound: false,
+	                            status: "sent",
+	                            autoCollapse: true,
+	                            message,
+	                          });
+	                        }}
+	                      >
+	                        {item.label}
+	                      </SimulationActionButton>
+	                    );
+                        return (
+                          <>
+                            {items.map(renderItem)}
+                          </>
+                        );
+                      })()}
+	                  </SimulationActionButtonRow>
                 </div>
               ) : null}
               {selectedNode?.type === "risk" && onContinueAsMessage ? (
@@ -477,28 +611,34 @@ export function SimulationCanvasInspector({
                     </div>
                   ) : null}
                   <SimulationActionButtonRow>
-                    {[
-                      {
-                        label: "加入缓释措施",
+	                    {(() => {
+                        const items = [
+	                      {
+	                        label: "加入缓释措施",
                         value: "缓释",
+                        actionId: "risk.addMitigation",
                         instruction:
-                          "请生成 Action 节点作为缓释措施，并重新评估风险概率、影响、可控程度和受影响情景。",
-                      },
-                      {
-                        label: "生成预警变量",
-                        value: "预警",
-                        instruction:
-                          "请生成可监控的 Variable / Event 节点作为预警信号，说明触发阈值和对应处置动作。",
-                      },
-                      {
-                        label: "压力测试",
-                        value: "压力测试",
-                        instruction:
-                          "请把该风险推到更极端情景，生成压力测试 Scenario，并标注最脆弱的变量、推理链和结论。",
-                      },
-                    ].map((item) => (
-                      <SimulationActionButton
+	                          "请生成 Action 节点作为缓释措施，并重新评估风险概率、影响、可控程度和受影响情景。",
+	                      },
+	                      {
+	                        label: "压力测试",
+	                        value: "压力测试",
+	                        actionId: "risk.stressTest",
+	                        instruction:
+	                          "请把该风险推到更极端情景，生成压力测试 Scenario，并标注最脆弱的变量、推理链和结论。",
+	                      },
+	                      {
+	                        label: "生成预警变量",
+	                        value: "预警",
+	                        actionId: "risk.warningVariable",
+	                        instruction:
+	                          "请生成可监控的 Variable / Event 节点作为预警信号，说明触发阈值和对应处置动作。",
+	                      },
+	                    ];
+                        const renderItem = (item: (typeof items)[number]) => (
+	                      <SimulationActionButton
                         key={item.value}
+                        actionId={item.actionId}
                         onClick={() => {
                           const impactLines = formatInterventionImpact(selectedImpact);
                           const riskLines = [
@@ -525,6 +665,8 @@ export function SimulationCanvasInspector({
                               : "",
                           ].filter(Boolean);
                           setPendingIntervention({
+                            actionId: item.actionId,
+                            targetKind: "risk",
                             title: "风险处置确认",
                             targetNodeId: selectedNode.id,
                             targetLabel: `${selectedNode.label} / ${item.value}`,
@@ -536,13 +678,25 @@ export function SimulationCanvasInspector({
                               impactLines,
                               instruction: item.instruction,
                             }),
+                            createsNewRound: true,
+                            oldRoundPreserved: true,
+                            confirmLabel: "确认并生成新 Round",
                           });
                         }}
-                      >
-                        {item.label}
-                      </SimulationActionButton>
-                    ))}
-                  </SimulationActionButtonRow>
+	                      >
+	                        {item.label}
+	                      </SimulationActionButton>
+	                    );
+                        return (
+                          <>
+                            {items.slice(0, 2).map(renderItem)}
+                            <SimulationActionMoreMenu>
+                              {items.slice(2).map(renderItem)}
+                            </SimulationActionMoreMenu>
+                          </>
+                        );
+                      })()}
+	                  </SimulationActionButtonRow>
                 </div>
               ) : null}
               {selectedNode?.type === "event" && onContinueAsMessage ? (
@@ -563,18 +717,21 @@ export function SimulationCanvasInspector({
                       {
                         label: "假设发生",
                         value: "发生",
+                        actionId: "event.assumeHappens",
                         instruction:
                           "请按该事件发生的 IF/THEN 条件重算下游 Inference、Risk、Decision、Action、Conclusion 和 Scenario。",
                       },
                       {
                         label: "假设未发生",
                         value: "未发生",
+                        actionId: "event.assumeNotHappens",
                         instruction:
                           "请保留该事件为未发生假设，生成不发生时的替代路径，并说明与发生情景的差异。",
                       },
                     ].map((item) => (
                       <SimulationActionButton
                         key={item.value}
+                        actionId={item.actionId}
                         onClick={() => {
                           const impactLines = formatInterventionImpact(selectedImpact);
                           const eventLines = [
@@ -595,6 +752,8 @@ export function SimulationCanvasInspector({
                               : "",
                           ].filter(Boolean);
                           setPendingIntervention({
+                            actionId: item.actionId,
+                            targetKind: "event",
                             title: "事件假设确认",
                             targetNodeId: selectedNode.id,
                             targetLabel: `${selectedNode.label} / ${item.value}`,
@@ -606,6 +765,9 @@ export function SimulationCanvasInspector({
                               impactLines,
                               instruction: item.instruction,
                             }),
+                            createsNewRound: true,
+                            oldRoundPreserved: true,
+                            confirmLabel: "确认并生成新 Round",
                           });
                         }}
                       >
@@ -647,40 +809,48 @@ export function SimulationCanvasInspector({
                     ) : null}
                   </div>
                   <SimulationActionButtonRow>
-                    {[
-                      {
-                        label: "模拟执行",
+	                    {(() => {
+                        const items = [
+	                      {
+	                        label: "模拟执行",
                         value: "执行",
+                        actionId: "action.simulate",
                         instruction:
                           "请将该 Action 作为用户准备采取的措施，重新模拟它对变量、风险、推理链、情景路径和阶段结论的影响。",
                       },
                       {
                         label: "对比不执行",
                         value: "不执行",
+                        actionId: "action.compareNotDoing",
                         instruction:
                           "请生成该 Action 不执行时的对照情景，并与执行情景比较风险、成本、变量和结论差异。",
                       },
                       {
                         label: "修改行动",
                         value: "修改行动",
+                        actionId: "action.edit",
                         instruction:
                           "请先给出这个 Action 的可编辑版本，包括执行对象、执行条件、成本、预期效果和可能替代方案，等待用户确认后再重算。",
                       },
                       {
-                        label: "补充条件",
+	                        label: "补充执行条件",
                         value: "补充条件",
+                        actionId: "action.addCondition",
                         instruction:
                           "请补充该 Action 成立所需的前置条件、资源约束、时间窗口和触发阈值，并生成相关 Variable / Event 节点。",
                       },
                       {
                         label: "评估副作用",
                         value: "评估副作用",
-                        instruction:
-                          "请评估该 Action 的副作用，生成新增 Risk、受影响变量、反事实情景和需要监控的 Next Action。",
-                      },
-                    ].map((item) => (
-                      <SimulationActionButton
+                        actionId: "action.evaluateSideEffects",
+	                        instruction:
+	                          "请评估该 Action 的副作用，生成新增 Risk、受影响变量、反事实情景和需要监控的 Next Action。",
+	                      },
+	                    ];
+                        const renderItem = (item: (typeof items)[number]) => (
+	                      <SimulationActionButton
                         key={item.value}
+                        actionId={item.actionId}
                         onClick={() => {
                           const impactLines = formatInterventionImpact(selectedImpact);
                           const actionLines = [
@@ -716,22 +886,54 @@ export function SimulationCanvasInspector({
                           });
                           if (item.value === "执行" || item.value === "不执行") {
                             setPendingIntervention({
+                              actionId: item.actionId,
+                              targetKind: "action",
                               title:
                                 item.value === "执行" ? "模拟行动执行" : "对比不执行",
                               targetNodeId: selectedNode.id,
                               targetLabel: selectedNode.label,
                               impactLines,
                               message,
+                              createsNewRound: true,
+                              oldRoundPreserved: true,
+                              confirmLabel: "确认并生成新 Round",
                             });
                             return;
                           }
-                          onContinueAsMessage(message);
-                        }}
-                      >
-                        {item.label}
-                      </SimulationActionButton>
-                    ))}
-                  </SimulationActionButtonRow>
+	                          sendPromptAction({
+	                            actionId: item.actionId,
+	                            title: `已请求${item.label}`,
+	                            body:
+	                              item.value === "补充条件"
+	                                ? "系统将补充行动成立所需前置条件、资源约束和触发阈值。"
+	                                : item.value === "评估副作用"
+	                                  ? "系统将评估副作用并标注可能新增的风险与变量。"
+	                                  : "系统将先给出行动的可编辑版本，等待用户确认后再重算。",
+	                            targetId: selectedNode.id,
+	                            targetLabel: selectedNode.label,
+	                            targetKind: "action",
+	                            impact: selectedImpact,
+	                            impactLines,
+	                            createsNewRound: false,
+	                            status: "sent",
+	                            autoCollapse: true,
+	                            message,
+	                          });
+	                        }}
+	                      >
+	                        {item.label}
+	                      </SimulationActionButton>
+	                    );
+                        return (
+                          <>
+                            {items.slice(0, 2).map(renderItem)}
+                            <SimulationActionMoreMenu>
+                              {items.slice(2).map(renderItem)}
+                            </SimulationActionMoreMenu>
+                          </>
+                        );
+                      })()}
+	                  </SimulationActionButtonRow>
                 </div>
               ) : null}
               {selectedNode?.type === "conclusion" && onContinueAsMessage ? (
@@ -775,29 +977,35 @@ export function SimulationCanvasInspector({
                     ) : null}
                   </div>
                   <SimulationActionButtonRow>
-                    {[
-                      {
-                        label: "挑战结论",
-                        value: "挑战",
-                        instruction:
-                          "请挑战这个阶段结论，生成反驳路径、支撑证据缺口和需要重新推理的节点。",
-                      },
-                      {
-                        label: "要求反驳",
-                        value: "反驳",
-                        instruction:
-                          "请站在相反立场反驳该结论，指出最弱假设、最敏感变量和可能逆转结论的事件。",
-                      },
-                      {
-                        label: "生成报告",
-                        value: "报告",
-                        instruction:
-                          "请围绕该阶段结论生成可追溯报告段落，列出变量、证据、假设、风险和情景路径来源。",
-                      },
-                    ].map((item) => (
-                      <SimulationActionButton
-                        key={item.value}
-                        onClick={() => {
+	                    {(() => {
+                        const items = [
+	                      {
+	                        label: "挑战结论",
+	                        value: "挑战",
+	                        actionId: "conclusion.challenge",
+	                        instruction:
+	                          "请挑战这个阶段结论，生成反驳路径、支撑证据缺口和需要重新推理的节点。",
+	                      },
+	                      {
+	                        label: "生成报告",
+	                        value: "报告",
+	                        actionId: "conclusion.report",
+	                        instruction:
+	                          "请围绕该阶段结论生成可追溯报告段落，列出变量、证据、假设、风险和情景路径来源。",
+	                      },
+	                      {
+	                        label: "要求反驳",
+	                        value: "反驳",
+	                        actionId: "conclusion.refute",
+	                        instruction:
+	                          "请站在相反立场反驳该结论，指出最弱假设、最敏感变量和可能逆转结论的事件。",
+	                      },
+	                    ];
+                        const renderItem = (item: (typeof items)[number]) => (
+	                      <SimulationActionButton
+	                        key={item.value}
+	                        actionId={item.actionId}
+	                        onClick={() => {
                           const impactLines = formatInterventionImpact(selectedImpact);
                           const conclusionLines = [
                             selectedNode.detail ? `结论说明：${selectedNode.detail}` : "",
@@ -849,25 +1057,52 @@ export function SimulationCanvasInspector({
                             instruction: item.instruction,
                           });
                           if (item.value === "挑战" || item.value === "反驳") {
-                            setPendingIntervention({
-                              title:
-                                item.value === "挑战"
-                                  ? "结论挑战确认"
-                                  : "结论反驳确认",
-                              targetNodeId: selectedNode.id,
-                              targetLabel: `${selectedNode.label} / ${item.value}`,
-                              impactLines: [...conclusionLines, ...impactLines],
-                              message,
-                            });
-                            return;
-                          }
-                          onContinueAsMessage(message);
-                        }}
-                      >
-                        {item.label}
-                      </SimulationActionButton>
-                    ))}
-                  </SimulationActionButtonRow>
+	                            setPendingIntervention({
+	                              actionId: item.actionId,
+	                              targetKind: "conclusion",
+	                              title:
+	                                item.value === "挑战"
+	                                  ? "结论挑战确认"
+	                                  : "结论反驳确认",
+	                              targetNodeId: selectedNode.id,
+	                              targetLabel: `${selectedNode.label} / ${item.value}`,
+	                              impactLines: [...conclusionLines, ...impactLines],
+	                              message,
+	                              createsNewRound: true,
+	                              oldRoundPreserved: true,
+	                              confirmLabel: "确认并生成新 Round",
+	                            });
+	                            return;
+	                          }
+	                          sendPromptAction({
+	                            actionId: item.actionId,
+	                            title: "已请求生成报告段落",
+	                            body: "系统将围绕该阶段结论生成可追溯报告段落，不直接改写世界模型。",
+	                            targetId: selectedNode.id,
+	                            targetLabel: selectedNode.label,
+	                            targetKind: "conclusion",
+	                            impact: selectedImpact,
+	                            impactLines,
+	                            createsNewRound: false,
+	                            status: "sent",
+	                            autoCollapse: true,
+	                            message,
+	                          });
+	                        }}
+	                      >
+	                        {item.label}
+	                      </SimulationActionButton>
+	                    );
+                        return (
+                          <>
+                            {items.slice(0, 2).map(renderItem)}
+                            <SimulationActionMoreMenu>
+                              {items.slice(2).map(renderItem)}
+                            </SimulationActionMoreMenu>
+                          </>
+                        );
+                      })()}
+	                  </SimulationActionButtonRow>
                 </div>
               ) : null}
               {selectedNode?.type === "evidence" && onContinueAsMessage ? (
@@ -904,47 +1139,56 @@ export function SimulationCanvasInspector({
                     ) : null}
                   </div>
                   <SimulationActionButtonRow>
-                    {[
-                      {
-                        label: "核验证据",
-                        value: "核验",
-                        instruction:
-                          "请核验该证据的来源可信度、更新时间、引用位置，并说明它支撑或削弱了哪些推理。",
-                      },
-                      {
-                        label: "定位引用",
-                        value: "定位",
-                        instruction:
-                          "请定位该证据的原文引用位置，并生成可追溯引用说明。",
-                      },
-                      {
-                        label: "查找反例",
-                        value: "反例",
-                        instruction:
-                          "请寻找可能削弱该证据的反例、冲突数据或证据缺口，并标注受影响推理。",
-                      },
-                      {
-                        label: "打开原文",
-                        value: "打开原文",
-                        instruction:
-                          "请打开或定位该证据的原文资料，给出可追溯位置；如果是 PDF，请定位页码或章节。",
-                      },
-                      {
-                        label: "替换证据",
-                        value: "替换证据",
-                        instruction:
-                          "请提出可替换该证据的更高可信度来源，并说明替换后哪些 Inference、Risk、Conclusion 需要重算。",
-                      },
-                      {
-                        label: "补充证据",
-                        value: "补充证据",
-                        instruction:
-                          "请补充 2-3 条互相独立的证据来源，标注可信度、更新时间、引用位置和支撑/削弱的节点。",
-                      },
-                    ].map((item) => (
-                      <SimulationActionButton
-                        key={item.value}
-                        onClick={() => {
+	                    {(() => {
+                        const items = [
+	                      {
+	                        label: "核验证据",
+	                        value: "核验",
+	                        actionId: "evidence.verify",
+	                        instruction:
+	                          "请核验该证据的来源可信度、更新时间、引用位置，并说明它支撑或削弱了哪些推理。",
+	                      },
+	                      {
+	                        label: "请求定位原文",
+	                        value: "打开原文",
+	                        actionId: "evidence.locateSource",
+	                        instruction:
+	                          "请定位该证据的原文资料，给出可追溯位置；如果是 PDF，请定位页码或章节，不要承诺直接打开文件。",
+	                      },
+	                      {
+	                        label: "定位引用",
+	                        value: "定位",
+	                        actionId: "evidence.locateCitation",
+	                        instruction:
+	                          "请定位该证据的原文引用位置，并生成可追溯引用说明。",
+	                      },
+	                      {
+	                        label: "查找反例",
+	                        value: "反例",
+	                        actionId: "evidence.counterExample",
+	                        instruction:
+	                          "请寻找可能削弱该证据的反例、冲突数据或证据缺口，并标注受影响推理。",
+	                      },
+	                      {
+	                        label: "寻找替代证据",
+	                        value: "替换证据",
+	                        actionId: "evidence.replace",
+	                        instruction:
+	                          "请提出可替换该证据的更高可信度来源，并说明替换后哪些 Inference、Risk、Conclusion 需要重算。",
+	                      },
+	                      {
+	                        label: "补充证据",
+	                        value: "补充证据",
+	                        actionId: "evidence.supplement",
+	                        instruction:
+	                          "请补充 2-3 条互相独立的证据来源，标注可信度、更新时间、引用位置和支撑/削弱的节点。",
+	                      },
+	                    ];
+                        const renderItem = (item: (typeof items)[number]) => (
+	                      <SimulationActionButton
+	                        key={item.value}
+	                        actionId={item.actionId}
+	                        onClick={() => {
                           const impactLines = formatInterventionImpact(selectedImpact);
                           const evidenceLines = [
                             selectedNode.evidenceSource
@@ -982,27 +1226,60 @@ export function SimulationCanvasInspector({
                             impactLines,
                             instruction: item.instruction,
                           });
-                          if (
-                            item.value === "反例" ||
-                            item.value === "替换证据" ||
-                            item.value === "补充证据"
-                          ) {
-                            setPendingIntervention({
-                              title: "证据更新确认",
-                              targetNodeId: selectedNode.id,
-                              targetLabel: `${selectedNode.label} / ${item.value}`,
-                              impactLines: [...evidenceLines, ...impactLines],
-                              message,
-                            });
-                            return;
-                          }
-                          onContinueAsMessage(message);
-                        }}
-                      >
-                        {item.label}
-                      </SimulationActionButton>
-                    ))}
-                  </SimulationActionButtonRow>
+	                          if (
+	                            item.value === "反例" ||
+	                            item.value === "替换证据" ||
+	                            item.value === "补充证据"
+	                          ) {
+	                            setPendingIntervention({
+	                              actionId: item.actionId,
+	                              targetKind: "evidence",
+	                              title: "证据更新确认",
+	                              targetNodeId: selectedNode.id,
+	                              targetLabel: `${selectedNode.label} / ${item.value}`,
+	                              impactLines: [...evidenceLines, ...impactLines],
+	                              message,
+	                              createsNewRound: item.value === "替换证据",
+	                              oldRoundPreserved: true,
+	                              confirmLabel:
+	                                item.value === "替换证据"
+	                                  ? "确认寻找替代证据"
+	                                  : "确认继续",
+	                            });
+	                            return;
+	                          }
+	                          sendPromptAction({
+	                            actionId: item.actionId,
+	                            title: `已请求${item.label}`,
+	                            body:
+	                              item.actionId === "evidence.locateSource"
+	                                ? "系统将给出原文位置、页码、章节或 URL，不承诺直接打开文件。"
+	                                : "系统将核验证据来源、更新时间和引用位置。",
+	                            targetId: selectedNode.id,
+	                            targetLabel: selectedNode.label,
+	                            targetKind: "evidence",
+	                            impact: selectedImpact,
+	                            impactLines,
+	                            createsNewRound: false,
+	                            status: "sent",
+	                            autoCollapse: true,
+	                            message,
+	                          });
+	                        }}
+	                      >
+	                        {item.label}
+	                      </SimulationActionButton>
+	                    );
+                        return (
+                          <>
+                            {items.slice(0, 2).map(renderItem)}
+                            <SimulationActionMoreMenu>
+                              {items.slice(2).map(renderItem)}
+                            </SimulationActionMoreMenu>
+                          </>
+                        );
+                      })()}
+	                  </SimulationActionButtonRow>
                 </div>
               ) : null}
               {selected.suggestion ? (
@@ -1014,24 +1291,36 @@ export function SimulationCanvasInspector({
                     {selected.suggestion.description}
                   </p>
                   {onContinueAsMessage ? (
-                    <button
-                      type="button"
-                      className="mt-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1 text-xs font-medium text-[var(--fg-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--fg)]"
-                      onClick={() =>
-                        onContinueAsMessage(
-                          [
-                            "请基于这条推演建议继续生成下一轮节点：",
-                            `建议：${selected.suggestion?.title}`,
-                            selected.suggestion?.description ?? "",
-                          ]
-                            .filter(Boolean)
-                            .join("\n"),
-                        )
-                      }
-                    >
-                      基于建议继续
-                    </button>
-                  ) : null}
+	                    <SimulationActionButton
+	                      actionId="suggestion.continue"
+	                      className="mt-3"
+	                      onClick={() => {
+	                        const message = [
+	                          "请基于这条推演建议继续生成下一轮节点：",
+	                          `建议：${selected.suggestion?.title}`,
+	                          selected.suggestion?.description ?? "",
+	                        ]
+	                          .filter(Boolean)
+	                          .join("\n");
+	                        sendPromptAction({
+	                          actionId: "suggestion.continue",
+	                          title: "已请求基于建议继续",
+	                          body: "系统将基于这条推演建议继续生成下一轮节点。",
+	                          targetId: selected.suggestion
+	                            ? `suggestion:${selected.suggestion.suggestionId}`
+	                            : undefined,
+	                          targetLabel: selected.suggestion?.title ?? selected.label,
+	                          targetKind: "suggestion",
+	                          createsNewRound: false,
+	                          status: "sent",
+	                          autoCollapse: true,
+	                          message,
+	                        });
+	                      }}
+	                    >
+	                      基于建议继续
+	                    </SimulationActionButton>
+	                  ) : null}
                 </div>
               ) : null}
               {selected.nextAction ? (
@@ -1054,16 +1343,39 @@ export function SimulationCanvasInspector({
                   {onContinueAsMessage ? (
                     <button
                       type="button"
+                      data-action-id="nextAction.execute"
+                      data-behavior-type="confirm"
+                      data-target-kind="next_action"
                       className="mt-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1 text-xs font-medium text-[var(--fg-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--fg)]"
                       onClick={() => {
                         if (!selected.nextAction) return;
-                        onContinueAsMessage(
-                          buildNextActionExecutionPrompt(selected.nextAction),
-                        );
+                        setPendingIntervention({
+                          actionId: "nextAction.execute",
+                          targetKind: "next_action",
+                          title: "执行 Next Action",
+                          targetNodeId:
+                            effectiveSelectedNodeId ??
+                            selected.nextAction.targetId ??
+                            `next-action:${selected.nextAction.actionId}`,
+                          targetLabel: selected.nextAction.title,
+                          impactLines: [
+                            `动作类型：${selected.nextAction.actionType}`,
+                            selected.nextAction.targetId
+                              ? `目标节点：${selected.nextAction.targetId}`
+                              : "",
+                            selected.nextAction.expectedEffect
+                              ? `预期效果：${selected.nextAction.expectedEffect}`
+                              : "",
+                          ].filter(Boolean),
+                          message: buildNextActionExecutionPrompt(selected.nextAction),
+                          createsNewRound: true,
+                          oldRoundPreserved: true,
+                          confirmLabel: "确认执行",
+                        });
                       }}
                     >
-                      执行动作
-                    </button>
+	                      执行 Next Action
+	                    </button>
                   ) : null}
                 </div>
               ) : null}
@@ -1129,12 +1441,17 @@ export function SimulationCanvasInspector({
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       <button
                         type="button"
+                        data-action-id="scenario.continue"
+                        data-behavior-type="confirm"
+                        data-target-kind="scenario"
                         onClick={() => {
                           const contextLines = scenarioContextLines(
                             selectedScenarioView,
                             selectedScenarioDiff,
                           );
                           setPendingIntervention({
+                            actionId: "scenario.continue",
+                            targetKind: "scenario",
                             title: "情景继续推演",
                             targetNodeId: `scenario:${selectedScenarioView.id}`,
                             targetLabel: selectedScenarioView.label,
@@ -1153,36 +1470,62 @@ export function SimulationCanvasInspector({
                                 : "",
                             ].filter(Boolean),
                             message: buildScenarioContinuePrompt(contextLines),
+                            createsNewRound: true,
+                            oldRoundPreserved: true,
+                            confirmLabel: "确认并生成新 Round",
                           });
                         }}
                         className="inline-flex h-8 items-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-2.5 text-xs font-medium text-[var(--fg-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--fg)]"
-                      >
-                        选择情景继续
-                      </button>
+	                      >
+	                        基于此情景继续推演
+	                      </button>
                       <button
                         type="button"
-                        onClick={() =>
-                          onContinueAsMessage(
-                            buildScenarioComparePrompt(
-                              scenarioContextLines(
-                                selectedScenarioView,
-                                selectedScenarioDiff,
-                              ),
-                            ),
-                          )
-                        }
+                        data-action-id="scenario.compareBaseline"
+                        data-behavior-type="prompt"
+                        data-target-kind="scenario"
+	                        onClick={() => {
+	                          const contextLines = scenarioContextLines(
+	                            selectedScenarioView,
+	                            selectedScenarioDiff,
+	                          );
+	                          sendPromptAction({
+	                            actionId: "scenario.compareBaseline",
+	                            title: "已请求对比 Baseline",
+	                            body: "系统将输出差异节点、差异边、关键变量变化、风险等级差异和阶段结论差异。",
+	                            targetId: `scenario:${selectedScenarioView.id}`,
+	                            targetLabel: selectedScenarioView.label,
+	                            targetKind: "scenario",
+	                            impactSummary: {
+	                              nodes: selectedScenarioView.nodeIds.length,
+	                              edges: selectedScenarioView.edgeIds.length,
+	                              paths: selectedScenarioView.pathIds.length,
+	                              scenarios: 1,
+	                            },
+	                            createsNewRound: false,
+	                            status: "sent",
+	                            autoCollapse: true,
+	                            message: buildScenarioComparePrompt(contextLines),
+	                          });
+	                        }}
                         className="inline-flex h-8 items-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-2.5 text-xs font-medium text-[var(--fg-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--fg)]"
                       >
                         对比 Baseline
                       </button>
-                      <button
-                        type="button"
+	                      <SimulationActionMoreMenu>
+	                        <button
+	                        type="button"
+	                        data-action-id="scenario.counterfactual"
+                        data-behavior-type="confirm"
+                        data-target-kind="scenario"
                         onClick={() => {
                           const contextLines = scenarioContextLines(
                             selectedScenarioView,
                             selectedScenarioDiff,
                           );
                           setPendingIntervention({
+                            actionId: "scenario.counterfactual",
+                            targetKind: "scenario",
                             title: "生成反事实情景",
                             targetNodeId: `scenario:${selectedScenarioView.id}`,
                             targetLabel: selectedScenarioView.label,
@@ -1196,12 +1539,16 @@ export function SimulationCanvasInspector({
                                 : "",
                             ].filter(Boolean),
                             message: buildScenarioCounterfactualPrompt(contextLines),
+                            createsNewRound: true,
+                            oldRoundPreserved: true,
+                            confirmLabel: "确认生成反事实",
                           });
                         }}
                         className="inline-flex h-8 items-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-2.5 text-xs font-medium text-[var(--fg-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--fg)]"
-                      >
-                        生成反事实
-                      </button>
+	                      >
+	                        生成反事实
+	                      </button>
+	                      </SimulationActionMoreMenu>
                     </div>
                   ) : null}
                 </div>
@@ -1215,50 +1562,77 @@ export function SimulationCanvasInspector({
                         报告操作
                       </div>
                       <SimulationActionButtonRow>
-                        {[
-                          {
-                            label: "更新报告",
-                            value: "更新",
-                            instruction:
-                              "请基于当前 Reasoning Graph 更新这份报告，保留变量、证据、假设、风险、情景和结论的可追溯引用。",
-                          },
-                          {
-                            label: "生成演示稿",
-                            value: "演示稿",
-                            instruction:
-                              "请把这份报告转成演示稿大纲，按问题边界、世界模型、关键变量、情景对比、风险和 Next Action 组织。",
-                          },
-                          {
-                            label: "提取摘要",
-                            value: "摘要",
-                            instruction:
-                              "请从这份报告中提取一页执行摘要，并列出需要回到画布继续干预的节点。",
-                          },
-                        ].map((item) => (
-                          <SimulationActionButton
-                            key={item.value}
-                            onClick={() => {
-                              const deliverables = selected.deliverables;
-                              if (!deliverables) return;
+	                        {(() => {
+                          const items = [
+		                          {
+		                            label: "更新报告",
+	                            value: "更新",
+	                            actionId: "deliverables.updateReport",
+		                            instruction:
+		                              "请基于当前 Reasoning Graph 更新这份报告，保留变量、证据、假设、风险、情景和结论的可追溯引用。",
+		                          },
+		                          {
+	                            label: "提取摘要",
+	                            value: "摘要",
+	                            actionId: "deliverables.extractSummary",
+	                            instruction:
+	                              "请从这份报告中提取一页执行摘要，并列出需要回到画布继续干预的节点。",
+	                          },
+	                          {
+	                            label: "生成演示稿大纲",
+	                            value: "演示稿",
+	                            actionId: "deliverables.deckOutline",
+	                            instruction:
+	                              "请把这份报告转成演示稿大纲，按问题边界、世界模型、关键变量、情景对比、风险和 Next Action 组织。",
+	                          },
+	                        ];
+                          const renderItem = (item: (typeof items)[number]) => (
+	                          <SimulationActionButton
+	                            key={item.value}
+	                            actionId={item.actionId}
+	                            onClick={() => {
+	                              const deliverables = selected.deliverables;
+	                              if (!deliverables) return;
                               const primaryPath =
                                 deliverables.primaryPath ??
                                 deliverables.items[0]?.path ??
                                 selected.label;
-                              onContinueAsMessage(
-                                buildDeliverablesActionPrompt({
-                                  deliverables,
-                                  reportLabel: selected.label,
-                                  operation: item.value,
-                                  primaryPath,
-                                  instruction: item.instruction,
-                                }),
-                              );
-                            }}
-                          >
-                            {item.label}
-                          </SimulationActionButton>
-                        ))}
-                      </SimulationActionButtonRow>
+	                              sendPromptAction({
+	                                actionId: item.actionId,
+	                                title: `已请求${item.label}`,
+	                                body:
+	                                  item.actionId === "deliverables.deckOutline"
+	                                    ? "系统将生成演示稿大纲或结构，不承诺已生成 PPTX 文件。"
+	                                    : "系统将基于当前报告继续生成可追溯输出。",
+	                                targetId: `deliverables:${deliverables.id}`,
+	                                targetLabel: selected.label,
+	                                targetKind: "deliverables",
+	                                createsNewRound: false,
+	                                status: "sent",
+	                                autoCollapse: true,
+	                                message: buildDeliverablesActionPrompt({
+	                                  deliverables,
+	                                  reportLabel: selected.label,
+	                                  operation: item.value,
+	                                  primaryPath,
+	                                  instruction: item.instruction,
+	                                }),
+	                              });
+	                            }}
+	                          >
+	                            {item.label}
+	                          </SimulationActionButton>
+	                        );
+                          return (
+                            <>
+                              {items.slice(0, 2).map(renderItem)}
+                              <SimulationActionMoreMenu>
+                                {items.slice(2).map(renderItem)}
+                              </SimulationActionMoreMenu>
+                            </>
+                          );
+                        })()}
+	                      </SimulationActionButtonRow>
                     </div>
                   ) : null}
                 </div>
@@ -1284,47 +1658,84 @@ export function SimulationCanvasInspector({
                   {onContinueAsMessage ? (
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {[
-                        {
-                          label: "重试本轮",
-                          value: "重试本轮",
-                          instruction:
-                            "请重试失败的本轮生成，优先补齐中断前未完成的节点、路径、总结或报告。",
+	                        {
+	                          label: "重试本轮",
+	                          value: "重试本轮",
+	                          actionId: "recovery.retryRound",
+	                          instruction:
+	                            "请重试失败的本轮生成，优先补齐中断前未完成的节点、路径、总结或报告。",
+	                        },
+	                        {
+	                          label: "查看已保存内容",
+	                          value: "查看已保存内容",
+	                          actionId: "recovery.viewSaved",
+	                          instruction:
+	                            "请先列出当前已保存的 Prompt、Topic、关键节点、路径、Summary、Report 和缺失部分，不要直接继续生成。",
+	                        },
+	                        {
+	                          label: "基于快照重新开始",
+	                          value: "基于快照重新开始",
+	                          actionId: "recovery.restartFromSnapshot",
+	                          instruction:
+	                            "请基于当前已保存快照重新开始本轮推演，说明中断前已完成到哪一步，再继续生成缺失内容。",
                         },
-                        {
-                          label: "查看已保存内容",
-                          value: "查看已保存内容",
-                          instruction:
-                            "请先列出当前已保存的 Prompt、Topic、关键节点、路径、Summary、Report 和缺失部分，不要直接继续生成。",
-                        },
-                        {
-                          label: "基于快照重新开始",
-                          value: "基于快照重新开始",
-                          instruction:
-                            "请基于当前已保存快照重新开始本轮推演，说明中断前已完成到哪一步，再继续生成缺失内容。",
-                        },
-                      ].map((item) => (
-                        <button
-                          key={item.value}
-                          type="button"
-                          className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1 text-xs font-medium text-[var(--fg-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--fg)]"
-                          onClick={() => {
-                            const error = selected.error;
-                            if (!error) return;
-                            onContinueAsMessage(
-                              buildRecoveryActionPrompt({
-                                error,
-                                topic: topicTitle(scenario),
-                                operation: item.value,
-                                nodeCount,
-                                pathStatusLabel,
-                                instruction: item.instruction,
-                              }),
-                            );
-                          }}
-                        >
-                          {item.label}
-                        </button>
-                      ))}
+	                      ].map((item) => (
+	                        <SimulationActionButton
+	                          key={item.value}
+	                          actionId={item.actionId}
+	                          onClick={() => {
+	                            const error = selected.error;
+	                            if (!error) return;
+	                            const message = buildRecoveryActionPrompt({
+	                              error,
+	                              topic: topicTitle(scenario),
+	                              operation: item.value,
+	                              nodeCount,
+	                              pathStatusLabel,
+	                              instruction: item.instruction,
+	                            });
+	                            if (item.actionId === "recovery.restartFromSnapshot") {
+	                              setPendingIntervention({
+	                                actionId: item.actionId,
+	                                targetKind: "recovery",
+	                                title: "基于快照重新开始确认",
+	                                targetNodeId:
+	                                  effectiveSelectedNodeId ?? `recovery:${error.code ?? error.message}`,
+	                                targetLabel: selected.label,
+	                                impactLines: [
+	                                  `错误：${error.message}`,
+	                                  `已保存节点：${nodeCount} 个`,
+	                                  `路径状态：${pathStatusLabel}`,
+	                                  "将基于当前快照重新开始补齐，不覆盖已有历史。",
+	                                ],
+	                                message,
+	                                createsNewRound: true,
+	                                oldRoundPreserved: true,
+	                                confirmLabel: "确认重新开始",
+	                              });
+	                              return;
+	                            }
+	                            sendPromptAction({
+	                              actionId: item.actionId,
+	                              title: `已请求${item.label}`,
+	                              body:
+	                                item.actionId === "recovery.viewSaved"
+	                                  ? "系统将只列出已保存内容和缺失部分，不继续生成。"
+	                                  : "系统将重试失败轮次并优先补齐中断内容。",
+	                              targetId:
+	                                effectiveSelectedNodeId ?? `recovery:${error.code ?? error.message}`,
+	                              targetLabel: selected.label,
+	                              targetKind: "recovery",
+	                              createsNewRound: false,
+	                              status: "sent",
+	                              autoCollapse: true,
+	                              message,
+	                            });
+	                          }}
+	                        >
+	                          {item.label}
+	                        </SimulationActionButton>
+	                      ))}
                     </div>
                   ) : null}
                 </div>
@@ -1333,9 +1744,10 @@ export function SimulationCanvasInspector({
                 <SimulationNodeInterventionPanel
                   node={selectedNode}
                   nodeTypeLabel={nodeKindLabel(selectedNode.type)}
-                  variableDrafts={variableDrafts}
-                  impactLines={selectedImpactLines}
-                  actions={selectedNodeActions}
+	                  variableDrafts={variableDrafts}
+	                  impactLines={selectedImpactLines}
+	                  impact={selectedImpact}
+	                  actions={selectedNodeActions}
                   onDraftChange={(nodeId, value) =>
                     setVariableDrafts((prev) => ({
                       ...prev,
@@ -1344,6 +1756,7 @@ export function SimulationCanvasInspector({
                   }
                   onContinueAsMessage={onContinueAsMessage}
                   onPendingIntervention={setPendingIntervention}
+                  onActionFeedback={onActionFeedback}
                 />
               ) : null}
               {selectedPath?.probability != null ? (
@@ -1359,6 +1772,9 @@ export function SimulationCanvasInspector({
               {selectedPath && onContinueAsMessage ? (
                 <button
                   type="button"
+                  data-action-id="path.continue"
+                  data-behavior-type="confirm"
+                  data-target-kind="path"
                   onClick={() => {
                     const impactLines = pathContextLines(
                       selectedPath,
@@ -1366,17 +1782,22 @@ export function SimulationCanvasInspector({
                       normalizedScenario.edges,
                     );
                     setPendingIntervention({
+                      actionId: "path.continue",
+                      targetKind: "path",
                       title: "路径继续推演",
                       targetNodeId: `path:${selectedPath.id}`,
                       targetLabel: selectedPath.label,
                       impactLines,
                       message: buildPathContinuePrompt(impactLines),
+                      createsNewRound: true,
+                      oldRoundPreserved: true,
+                      confirmLabel: "确认并生成新 Round",
                     });
                   }}
                   className="inline-flex h-8 items-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-elevated)] px-2.5 text-xs font-medium text-[var(--fg-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--fg)]"
-                >
-                  选择这条继续
-                </button>
+	                >
+	                  基于此路径继续推演
+	                </button>
               ) : null}
               {selectedRelatedPaths.length > 0 ? (
                 <div>

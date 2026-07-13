@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import type { PartPresentation } from "@/components/chat/parts/PartRenderer";
 import { TimelineCollapsible } from "@/components/chat/parts/TimelineCollapsible";
+import { useSettings } from "@/components/settings/SettingsContext";
+import { localizeAgentMentions } from "@/lib/settings";
 import { useMemo, useState } from "react";
 
 type ToolLikePart =
@@ -91,11 +93,15 @@ export function ToolCardRow({
   part: ToolLikePart;
   presentation?: PartPresentation;
 }) {
+  const { settings } = useSettings();
   const toolKey = part.kind === "command" ? "Bash" : part.tool;
   const status = statusLabel(part);
   const running =
     status === "running" || !!(part as { streaming?: boolean }).streaming;
-  const preview = previewText(part);
+  const previewRaw = previewText(part);
+  const preview = previewRaw
+    ? localizeAgentMentions(previewRaw, settings.agentAliases)
+    : previewRaw;
   const input = part.kind === "tool" ? part.input : undefined;
   const output = part.kind === "tool" ? part.output : undefined;
   const hasDetails =

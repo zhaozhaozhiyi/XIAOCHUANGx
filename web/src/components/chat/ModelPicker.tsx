@@ -2,7 +2,12 @@
 
 import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { AGENT_DEFINITIONS, type AgentId } from "@/lib/settings";
+import { useSettings } from "@/components/settings/SettingsContext";
+import {
+  AGENT_DEFINITIONS,
+  getAgentModelDisplayName,
+  type AgentId,
+} from "@/lib/settings";
 
 export function ModelPicker({
   agentId,
@@ -13,10 +18,17 @@ export function ModelPicker({
   value: string;
   onChange: (modelId: string) => void;
 }) {
+  const { settings } = useSettings();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const agent = AGENT_DEFINITIONS.find((a) => a.id === agentId)!;
   const current = agent.models.find((m) => m.id === value) ?? agent.models[0]!;
+  const currentLabel = getAgentModelDisplayName(
+    agentId,
+    current.id,
+    current.label,
+    settings.agentModelAliases,
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -44,7 +56,7 @@ export function ModelPicker({
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
-        <span className="min-w-0 truncate">{current.label}</span>
+        <span className="min-w-0 truncate">{currentLabel}</span>
         <ChevronDown
           className={`control-picker__chevron shrink-0 ${open ? "control-picker__chevron--open" : ""}`}
           strokeWidth={1.75}
@@ -64,7 +76,12 @@ export function ModelPicker({
                   setOpen(false);
                 }}
               >
-                {m.label}
+                {getAgentModelDisplayName(
+                  agentId,
+                  m.id,
+                  m.label,
+                  settings.agentModelAliases,
+                )}
               </button>
             </li>
           ))}

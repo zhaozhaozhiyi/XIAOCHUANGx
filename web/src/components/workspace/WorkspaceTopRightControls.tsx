@@ -7,7 +7,7 @@ import { useWorkspace } from "./WorkspaceContext";
 /** 与顶栏 h-14 垂直居中：top 12px、right 8px（视口固定）
  *  桌面壳 Win/Linux 上多了 36px 标题栏，用 --titlebar-offset 让位（mac/浏览器为 0px）*/
 const FIXED_GROUP_CLASS =
-  "fixed right-2 z-50 flex items-center gap-0.5 top-[calc(var(--titlebar-offset,0px)+0.75rem)]";
+  "no-drag fixed right-2 z-50 flex items-center gap-0.5 top-[calc(var(--titlebar-offset,0px)+0.75rem)]";
 
 function WorkspaceToggleButtonInner() {
   const { open, toggleOpen } = useWorkspace();

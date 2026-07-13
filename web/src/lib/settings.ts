@@ -261,6 +261,10 @@ export type UserSettings = {
   executionSource: ChatExecutionSource;
   defaultAgentId: AgentId;
   agentModels: Record<AgentId, string>;
+  /** 客户端展示用智能体别名（留空则显示原名） */
+  agentAliases: Partial<Record<AgentId, string>>;
+  /** 客户端展示用模型别名，按 agentId → modelId 存储 */
+  agentModelAliases: Partial<Record<AgentId, Record<string, string>>>;
   apiProvider: ApiProviderConfig;
   /** 多厂商模型 API 配置 */
   modelProviders: ModelProviderInstance[];
@@ -293,6 +297,8 @@ export const DEFAULT_SETTINGS: UserSettings = {
   agentModels: Object.fromEntries(
     AGENT_IDS.map((id) => [id, "default"]),
   ) as Record<AgentId, string>,
+  agentAliases: {},
+  agentModelAliases: {},
   apiProvider: DEFAULT_API_PROVIDER_CONFIG,
   modelProviders: [],
   activeApiSelection: null,
@@ -349,6 +355,8 @@ function normalizeUserSettings(parsed: Partial<UserSettings>): UserSettings {
   return {
     ...DEFAULT_SETTINGS,
     ...parsed,
+    agentAliases: parsed.agentAliases ?? {},
+    agentModelAliases: parsed.agentModelAliases ?? {},
     apiProvider: syncLegacyApiProvider(
       modelProviders,
       activeApiSelection,
@@ -436,6 +444,70 @@ export function getInferenceChannel(): InferenceChannel {
 
 export function agentLabel(id: AgentId): string {
   return AGENT_DEFINITIONS.find((a) => a.id === id)?.name ?? id;
+}
+
+export function agentOriginalShortName(id: AgentId): string {
+  return agentLabel(id).replace(" CLI", "");
+}
+
+export function getAgentDisplayName(
+  id: AgentId,
+  aliases?: Partial<Record<AgentId, string>>,
+): string {
+  const alias = aliases?.[id]?.trim();
+  if (alias) return alias;
+  return agentOriginalShortName(id);
+}
+
+export function getAgentModelDisplayName(
+  agentId: AgentId,
+  modelId: string,
+  originalLabel: string,
+  modelAliases?: Partial<Record<AgentId, Record<string, string>>>,
+): string {
+  const alias = modelAliases?.[agentId]?.[modelId]?.trim();
+  if (alias) return alias;
+  return originalLabel;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** 将运行态文案中的 agentId / 原名替换为用户配置的别名 */
+export function localizeAgentMentions(
+  text: string,
+  aliases?: Partial<Record<AgentId, string>>,
+): string {
+  if (!text) return text;
+  let result = text;
+  const sortedIds = [...AGENT_IDS].sort((a, b) => b.length - a.length);
+
+  for (const id of sortedIds) {
+    const display = getAgentDisplayName(id, aliases);
+    const originalShort = agentOriginalShortName(id);
+    const originalFull = agentLabel(id);
+
+    result = result.replace(
+      new RegExp(`(?<![\\w-])${escapeRegExp(id)}(?![\\w-])`, "gi"),
+      display,
+    );
+
+    if (display !== originalFull) {
+      result = result.replace(
+        new RegExp(escapeRegExp(originalFull), "gi"),
+        display,
+      );
+    }
+    if (display !== originalShort && originalShort !== originalFull) {
+      result = result.replace(
+        new RegExp(escapeRegExp(originalShort), "gi"),
+        display,
+      );
+    }
+  }
+
+  return result;
 }
 
 export function visibleMenuItems(simulateAdmin: boolean): SettingsMenuItem[] {

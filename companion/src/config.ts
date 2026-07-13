@@ -31,7 +31,7 @@ export type RunTimeoutProfile =
   | "video"
   | "simulation";
 
-export const PACKAGE_VERSION = "0.1.0";
+export const PACKAGE_VERSION = "0.1.4-alpha";
 
 export const config = {
   host: process.env.COMPANION_HOST ?? "127.0.0.1",

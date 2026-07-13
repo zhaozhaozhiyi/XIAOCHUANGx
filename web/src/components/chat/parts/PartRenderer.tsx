@@ -1,10 +1,12 @@
 "use client";
 
+import { useSettings } from "@/components/settings/SettingsContext";
 import type {
   ChatPart,
   OutlineCommitPayload,
   RequirementsPart,
 } from "@/lib/chat-parts";
+import { localizeAgentMentions } from "@/lib/settings";
 import { isRenderablePart, normalizeMarkdown } from "@/lib/chat-parts-utils";
 import { ArtifactRow } from "@/components/chat/parts/ArtifactRow";
 import { DeliverablesCard } from "@/components/chat/parts/DeliverablesCard";
@@ -48,11 +50,13 @@ type SimulationRequirementsPart = RequirementsPart & {
 };
 
 function StatusChip({ part }: { part: Extract<ChatPart, { kind: "status" }> }) {
-  const tone = activityTone(part.label, part.phase);
+  const { settings } = useSettings();
+  const label = localizeAgentMentions(part.label, settings.agentAliases);
+  const tone = activityTone(label, part.phase);
   return (
     <div className={activityChipClass(tone)}>
       <span className="chat-activity-chip__dot" aria-hidden />
-      <span>{part.label}</span>
+      <span>{label}</span>
       {part.phase && (
         <span className="chat-activity-chip__phase">· {part.phase}</span>
       )}

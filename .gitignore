@@ -78,6 +78,7 @@ coverage/
 
 # 本地绿色版服务（PG+Redis）
 .runtime/
+dump.rdb
 
 # Product-managed CAD runtimes are prepared locally or in release CI.
 apps/desktop/resources/engines/openscad/**

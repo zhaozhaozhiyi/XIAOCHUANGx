@@ -42,7 +42,6 @@ import {
   setSessionRunStatus,
   upsertChatSession,
 } from "@/lib/chat-history";
-import { useSidebarCollapsed } from "@/components/layout/SidebarLayoutContext";
 import { useWorkspaceProject } from "@/components/workspace/WorkspaceProjectContext";
 import { useWorkspaceOptional } from "@/components/workspace/WorkspaceContext";
 import {
@@ -838,27 +837,53 @@ function SimulationWorkbench({
 
   useEffect(() => {
     let cancelled = false;
-    void fetchSimulationRounds(sessionId)
-      .then((res) => {
-        if (cancelled) return;
-        setRounds(res.rounds);
-        const latest = res.rounds.at(-1);
-        if (latest) {
-          setActiveRoundId(latest.roundId);
-          if (latest.roundId !== "round_1") {
-            void fetchSimulationSnapshot({ sessionId, roundId: latest.roundId })
-              .then((snapshotRes) => {
-                if (!cancelled) setActiveSnapshot(snapshotRes.snapshot);
-              })
-              .catch(() => {
-                if (!cancelled) setActiveSnapshot(null);
-              });
+    const retryDelay = (attempt: number) =>
+      new Promise((resolve) => setTimeout(resolve, attempt * 350));
+    const loadLatestSnapshot = async (roundId: string) => {
+      for (let attempt = 1; attempt <= 4; attempt += 1) {
+        try {
+          const snapshotRes = await fetchSimulationSnapshot({ sessionId, roundId });
+          if (!cancelled) setActiveSnapshot(snapshotRes.snapshot);
+          return;
+        } catch {
+          if (attempt === 4) {
+            if (!cancelled) setActiveSnapshot(null);
+            return;
           }
+          await retryDelay(attempt);
         }
-      })
-      .catch(() => {
-        if (!cancelled) setRounds([]);
-      });
+      }
+    };
+    const loadRounds = async () => {
+      for (let attempt = 1; attempt <= 6; attempt += 1) {
+        try {
+          const res = await fetchSimulationRounds(sessionId);
+          if (cancelled) return;
+          if (res.rounds.length === 0 && attempt < 6) {
+            await retryDelay(attempt);
+            continue;
+          }
+          setRounds(res.rounds);
+          const latest = res.rounds.at(-1);
+          if (latest) {
+            setActiveRoundId(latest.roundId);
+            if (latest.roundId !== "round_1") {
+              void loadLatestSnapshot(latest.roundId);
+            } else {
+              setActiveSnapshot(null);
+            }
+          }
+          return;
+        } catch {
+          if (attempt === 6) {
+            if (!cancelled) setRounds([]);
+            return;
+          }
+          await retryDelay(attempt);
+        }
+      }
+    };
+    void loadRounds();
     return () => {
       cancelled = true;
     };
@@ -1043,7 +1068,6 @@ export function ChatThread({
   surfaceModuleId?: ChatSurfaceModuleId;
 }) {
   const surface = MODULE_CHAT_SURFACES[surfaceModuleId];
-  const sidebarCollapsed = useSidebarCollapsed();
   const { settings } = useSettings();
   const { executionSource, agentId, agentModel, selectAgentModel } =
     useChatAgentSelection();
@@ -1403,15 +1427,15 @@ export function ChatThread({
         surfaceModuleId,
         writingTemplateId:
           surface.skillPicker === "writing"
-            ? readStoredModuleSkillTemplateId("writing", id)
+            ? (readStoredModuleSkillTemplateId("writing", id) ?? undefined)
             : undefined,
         pptTemplateId:
           surface.skillPicker === "ppt"
-            ? readStoredModuleSkillTemplateId("ppt", id)
+            ? (readStoredModuleSkillTemplateId("ppt", id) ?? undefined)
             : undefined,
         videoTemplateId:
           surface.skillPicker === "video"
-            ? readStoredModuleSkillTemplateId("video", id)
+            ? (readStoredModuleSkillTemplateId("video", id) ?? undefined)
             : undefined,
         agentId,
         agentModel,
@@ -1615,17 +1639,17 @@ export function ChatThread({
         writingTemplateId:
           pending.writingTemplateId ??
           (surface.skillPicker === "writing"
-            ? readStoredModuleSkillTemplateId("writing", id)
+            ? (readStoredModuleSkillTemplateId("writing", id) ?? undefined)
             : undefined),
         pptTemplateId:
           pending.pptTemplateId ??
           (surface.skillPicker === "ppt"
-            ? readStoredModuleSkillTemplateId("ppt", id)
+            ? (readStoredModuleSkillTemplateId("ppt", id) ?? undefined)
             : undefined),
         videoTemplateId:
           pending.videoTemplateId ??
           (surface.skillPicker === "video"
-            ? readStoredModuleSkillTemplateId("video", id)
+            ? (readStoredModuleSkillTemplateId("video", id) ?? undefined)
             : undefined),
         agentId: pending.agentId,
         agentModel: pending.agentModel,
@@ -1794,7 +1818,6 @@ export function ChatThread({
     return (
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <ChatTopBar
-          sidebarCollapsed={sidebarCollapsed}
           left={
             <ChatAgentModelPicker
               executionSource={executionSource}
@@ -1882,7 +1905,6 @@ export function ChatThread({
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <ChatTopBar
-        sidebarCollapsed={sidebarCollapsed}
         left={
           <ChatAgentModelPicker
             executionSource={executionSource}

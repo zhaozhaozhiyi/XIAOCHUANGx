@@ -1,0 +1,502 @@
+[
+  {
+    "actionId": "action.addCondition",
+    "behaviorType": "prompt",
+    "targetKind": "action",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "action.compareNotDoing",
+    "behaviorType": "confirm",
+    "targetKind": "action",
+    "createsNewRound": true,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "action.edit",
+    "behaviorType": "prompt",
+    "targetKind": "action",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "action.evaluateSideEffects",
+    "behaviorType": "prompt",
+    "targetKind": "action",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "action.simulate",
+    "behaviorType": "confirm",
+    "targetKind": "action",
+    "createsNewRound": true,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "conclusion.challenge",
+    "behaviorType": "confirm",
+    "targetKind": "conclusion",
+    "createsNewRound": true,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "conclusion.refute",
+    "behaviorType": "confirm",
+    "targetKind": "conclusion",
+    "createsNewRound": true,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "conclusion.report",
+    "behaviorType": "prompt",
+    "targetKind": "conclusion",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "decision.addVariable",
+    "behaviorType": "prompt",
+    "targetKind": "decision",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "decision.compareBranches",
+    "behaviorType": "prompt",
+    "targetKind": "decision",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "decision.defer",
+    "behaviorType": "prompt",
+    "targetKind": "decision",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "decision.selectBranch",
+    "behaviorType": "confirm",
+    "targetKind": "decision",
+    "createsNewRound": true,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "deliverables.deckOutline",
+    "behaviorType": "prompt",
+    "targetKind": "deliverables",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "deliverables.extractSummary",
+    "behaviorType": "prompt",
+    "targetKind": "deliverables",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "deliverables.updateReport",
+    "behaviorType": "prompt",
+    "targetKind": "deliverables",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "edge.insertNode",
+    "behaviorType": "pending",
+    "targetKind": "edge",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "edge.manualConnect",
+    "behaviorType": "pending",
+    "targetKind": "edge",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "entity.addEvent",
+    "behaviorType": "prompt",
+    "targetKind": "entity",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "entity.addVariable",
+    "behaviorType": "prompt",
+    "targetKind": "entity",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "entity.analyzeRelation",
+    "behaviorType": "prompt",
+    "targetKind": "entity",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "event.assumeHappens",
+    "behaviorType": "confirm",
+    "targetKind": "event",
+    "createsNewRound": true,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "event.assumeNotHappens",
+    "behaviorType": "confirm",
+    "targetKind": "event",
+    "createsNewRound": true,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "evidence.counterExample",
+    "behaviorType": "confirm",
+    "targetKind": "evidence",
+    "createsNewRound": true,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "evidence.locateCitation",
+    "behaviorType": "prompt",
+    "targetKind": "evidence",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "evidence.locateSource",
+    "behaviorType": "prompt",
+    "targetKind": "evidence",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "evidence.replace",
+    "behaviorType": "confirm",
+    "targetKind": "evidence",
+    "createsNewRound": true,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "evidence.supplement",
+    "behaviorType": "confirm",
+    "targetKind": "evidence",
+    "createsNewRound": false,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "evidence.verify",
+    "behaviorType": "prompt",
+    "targetKind": "evidence",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "history.backToLatest",
+    "behaviorType": "snapshot",
+    "targetKind": "history",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "history.compareLatest",
+    "behaviorType": "prompt",
+    "targetKind": "history",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "history.continueFrom",
+    "behaviorType": "confirm",
+    "targetKind": "history",
+    "createsNewRound": true,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "hypothesis.branch",
+    "behaviorType": "confirm",
+    "targetKind": "hypothesis",
+    "createsNewRound": true,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "hypothesis.delete",
+    "behaviorType": "confirm",
+    "targetKind": "hypothesis",
+    "createsNewRound": true,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "hypothesis.lock",
+    "behaviorType": "confirm",
+    "targetKind": "hypothesis",
+    "createsNewRound": false,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "hypothesis.replace",
+    "behaviorType": "confirm",
+    "targetKind": "hypothesis",
+    "createsNewRound": true,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "inference.counterEvidence",
+    "behaviorType": "confirm",
+    "targetKind": "inference",
+    "createsNewRound": true,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "inference.recalculate",
+    "behaviorType": "confirm",
+    "targetKind": "inference",
+    "createsNewRound": true,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "inference.viewEvidence",
+    "behaviorType": "prompt",
+    "targetKind": "inference",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "nextAction.execute",
+    "behaviorType": "confirm",
+    "targetKind": "next_action",
+    "createsNewRound": true,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "node.copy",
+    "behaviorType": "local",
+    "targetKind": "node",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "node.expand",
+    "behaviorType": "prompt",
+    "targetKind": "node",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "path.continue",
+    "behaviorType": "confirm",
+    "targetKind": "path",
+    "createsNewRound": true,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "prompt.edit",
+    "behaviorType": "prompt",
+    "targetKind": "prompt",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "prompt.reparse",
+    "behaviorType": "prompt",
+    "targetKind": "prompt",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "prompt.stop",
+    "behaviorType": "confirm",
+    "targetKind": "prompt",
+    "createsNewRound": false,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "recovery.restartFromSnapshot",
+    "behaviorType": "confirm",
+    "targetKind": "recovery",
+    "createsNewRound": true,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "recovery.retryRound",
+    "behaviorType": "prompt",
+    "targetKind": "recovery",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "recovery.viewSaved",
+    "behaviorType": "prompt",
+    "targetKind": "recovery",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "risk.addMitigation",
+    "behaviorType": "confirm",
+    "targetKind": "risk",
+    "createsNewRound": true,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "risk.stressTest",
+    "behaviorType": "confirm",
+    "targetKind": "risk",
+    "createsNewRound": true,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "risk.warningVariable",
+    "behaviorType": "confirm",
+    "targetKind": "risk",
+    "createsNewRound": true,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "scenario.compareBaseline",
+    "behaviorType": "prompt",
+    "targetKind": "scenario",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "scenario.continue",
+    "behaviorType": "confirm",
+    "targetKind": "scenario",
+    "createsNewRound": true,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "scenario.counterfactual",
+    "behaviorType": "confirm",
+    "targetKind": "scenario",
+    "createsNewRound": true,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "suggestion.continue",
+    "behaviorType": "prompt",
+    "targetKind": "suggestion",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "summary.extractNextActions",
+    "behaviorType": "prompt",
+    "targetKind": "summary",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "summary.followUp",
+    "behaviorType": "prompt",
+    "targetKind": "summary",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "summary.generateReport",
+    "behaviorType": "prompt",
+    "targetKind": "summary",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "topic.addBoundaryCondition",
+    "behaviorType": "prompt",
+    "targetKind": "topic",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "topic.continue",
+    "behaviorType": "confirm",
+    "targetKind": "topic",
+    "createsNewRound": true,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "topic.editBoundary",
+    "behaviorType": "prompt",
+    "targetKind": "topic",
+    "createsNewRound": false,
+    "requiresConfirmation": false,
+    "variants": {
+      "hasWorldModel": {
+        "behaviorType": "prompt",
+        "createsNewRound": false,
+        "requiresConfirmation": false
+      },
+      "coreBoundaryChange": {
+        "behaviorType": "confirm",
+        "createsNewRound": true,
+        "requiresConfirmation": true
+      }
+    }
+  },
+  {
+    "actionId": "topic.generateWorldModel",
+    "behaviorType": "prompt",
+    "targetKind": "topic",
+    "createsNewRound": true,
+    "requiresConfirmation": false,
+    "variants": {
+      "hasWorldModel": {
+        "behaviorType": "confirm",
+        "createsNewRound": true,
+        "requiresConfirmation": true
+      },
+      "coreBoundaryChange": {
+        "behaviorType": "confirm",
+        "createsNewRound": true,
+        "requiresConfirmation": true
+      }
+    }
+  },
+  {
+    "actionId": "topic.generateWorldModelNext",
+    "behaviorType": "confirm",
+    "targetKind": "topic",
+    "createsNewRound": true,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "topic.viewImpact",
+    "behaviorType": "prompt",
+    "targetKind": "topic",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "variable.lock",
+    "behaviorType": "prompt",
+    "targetKind": "variable",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "variable.recalculate",
+    "behaviorType": "confirm",
+    "targetKind": "variable",
+    "createsNewRound": true,
+    "requiresConfirmation": true
+  },
+  {
+    "actionId": "variable.restoreDefault",
+    "behaviorType": "prompt",
+    "targetKind": "variable",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  },
+  {
+    "actionId": "variable.viewImpact",
+    "behaviorType": "prompt",
+    "targetKind": "variable",
+    "createsNewRound": false,
+    "requiresConfirmation": false
+  }
+]

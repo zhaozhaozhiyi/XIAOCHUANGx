@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { PanelLeftClose, Plus } from "lucide-react";
+import { PanelLeft, PanelLeftClose, Plus } from "lucide-react";
 import { UserSettingsTrigger } from "@/components/settings/UserSettingsMenu";
 import { ChatHistorySidebar } from "@/components/chat/ChatHistorySidebar";
 import { ChatHistorySidebarBoundary } from "@/components/chat/ChatHistorySidebarBoundary";
@@ -44,7 +44,7 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
 
   return (
     <aside
-      className={`flex h-full shrink-0 flex-col border-r border-[var(--border)] bg-[var(--sidebar-bg)] transition-[width] duration-200 ${
+      className={`sidebar-shell flex h-full shrink-0 flex-col border-r border-[var(--border)] bg-[var(--sidebar-bg)] transition-[width] duration-200 ${
         collapsed ? "w-[56px]" : "w-[240px]"
       }`}
     >
@@ -140,7 +140,7 @@ function SidebarHeader({
 }) {
   return (
     <div
-      className={`flex h-14 items-center gap-2 px-3 ${collapsed ? "justify-center px-2" : "justify-between"}`}
+      className={`desktop-drag-region relative flex h-14 items-center gap-2 px-3 ${collapsed ? "sidebar-collapsed-header justify-center px-2" : "justify-between"}`}
     >
       {!collapsed ? (
         <>
@@ -161,9 +161,23 @@ function SidebarHeader({
           </button>
         </>
       ) : (
-        <Link href="/chat" className="flex justify-center">
-          <BrandMark />
-        </Link>
+        <>
+          <div
+            className="sidebar-collapsed-logo flex h-9 w-9 items-center justify-center transition-opacity duration-150"
+            aria-hidden="true"
+          >
+            <BrandMark />
+          </div>
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            className="sidebar-collapsed-expand-button btn-icon absolute left-1/2 top-1/2 z-10 h-9 w-9 -translate-x-1/2 -translate-y-1/2 opacity-0 transition-opacity duration-150"
+            aria-label="展开侧栏"
+            title="展开侧栏"
+          >
+            <PanelLeft className="h-4 w-4" strokeWidth={1.75} />
+          </button>
+        </>
       )}
     </div>
   );

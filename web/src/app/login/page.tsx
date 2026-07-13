@@ -5,6 +5,8 @@ import { LoginVideo } from "@/components/auth/LoginVideo";
 export default function LoginPage() {
   return (
     <div className="login-page">
+      <div className="desktop-drag-region login-window-drag-strip" aria-hidden />
+
       <div className="login-bg-logo" aria-hidden>
         <svg viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect width="1024" height="1024" rx="230" fill="var(--accent)" />

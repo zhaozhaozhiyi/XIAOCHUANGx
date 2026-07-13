@@ -56,7 +56,7 @@ import {
   summarizeGrammarViolations,
 } from "../simulation/grammar-check.js";
 import { buildCanvasDigest } from "../simulation/digest.js";
-import type { CreateRunRequest } from "../types.js";
+import type { AgentId, CreateRunRequest } from "../types.js";
 import {
   type ChatPart,
   type CanonicalArtifact,
@@ -395,7 +395,14 @@ function looksLikeWritingBriefQuestion(text: string): boolean {
   );
 }
 
-function taskStartLabel(userText: string, agentId: string): string {
+function agentRuntimeLabel(agentId: AgentId): string {
+  return getAgentRegistryEntry(agentId).execution.displayName.replace(
+    /\s+CLI$/i,
+    "",
+  );
+}
+
+function taskStartLabel(userText: string, agentId: AgentId): string {
   const text = userText.toLowerCase();
   if (/(ppt|pptx|演示|幻灯片|deck|slides?)/i.test(text)) {
     return "正在梳理 PPT 需求，并准备生成可打开的演示文稿…";
@@ -403,7 +410,7 @@ function taskStartLabel(userText: string, agentId: string): string {
   if (/(报告|研报|分析|总结|研究)/.test(text)) {
     return "正在梳理资料与分析框架…";
   }
-  return `正在运行 ${agentId}，解析任务并准备执行…`;
+  return `正在运行 ${agentRuntimeLabel(agentId)}，解析任务并准备执行…`;
 }
 
 function buildStablePromptHash(instructionPrompt: string): string {
@@ -745,7 +752,7 @@ async function executeRunLifecycle(
   if (!agent || agent.status !== "available") {
     const message =
       agent?.hint ??
-      `Agent ${req.agentId} 不可用（${agent?.status ?? "unknown"}）`;
+      `${agentRuntimeLabel(req.agentId)} 不可用（${agent?.status ?? "unknown"}）`;
     await persistEarlyFailure(message);
     writer.send("run.error", {
       code: "agent_unavailable",
@@ -1571,21 +1578,22 @@ async function executeRunLifecycle(
         agentKitPath: agentKit?.agentKitPath ?? null,
       });
       emitRunStartedEvent();
+      const probeLabel = `正在探测 ${agentRuntimeLabel(req.agentId)}… cwd=${cwd}`;
       writer.send("tool.progress", {
         tool: "phase",
         status: "running",
-        message: `正在探测 ${req.agentId}… cwd=${cwd}`,
+        message: probeLabel,
       });
       emitRunStatus(writer, {
         runId,
         phase: "running",
-        label: `正在探测 ${req.agentId}… cwd=${cwd}`,
+        label: probeLabel,
       });
       emitCanonicalToolProgress(writer, {
         runId,
         tool: "phase",
         status: "running",
-        message: `正在探测 ${req.agentId}… cwd=${cwd}`,
+        message: probeLabel,
       });
       const probe = await trySpawnVersionProbe(req.agentId, cwd, abort.signal);
       if (probe.ok) {

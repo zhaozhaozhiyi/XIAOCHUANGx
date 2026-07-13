@@ -97,12 +97,6 @@ const SKILL_OPTIONS: Record<
   video: VIDEO_SKILL_OPTIONS,
 };
 
-const DEFAULT_SKILL_TEMPLATE_ID: Record<ModuleSkillPickerKind, string> = {
-  writing: DEFAULT_WRITING_SKILL_TEMPLATE_ID,
-  ppt: DEFAULT_PPT_SKILL_TEMPLATE_ID,
-  video: DEFAULT_VIDEO_SKILL_TEMPLATE_ID,
-};
-
 export function moduleSkillStorageKey(
   kind: ModuleSkillPickerKind,
   sessionId?: string,
@@ -117,18 +111,19 @@ export function getModuleSkillOptions(
   return SKILL_OPTIONS[kind];
 }
 
+const MODULE_SKILL_CLEARED = "";
+
 export function readStoredModuleSkillTemplateId(
   kind: ModuleSkillPickerKind,
   sessionId?: string,
-): string {
-  if (typeof window === "undefined") {
-    return DEFAULT_SKILL_TEMPLATE_ID[kind];
-  }
+): string | null {
+  if (typeof window === "undefined") return null;
   const raw = localStorage.getItem(moduleSkillStorageKey(kind, sessionId));
+  if (raw === MODULE_SKILL_CLEARED || raw === null) return null;
   if (SKILL_OPTIONS[kind].some((o) => o.templateId === raw)) {
     return raw as string;
   }
-  return DEFAULT_SKILL_TEMPLATE_ID[kind];
+  return null;
 }
 
 export function writeStoredModuleSkillTemplateId(
@@ -138,6 +133,17 @@ export function writeStoredModuleSkillTemplateId(
 ): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(moduleSkillStorageKey(kind, sessionId), templateId);
+}
+
+export function clearStoredModuleSkillTemplateId(
+  kind: ModuleSkillPickerKind,
+  sessionId?: string,
+): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(
+    moduleSkillStorageKey(kind, sessionId),
+    MODULE_SKILL_CLEARED,
+  );
 }
 
 export const MODULE_SKILL_CHANGED_EVENT = "jlc-module-skill-changed";

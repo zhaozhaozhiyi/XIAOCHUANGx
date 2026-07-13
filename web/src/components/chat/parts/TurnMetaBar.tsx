@@ -3,12 +3,17 @@
 import type { TurnMetaPart } from "@/lib/chat-parts";
 import { ChevronDown, ChevronRight, Clock } from "lucide-react";
 import { useState } from "react";
+import { useSettings } from "@/components/settings/SettingsContext";
 import { formatDurationMs } from "@/lib/chat-parts-normalize";
+import { localizeAgentMentions } from "@/lib/settings";
 
 export function TurnMetaBar({ part }: { part: TurnMetaPart }) {
+  const { settings } = useSettings();
   const [open, setOpen] = useState(false);
   const label =
-    part.label ??
+    (part.label
+      ? localizeAgentMentions(part.label, settings.agentAliases)
+      : null) ??
     (part.runStatus === "complete"
       ? "已完成"
       : part.runStatus === "waiting_user"

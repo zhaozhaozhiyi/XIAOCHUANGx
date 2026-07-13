@@ -12,6 +12,13 @@ const COMPANION_URL =
 const COMPANION_DATA_DIR =
   process.env.COMPANION_DATA_DIR ??
   join(process.env.HOME ?? "", ".jlcresearch", "companion");
+const NAVIGATION_TIMEOUT_MS = Number(
+  process.env.SMOKE_NAVIGATION_TIMEOUT_MS ?? 30_000,
+);
+const UI_WAIT_TIMEOUT_MS = Number(process.env.SMOKE_UI_WAIT_TIMEOUT_MS ?? 30_000);
+const USER_MESSAGE_WAIT_TIMEOUT_MS = Number(
+  process.env.SMOKE_USER_MESSAGE_TIMEOUT_MS ?? UI_WAIT_TIMEOUT_MS,
+);
 const SESSION_PREFIX = `simulation-ui-smoke-${Date.now()}`;
 const REQUIREMENTS_SESSION_ID = `${SESSION_PREFIX}-requirements`;
 const GATED_SESSION_ID = `${SESSION_PREFIX}-gated`;
@@ -36,8 +43,67 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function waitForNodeInCanvas(page, canvasRoot, node, timeoutMs = 2_500) {
+  const startedAt = Date.now();
+  let lastBounds = null;
+  let panAttempts = 0;
+  while (Date.now() - startedAt < timeoutMs) {
+    const [nodeBox, flowBox] = await Promise.all([
+      node.boundingBox().catch(() => null),
+      canvasRoot.locator(".react-flow").first().boundingBox().catch(() => null),
+    ]);
+    lastBounds = { nodeBox, flowBox };
+    if (nodeBox && flowBox) {
+      const centerX = nodeBox.x + nodeBox.width / 2;
+      const centerY = nodeBox.y + nodeBox.height / 2;
+      const horizontalInset = Math.min(24, flowBox.width * 0.04);
+      const verticalInset = Math.min(24, flowBox.height * 0.04);
+      const inside =
+        centerX >= flowBox.x + horizontalInset &&
+        centerX <= flowBox.x + flowBox.width - horizontalInset &&
+        centerY >= flowBox.y + verticalInset &&
+        centerY <= flowBox.y + flowBox.height - verticalInset;
+      if (inside) return;
+      if (panAttempts < 5) {
+        const targetX = Math.min(
+          Math.max(centerX, flowBox.x + horizontalInset),
+          flowBox.x + flowBox.width - horizontalInset,
+        );
+        const targetY = Math.min(
+          Math.max(centerY, flowBox.y + verticalInset),
+          flowBox.y + flowBox.height - verticalInset,
+        );
+        const dragX = Math.max(-520, Math.min(520, targetX - centerX));
+        const dragY = Math.max(-360, Math.min(360, targetY - centerY));
+        await page.evaluate(
+          ({ x, y }) => {
+            const viewport = document.querySelector(".react-flow__viewport");
+            if (!(viewport instanceof HTMLElement)) return;
+            const transform = window.getComputedStyle(viewport).transform;
+            const matrix =
+              transform && transform !== "none"
+                ? new DOMMatrixReadOnly(transform)
+                : new DOMMatrixReadOnly();
+            const scale = matrix.a || 1;
+            viewport.style.transform = `translate(${matrix.m41 + x}px, ${
+              matrix.m42 + y
+            }px) scale(${scale})`;
+          },
+          { x: dragX, y: dragY },
+        );
+        panAttempts += 1;
+        await page.waitForTimeout(120);
+        continue;
+      }
+    }
+    await page.waitForTimeout(120);
+  }
+  throw new Error(`canvas node is outside clickable viewport: ${JSON.stringify(lastBounds)}`);
+}
+
 async function selectCanvasNodeUntilPanel(
   page,
+  canvasRoot,
   nodeLabel,
   panelLabel,
   {
@@ -49,11 +115,22 @@ async function selectCanvasNodeUntilPanel(
   const target =
     nodeSelector ??
     `.react-flow__node:has-text("${String(nodeLabel).replace(/"/g, '\\"')}")`;
-  const node = page.locator(target).first();
+  const node = canvasRoot.locator(target).first();
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const inspectorClose = canvasRoot
+      .locator('[data-simulation-inspector-close="true"]')
+      .first();
+    if ((await inspectorClose.count()) > 0) {
+      await inspectorClose.click({ timeout: 1_000 }).catch(() => undefined);
+      await page.waitForTimeout(120);
+    }
+    await waitForNodeInCanvas(page, canvasRoot, node);
     await node.click();
     try {
-      await page.waitForSelector(`text=${panelLabel}`, { timeout: timeoutMs });
+      await canvasRoot
+        .locator(`text=${panelLabel}`)
+        .first()
+        .waitFor({ state: "visible", timeout: timeoutMs });
       return;
     } catch (error) {
       if (attempt === attempts) throw error;
@@ -62,7 +139,7 @@ async function selectCanvasNodeUntilPanel(
   }
 }
 
-async function waitForAnySelector(page, selectors, timeout = 10_000) {
+async function waitForAnySelector(page, selectors, timeout = UI_WAIT_TIMEOUT_MS) {
   try {
     await page.waitForFunction(
       (items) =>
@@ -88,6 +165,96 @@ async function waitForAnySelector(page, selectors, timeout = 10_000) {
   }
 }
 
+async function clickPendingConfirm(page) {
+  const semanticConfirm = await findVisibleLocator(
+    page.locator('[data-pending-confirm="true"]'),
+  );
+  if (semanticConfirm) {
+    await semanticConfirm.click();
+    return;
+  }
+  await page
+    .locator(
+      [
+        'button:has-text("确认并生成新 Round")',
+        'button:has-text("确认并继续推演")',
+        'button:has-text("确认生成分支")',
+        'button:has-text("确认请求删除")',
+        'button:has-text("确认选择分支")',
+        'button:has-text("确认生成反事实")',
+        'button:has-text("确认继续")',
+        'button:has-text("确认执行")',
+        'button:has-text("确认停止")',
+      ].join(", "),
+    )
+    .first()
+    .click();
+}
+
+async function findVisibleButtonByText(page, label) {
+  const buttons = page.locator(`button:has-text("${label}")`);
+  const count = await buttons.count();
+  for (let index = 0; index < count; index += 1) {
+    const button = buttons.nth(index);
+    if (await button.isVisible().catch(() => false)) return button;
+  }
+  return null;
+}
+
+async function openMoreMenuForAction(page, label) {
+  if (await findVisibleButtonByText(page, label)) return;
+  const menus = page.locator('[data-action-more-menu="true"]');
+  const count = await menus.count();
+  for (let index = 0; index < count; index += 1) {
+    await menus.nth(index).click();
+    await page.waitForTimeout(100);
+    if (await findVisibleButtonByText(page, label)) return;
+  }
+}
+
+async function clickActionButton(page, label) {
+  await openMoreMenuForAction(page, label);
+  const button = await findVisibleButtonByText(page, label);
+  if (!button) throw new Error(`action button not visible: ${label}`);
+  await button.click();
+}
+
+async function clickActionById(page, actionId, label = actionId) {
+  const actionSelector = `button[data-action-id="${actionId}"]`;
+  const visibleAction = await findVisibleLocator(page.locator(actionSelector));
+  if (visibleAction) {
+    await visibleAction.click();
+    return;
+  }
+
+  const menuSummaries = page.locator(
+    `details:has(${actionSelector}) > summary[data-action-more-menu="true"]`,
+  );
+  const menuCount = await menuSummaries.count();
+  for (let index = 0; index < menuCount; index += 1) {
+    const summary = menuSummaries.nth(index);
+    if (!(await summary.isVisible().catch(() => false))) continue;
+    await summary.click();
+    await page.waitForTimeout(100);
+    const openedAction = await findVisibleLocator(page.locator(actionSelector));
+    if (openedAction) {
+      await openedAction.click();
+      return;
+    }
+  }
+
+  throw new Error(`action button not visible: ${label} (${actionId})`);
+}
+
+async function findVisibleLocator(locator) {
+  const count = await locator.count();
+  for (let index = 0; index < count; index += 1) {
+    const item = locator.nth(index);
+    if (await item.isVisible().catch(() => false)) return item;
+  }
+  return null;
+}
+
 const CANVAS_LAYER_IDS = new Map([
   ["全部", "all"],
   ["问题层", "question"],
@@ -109,6 +276,7 @@ async function clickCanvasLayer(page, label) {
     .first();
   if ((await visibleLayerButton.count()) > 0) {
     await visibleLayerButton.click();
+    await page.waitForTimeout(720);
     return;
   }
 
@@ -119,10 +287,12 @@ async function clickCanvasLayer(page, label) {
       .locator(`[data-simulation-layer-id="${layerId}"]`)
       .first()
       .click();
+    await page.waitForTimeout(720);
     return;
   }
 
   await page.locator(`button:has-text("${label}")`).first().click();
+  await page.waitForTimeout(720);
 }
 
 function requirementPart() {
@@ -873,6 +1043,34 @@ async function waitForRoundFixtures(sessionId, expectedCount) {
   throw new Error(`round fixtures not visible for ${sessionId}`);
 }
 
+async function waitForWebRoundFixtures(page, sessionId, expectedCount) {
+  let lastStatus = null;
+  let lastBody = "";
+  for (let attempt = 1; attempt <= 12; attempt += 1) {
+    const q = new URLSearchParams({ sessionId });
+    const res = await page.request.get(
+      `${WEB_URL}/api/simulation-rounds?${q}`,
+      { timeout: NAVIGATION_TIMEOUT_MS },
+    );
+    lastStatus = res.status();
+    lastBody = await res.text().catch(() => "");
+    if (res.ok()) {
+      try {
+        const payload = JSON.parse(lastBody);
+        if (Array.isArray(payload.rounds) && payload.rounds.length >= expectedCount) {
+          return payload.rounds;
+        }
+      } catch {
+        // Treat non-JSON app shell responses as "not ready" and retry.
+      }
+    }
+    await sleep(350 * attempt);
+  }
+  throw new Error(
+    `web round fixtures not visible for ${sessionId}: ${lastStatus} ${lastBody.slice(0, 500)}`,
+  );
+}
+
 async function putMessages(sessionId, parts, projectId = "none") {
   const res = await fetch(
     `${COMPANION_URL}/v1/sessions/${encodeURIComponent(sessionId)}/messages`,
@@ -914,8 +1112,14 @@ async function fetchMessages(sessionId) {
 }
 
 async function waitForUserMessage(sessionId, predicate) {
-  for (let attempt = 1; attempt <= 60; attempt += 1) {
+  const deadline = Date.now() + USER_MESSAGE_WAIT_TIMEOUT_MS;
+  let latestUserMessages = [];
+  while (Date.now() < deadline) {
     const messages = await fetchMessages(sessionId);
+    latestUserMessages = messages
+      .filter((item) => item?.role === "user" && typeof item.content === "string")
+      .slice(-5)
+      .map((item) => item.content.slice(0, 240));
     const message = [...messages]
       .reverse()
       .find(
@@ -926,9 +1130,13 @@ async function waitForUserMessage(sessionId, predicate) {
           predicate(item.content),
       );
     if (message) return message.content;
-    await sleep(250);
+    await sleep(500);
   }
-  throw new Error("expected user message was not persisted");
+  throw new Error(
+    `expected user message was not persisted. Latest user messages: ${JSON.stringify(
+      latestUserMessages,
+    )}`,
+  );
 }
 
 async function cleanup() {
@@ -1011,7 +1219,7 @@ async function main() {
 
     await page.goto(`${WEB_URL}/simulation/new`, {
       waitUntil: "domcontentloaded",
-      timeout: 15_000,
+      timeout: NAVIGATION_TIMEOUT_MS,
     });
     await page.waitForSelector("text=今天要推演什么问题？", {
       timeout: 10_000,
@@ -1034,7 +1242,7 @@ async function main() {
 
     await page.goto(`${WEB_URL}/simulation/${REQUIREMENTS_SESSION_ID}`, {
       waitUntil: "domcontentloaded",
-      timeout: 15_000,
+      timeout: NAVIGATION_TIMEOUT_MS,
     });
     await waitForAnySelector(page, [
       "text=入口确认节点组",
@@ -1080,7 +1288,7 @@ async function main() {
 
     await page.goto(`${WEB_URL}/simulation/${GATED_SESSION_ID}`, {
       waitUntil: "domcontentloaded",
-      timeout: 15_000,
+      timeout: NAVIGATION_TIMEOUT_MS,
     });
     await waitForAnySelector(page, [
       "text=入口确认节点组",
@@ -1120,7 +1328,7 @@ async function main() {
 
     await page.goto(`${WEB_URL}/simulation/${CONFIRMED_SESSION_ID}`, {
       waitUntil: "domcontentloaded",
-      timeout: 15_000,
+      timeout: NAVIGATION_TIMEOUT_MS,
     });
     await waitForAnySelector(page, [
       "text=入口设定已确认，等待初始沙盘",
@@ -1171,12 +1379,13 @@ async function main() {
         (res) =>
           res.url().includes(`/api/projects/${SANDBOX_PROJECT_ID}/tree`) &&
           res.ok(),
-        { timeout: 15_000 },
+        { timeout: NAVIGATION_TIMEOUT_MS },
       )
       .catch(() => null);
+    await waitForWebRoundFixtures(page, SCENARIO_SESSION_ID, 2);
     await page.goto(`${WEB_URL}/simulation/${SCENARIO_SESSION_ID}`, {
       waitUntil: "domcontentloaded",
-      timeout: 15_000,
+      timeout: NAVIGATION_TIMEOUT_MS,
     });
     await waitForAnySelector(page, [
       "text=模型结构化推演",
@@ -1196,12 +1405,16 @@ async function main() {
     await page.waitForSelector("text=风险压力测试", { timeout: 10_000 });
     await clickCanvasLayer(page, "全部");
     await page.waitForSelector("text=OPEC+ 延长减产", { timeout: 10_000 });
+    const canvasRoot = page
+      .locator('[data-simulation-canvas-root="true"]')
+      .first();
+    await canvasRoot.waitFor({ state: "visible", timeout: 10_000 });
     await clickCanvasLayer(page, "问题层");
-    await page
+    await canvasRoot
       .locator('.react-flow__node:has-text("用户原问题")')
       .first()
       .waitFor({ state: "visible", timeout: 10_000 });
-    await selectCanvasNodeUntilPanel(page, "用户原问题", "原问题操作", {
+    await selectCanvasNodeUntilPanel(page, canvasRoot, "用户原问题", "原问题操作", {
       nodeSelector: '.react-flow__node:has([data-simulation-node-id="prompt_user"])',
     });
     const promptControl = await page.locator("text=原问题操作").count();
@@ -1211,8 +1424,11 @@ async function main() {
     const promptEditAction = await page
       .locator('button:has-text("修改原问题")')
       .count();
-    const promptCancelAction = await page
-      .locator('button:has-text("取消创建")')
+    const promptStopAction = await page
+      .locator('button:has-text("停止当前推演起点")')
+      .count();
+    const promptStopBehavior = await page
+      .locator('button[data-action-id="prompt.stop"][data-behavior-type="confirm"]')
       .count();
     await page.locator('button:has-text("重新解析")').first().click();
     const promptReparsePersistedMessage = await waitForUserMessage(
@@ -1226,52 +1442,108 @@ async function main() {
         content.includes("当前 Topic：推演 OPEC+ 延长减产") &&
         content.includes("Prompt→Topic 的双节点关系"),
     );
-    await selectCanvasNodeUntilPanel(page, "OPEC+ 延长减产", "问题边界", {
+    await selectCanvasNodeUntilPanel(page, canvasRoot, "OPEC+ 延长减产", "问题边界", {
       nodeSelector: '.react-flow__node:has([data-simulation-node-kind="topic"])',
     });
+    const inspectorPanel = canvasRoot.locator("aside").first();
     const topicBoundaryControl = await page.locator("text=问题边界").count();
-    const topicConfirmButton = page
-      .locator(
-        'button:has-text("确认进入世界模型"), button:has-text("确认边界并开始"), button:has-text("确认开始")',
-      )
+    const topicGenerateAction = Boolean(
+      await findVisibleLocator(
+        inspectorPanel.locator(
+          'button[data-action-id="topic.generateWorldModel"]',
+        ),
+      ),
+    );
+    const topicPanelState = await inspectorPanel
+      .locator('[data-question-layer-panel="true"]')
+      .evaluateAll((panels) =>
+        panels.map((panel) => ({
+          topicState: panel.getAttribute("data-topic-state"),
+          worldModelState: panel.getAttribute("data-world-model-state"),
+        })),
+      );
+    const topicContinueButton = inspectorPanel
+      .locator('button[data-action-id="topic.continue"]:has-text("继续推演")')
       .first();
-    const topicConfirmAction = await topicConfirmButton.count();
-    const topicEditAction = await page
-      .locator('button:has-text("修改边界")')
+    const topicContinueAction = Boolean(await findVisibleLocator(topicContinueButton));
+    const topicEditAction = Boolean(
+      await findVisibleLocator(
+        inspectorPanel.locator(
+          'button[data-action-id="topic.editBoundary"]:has-text("编辑边界")',
+        ),
+      ),
+    );
+    const topicViewImpactAction = Boolean(
+      await findVisibleLocator(
+        inspectorPanel.locator(
+          'button[data-action-id="topic.viewImpact"]:has-text("查看影响")',
+        ),
+      ),
+    );
+	    const topicContinueBehavior = await inspectorPanel
+	      .locator(
+	        'button[data-action-id="topic.continue"][data-behavior-type="confirm"][data-creates-new-round="true"]',
+	      )
+	      .count();
+	    await inspectorPanel.locator('button[data-action-id="topic.editBoundary"]').first().click();
+	    await page.waitForSelector('[data-boundary-edit-card="true"]', {
+	      timeout: 10_000,
+	    });
+	    const topicBoundaryEditCard = await page
+	      .locator('[data-boundary-edit-card="true"]')
+	      .count();
+	    await page
+	      .locator('[data-boundary-edit-card="true"] button:has-text("取消")')
+	      .first()
+	      .click();
+	    await page.locator('button[data-action-id="topic.viewImpact"]').first().click();
+	    await page.waitForSelector(
+	      '[data-action-receipt="true"][data-action-id="topic.viewImpact"]',
+	      { timeout: 10_000 },
+	    );
+	    const topicViewImpactReceipt = await page
+	      .locator('[data-action-receipt="true"][data-action-id="topic.viewImpact"]')
+	      .count();
+	    await topicContinueButton.click();
+    await page.waitForSelector("text=继续推演确认", { timeout: 10_000 });
+    const topicContinuePending = await page.locator("text=继续推演确认").count();
+    const topicContinueNewRoundHint = await page
+      .locator("text=确认后会生成新 Round")
       .count();
-    const topicAddConditionAction = await page
-      .locator('button:has-text("补充条件")')
+    const topicContinueOldRoundHint = await page
+      .locator("text=旧 Round 保留可回看")
       .count();
-    await topicConfirmButton.click();
-    const topicConfirmPersistedMessage = await waitForUserMessage(
+    await clickPendingConfirm(page);
+    const topicContinuePersistedMessage = await waitForUserMessage(
       SCENARIO_SESSION_ID,
       (content) =>
         content.includes("Topic ID：topic") &&
         content.includes("Topic：推演 OPEC+ 延长减产") &&
-        content.includes("操作：确认") &&
+        content.includes("操作：继续") &&
         content.includes("问题：OPEC+ 延长减产") &&
         content.includes("推演目标：分析未来三个月油价、库存和炼厂利润影响") &&
         content.includes("时间范围：未来三个月") &&
         content.includes("空间范围：全球原油市场") &&
         content.includes("行业：能源/炼化") &&
         content.includes("状态：waiting_next_action") &&
-        content.includes("世界模型层：Entity、Variable、Hypothesis") &&
+        content.includes("当前已确认世界模型") &&
+        content.includes("生成下一轮推演") &&
         content.includes("问题边界变化会影响哪些后续节点"),
     );
     await clickCanvasLayer(page, "变量层");
     await page.waitForSelector("text=需求恢复速度", { timeout: 18_000 });
     const layerVariableVisible = await page.locator("text=需求恢复速度").count();
-    await clickCanvasLayer(page, "全部");
-    await selectCanvasNodeUntilPanel(page, "Risk", "选择情景继续", {
+    await clickCanvasLayer(page, "情景层");
+    await selectCanvasNodeUntilPanel(page, canvasRoot, "Risk", "基于此情景继续推演", {
       nodeSelector: '.react-flow__node:has([data-simulation-node-id="scenario:risk"])',
       timeoutMs: 6_000,
     });
-    const scenarioActions = await page.locator("text=选择情景继续").count();
+    const scenarioActions = await page.locator("text=基于此情景继续推演").count();
     const scenarioCompareAction = await page.locator("text=对比 Baseline").count();
     const scenarioCounterfactualAction = await page
       .locator("text=生成反事实")
       .count();
-    await page.locator('button:has-text("选择情景继续")').first().click();
+    await clickActionButton(page, "基于此情景继续推演");
     await page.waitForSelector("text=情景继续推演", { timeout: 10_000 });
     const scenarioPendingIntervention = await page
       .locator("text=情景继续推演")
@@ -1279,7 +1551,7 @@ async function main() {
     const scenarioPendingTarget = await page
       .locator("text=目标：Risk")
       .count();
-    await page.locator('button:has-text("确认执行")').first().click();
+    await clickPendingConfirm(page);
     const scenarioContinuePersistedMessage = await waitForUserMessage(
       SCENARIO_SESSION_ID,
       (content) =>
@@ -1316,12 +1588,12 @@ async function main() {
       .locator('.react-flow__node:has([data-simulation-node-id="path:path_base"])')
       .first()
       .waitFor({ state: "visible", timeout: 18_000 });
-    await selectCanvasNodeUntilPanel(page, "最可能路径", "选择这条继续", {
+    await selectCanvasNodeUntilPanel(page, canvasRoot, "最可能路径", "基于此路径继续推演", {
       nodeSelector: '.react-flow__node:has([data-simulation-node-id="path:path_base"])',
       timeoutMs: 6_000,
     });
-    const pathActions = await page.locator("text=选择这条继续").count();
-    await page.locator('button:has-text("选择这条继续")').first().click();
+    const pathActions = await page.locator("text=基于此路径继续推演").count();
+    await clickActionButton(page, "基于此路径继续推演");
     await page.waitForSelector("text=路径继续推演", { timeout: 10_000 });
     const pathPendingIntervention = await page
       .locator("text=路径继续推演")
@@ -1329,7 +1601,7 @@ async function main() {
     const pathPendingTarget = await page
       .locator("text=目标：最可能路径")
       .count();
-    await page.locator('button:has-text("确认执行")').first().click();
+    await clickPendingConfirm(page);
     const pathContinuePersistedMessage = await waitForUserMessage(
       SCENARIO_SESSION_ID,
       (content) =>
@@ -1349,7 +1621,7 @@ async function main() {
     );
     await clickCanvasLayer(page, "世界模型");
     await page.waitForSelector("text=OPEC+", { timeout: 10_000 });
-    await selectCanvasNodeUntilPanel(page, "OPEC+", "主体建模", {
+    await selectCanvasNodeUntilPanel(page, canvasRoot, "OPEC+", "主体建模", {
       nodeSelector: '.react-flow__node:has([data-simulation-node-id="entity_opec"])',
     });
     const entityModelingControl = await page.locator("text=主体建模").count();
@@ -1387,16 +1659,21 @@ async function main() {
     await page.waitForSelector("text=调整变量", { timeout: 10_000 });
     const variableControl = await page.locator("text=调整变量").count();
     const variableInspectAction = await page
-      .locator('button:has-text("查看影响")')
+      .locator('button[data-action-id="variable.viewImpact"]:has-text("查看影响")')
       .count();
     const variableLockAction = await page
-      .locator('button:has-text("锁定变量")')
+      .locator('button[data-action-id="variable.lock"]:has-text("锁定变量")')
       .count();
     const variableResetAction = await page
-      .locator('button:has-text("恢复默认")')
+      .locator('button[data-action-id="variable.restoreDefault"]:has-text("恢复为默认假设")')
       .count();
     const variableRecalculateAction = await page
-      .locator('button:has-text("确认重算")')
+      .locator('button[data-action-id="variable.recalculate"]:has-text("确认并生成新 Round")')
+      .count();
+    const variableRecalculateBehavior = await page
+      .locator(
+        'button[data-action-id="variable.recalculate"][data-behavior-type="confirm"][data-creates-new-round="true"]',
+      )
       .count();
     const interventionPreview = await page
       .locator("text=干预影响预览")
@@ -1422,7 +1699,10 @@ async function main() {
     await page
       .locator('select[aria-label="调整需求恢复速度"]')
       .selectOption("偏弱");
-    await page.locator('button:has-text("确认重算")').first().click();
+    await page
+      .locator('button[data-action-id="variable.recalculate"]')
+      .first()
+      .click();
     await page.waitForSelector("text=待确认干预", { timeout: 10_000 });
     const variablePendingIntervention = await page
       .locator("text=待确认干预")
@@ -1430,7 +1710,7 @@ async function main() {
     const variablePendingTarget = await page
       .locator("text=目标：需求恢复速度 → 偏弱")
       .count();
-    await page.locator('button:has-text("确认执行")').first().click();
+    await clickPendingConfirm(page);
     const variableRecalculatePersistedMessage = await waitForUserMessage(
       SCENARIO_SESSION_ID,
       (content) =>
@@ -1448,7 +1728,7 @@ async function main() {
     );
     await clickCanvasLayer(page, "事件/推理");
     await page.waitForSelector("text=需求恢复中断", { timeout: 10_000 });
-    await selectCanvasNodeUntilPanel(page, "需求恢复中断", "事件假设", {
+    await selectCanvasNodeUntilPanel(page, canvasRoot, "需求恢复中断", "事件假设", {
       nodeSelector: '.react-flow__node:has([data-simulation-node-id="event_demand_shock"])',
     });
     const eventAssumptionControl = await page.locator("text=事件假设").count();
@@ -1467,7 +1747,7 @@ async function main() {
     const eventPendingTarget = await page
       .locator("text=目标：需求恢复中断 / 发生")
       .count();
-    await page.locator('button:has-text("确认执行")').first().click();
+    await clickPendingConfirm(page);
     const eventAssumptionPersistedMessage = await waitForUserMessage(
       SCENARIO_SESSION_ID,
       (content) =>
@@ -1480,6 +1760,7 @@ async function main() {
     );
     await selectCanvasNodeUntilPanel(
       page,
+      canvasRoot,
       "需求影响库存与利润",
       "推理复核",
       {
@@ -1505,7 +1786,7 @@ async function main() {
     const inferenceOutputVisible = await page
       .locator("text=输出节点：risk_demand、conclusion_base、conclusion_risk")
       .count();
-    await page.locator('button:has-text("寻找反证")').first().click();
+    await clickActionById(page, "inference.counterEvidence", "寻找反证");
     await page.waitForSelector("text=推理反证确认", { timeout: 10_000 });
     const inferencePendingIntervention = await page
       .locator("text=推理反证确认")
@@ -1513,7 +1794,7 @@ async function main() {
     const inferencePendingTarget = await page
       .locator("text=目标：需求影响库存与利润 / 反证")
       .count();
-    await page.locator('button:has-text("确认执行")').first().click();
+    await clickPendingConfirm(page);
     const inferenceCounterPersistedMessage = await waitForUserMessage(
       SCENARIO_SESSION_ID,
       (content) =>
@@ -1543,10 +1824,10 @@ async function main() {
       .locator('button:has-text("查找反例")')
       .count();
     const evidenceOpenSourceAction = await page
-      .locator('button:has-text("打开原文")')
+      .locator('button:has-text("请求定位原文")')
       .count();
     const evidenceReplaceAction = await page
-      .locator('button:has-text("替换证据")')
+      .locator('button:has-text("寻找替代证据")')
       .count();
     const evidenceSupplementAction = await page
       .locator('button:has-text("补充证据")')
@@ -1561,7 +1842,7 @@ async function main() {
     const evidenceCitedByVisible = await page
       .locator("text=引用节点：inference_inventory_margin、conclusion_base")
       .count();
-    await page.locator('button:has-text("替换证据")').click();
+    await clickActionButton(page, "寻找替代证据");
     await page.waitForSelector("text=证据更新确认", { timeout: 10_000 });
     const evidencePendingIntervention = await page
       .locator("text=证据更新确认")
@@ -1569,7 +1850,7 @@ async function main() {
     const evidencePendingTarget = await page
       .locator("text=目标：库存周度数据 / 替换证据")
       .count();
-    await page.locator('button:has-text("确认执行")').first().click();
+    await clickPendingConfirm(page);
     const evidenceReplacePersistedMessage = await waitForUserMessage(
       SCENARIO_SESSION_ID,
       (content) =>
@@ -1584,7 +1865,7 @@ async function main() {
     );
     await clickCanvasLayer(page, "事件/推理");
     await page.waitForSelector("text=需求温和恢复假设", { timeout: 10_000 });
-    await selectCanvasNodeUntilPanel(page, "需求温和恢复假设", "生成分支", {
+    await selectCanvasNodeUntilPanel(page, canvasRoot, "需求温和恢复假设", "生成分支", {
       nodeSelector: '.react-flow__node:has([data-simulation-node-id="hypothesis_demand_soft"])',
     });
     const hypothesisBranchControl = await page.locator("text=假设分支").count();
@@ -1595,7 +1876,7 @@ async function main() {
       .locator('button:has-text("锁定假设")')
       .count();
     const hypothesisDeleteAction = await page
-      .locator('button:has-text("删除假设")')
+      .locator('button:has-text("请求删除假设")')
       .count();
     const hypothesisBranchAction = await page.locator("text=生成分支").count();
     const hypothesisConfidenceVisible = await page
@@ -1615,7 +1896,7 @@ async function main() {
     const hypothesisPendingTarget = await page
       .locator("text=目标：需求温和恢复假设 / 分支")
       .count();
-    await page.locator('button:has-text("确认执行")').first().click();
+    await clickPendingConfirm(page);
     const hypothesisBranchPersistedMessage = await waitForUserMessage(
       SCENARIO_SESSION_ID,
       (content) =>
@@ -1629,7 +1910,7 @@ async function main() {
     );
     await clickCanvasLayer(page, "风险/决策");
     await page.waitForSelector("text=需求不及预期", { timeout: 10_000 });
-    await selectCanvasNodeUntilPanel(page, "需求不及预期", "风险处置", {
+    await selectCanvasNodeUntilPanel(page, canvasRoot, "需求不及预期", "风险处置", {
       nodeSelector: '.react-flow__node:has([data-simulation-node-id="risk_demand"])',
     });
     const riskTreatmentControl = await page.locator("text=风险处置").count();
@@ -1651,7 +1932,7 @@ async function main() {
     const riskMitigationVisible = await page
       .locator("text=缓释动作：action_hedge_margin")
       .count();
-    await page.locator('button:has-text("加入缓释措施")').first().click();
+    await clickActionById(page, "risk.addMitigation", "加入缓释措施");
     await page.waitForSelector("text=风险处置确认", { timeout: 10_000 });
     const riskPendingIntervention = await page
       .locator("text=风险处置确认")
@@ -1659,7 +1940,7 @@ async function main() {
     const riskPendingTarget = await page
       .locator("text=目标：需求不及预期 / 缓释")
       .count();
-    await page.locator('button:has-text("确认执行")').first().click();
+    await clickPendingConfirm(page);
     const riskMitigationPersistedMessage = await waitForUserMessage(
       SCENARIO_SESSION_ID,
       (content) =>
@@ -1673,7 +1954,7 @@ async function main() {
         content.includes("影响情景：risk") &&
         content.includes("已有缓释动作：action_hedge_margin"),
     );
-    await selectCanvasNodeUntilPanel(page, "库存缓慢下降", "结论挑战", {
+    await selectCanvasNodeUntilPanel(page, canvasRoot, "库存缓慢下降", "结论挑战", {
       nodeSelector: '.react-flow__node:has([data-simulation-node-id="conclusion_base"])',
     });
     const conclusionChallengeControl = await page
@@ -1701,7 +1982,7 @@ async function main() {
     const conclusionScenarioVisible = await page
       .locator("text=情景：baseline")
       .count();
-    await page.locator('button:has-text("挑战结论")').first().click();
+    await clickActionById(page, "conclusion.challenge", "挑战结论");
     await page.waitForSelector("text=结论挑战确认", { timeout: 10_000 });
     const conclusionPendingIntervention = await page
       .locator("text=结论挑战确认")
@@ -1709,7 +1990,7 @@ async function main() {
     const conclusionPendingTarget = await page
       .locator("text=目标：库存缓慢下降 / 挑战")
       .count();
-    await page.locator('button:has-text("确认执行")').first().click();
+    await clickPendingConfirm(page);
     const conclusionChallengePersistedMessage = await waitForUserMessage(
       SCENARIO_SESSION_ID,
       (content) =>
@@ -1724,6 +2005,7 @@ async function main() {
     await page.waitForSelector("text=是否调整采购节奏", { timeout: 10_000 });
     await selectCanvasNodeUntilPanel(
       page,
+      canvasRoot,
       "是否调整采购节奏",
       "选择决策分支",
       { nodeSelector: '.react-flow__node:has([data-simulation-node-id="decision_pricing"])' },
@@ -1751,7 +2033,7 @@ async function main() {
     const decisionPendingTarget = await page
       .locator("text=目标：是否调整采购节奏 / 降低采购")
       .count();
-    await page.locator('button:has-text("确认执行")').first().click();
+    await clickPendingConfirm(page);
     const decisionBranchPersistedMessage = await waitForUserMessage(
       SCENARIO_SESSION_ID,
       (content) =>
@@ -1761,7 +2043,7 @@ async function main() {
         content.includes("Scenario ID：pessimistic"),
     );
     await page.waitForSelector("text=提前锁定部分利润", { timeout: 10_000 });
-    await selectCanvasNodeUntilPanel(page, "提前锁定部分利润", "行动模拟", {
+    await selectCanvasNodeUntilPanel(page, canvasRoot, "提前锁定部分利润", "行动模拟", {
       nodeSelector: '.react-flow__node:has([data-simulation-node-id="action_hedge_margin"])',
       timeoutMs: 6_000,
     });
@@ -1783,7 +2065,7 @@ async function main() {
       .locator('button:has-text("修改行动")')
       .count();
     const actionConditionOption = await page
-      .locator('button:has-text("补充条件")')
+      .locator('button:has-text("补充执行条件")')
       .count();
     const actionSideEffectOption = await page
       .locator('button:has-text("评估副作用")')
@@ -1796,7 +2078,7 @@ async function main() {
     const actionPendingTarget = await page
       .locator("text=目标：提前锁定部分利润")
       .count();
-    await page.locator('button:has-text("确认执行")').first().click();
+    await clickPendingConfirm(page);
     const actionExecutePersistedMessage = await waitForUserMessage(
       SCENARIO_SESSION_ID,
       (content) =>
@@ -1808,7 +2090,7 @@ async function main() {
     );
     await clickCanvasLayer(page, "输出层");
     await page.waitForSelector("text=第 1 轮总结", { timeout: 10_000 });
-    await selectCanvasNodeUntilPanel(page, "第 1 轮总结", "总结操作", {
+    await selectCanvasNodeUntilPanel(page, canvasRoot, "第 1 轮总结", "总结操作", {
       nodeSelector: '.react-flow__node:has([data-simulation-node-id="summary:simulation_summary_smoke"])',
     });
     const summaryActions = await page.locator("text=总结操作").count();
@@ -1834,11 +2116,11 @@ async function main() {
     );
     await clickCanvasLayer(page, "全部");
     const nextActionNodes = await page.locator("text=补充需求数据").count();
-    await selectCanvasNodeUntilPanel(page, "补充需求数据", "执行动作", {
+    await selectCanvasNodeUntilPanel(page, canvasRoot, "补充需求数据", "执行 Next Action", {
       nodeSelector:
         '.react-flow__node:has([data-simulation-node-id="next_action:next_action_add_demand_data"])',
     });
-    const nextActionButtons = await page.locator("text=执行动作").count();
+    const nextActionButtons = await page.locator("text=执行 Next Action").count();
     const nextActionTypeVisible = await page
       .locator("text=动作类型：add_data")
       .count();
@@ -1848,7 +2130,15 @@ async function main() {
     const nextActionExpectedEffectVisible = await page
       .locator("text=预期效果：补充需求恢复速度数据后，重新推理库存和炼厂利润路径。")
       .count();
-    await page.locator('button:has-text("执行动作")').click();
+    await clickActionButton(page, "执行 Next Action");
+    await page.waitForSelector("text=执行 Next Action", { timeout: 10_000 });
+    const nextActionPendingIntervention = await page
+      .locator("text=执行 Next Action")
+      .count();
+    const nextActionPendingTarget = await page
+      .locator("text=目标：补充需求数据")
+      .count();
+    await clickPendingConfirm(page);
     const nextActionPersistedMessage = await waitForUserMessage(
       SCENARIO_SESSION_ID,
       (content) =>
@@ -1870,7 +2160,7 @@ async function main() {
       .locator('button:has-text("更新报告")')
       .count();
     const reportDeckAction = await page
-      .locator('button:has-text("生成演示稿")')
+      .locator('button:has-text("生成演示稿大纲")')
       .count();
     const reportSummaryAction = await page
       .locator('button:has-text("提取摘要")')
@@ -1890,7 +2180,7 @@ async function main() {
         ),
     );
     await clickCanvasLayer(page, "全部");
-    await selectCanvasNodeUntilPanel(page, "当前轮次 round_2", "版本操作", {
+    await selectCanvasNodeUntilPanel(page, canvasRoot, "当前轮次 round_2", "版本操作", {
       nodeSelector: '.react-flow__node:has([data-simulation-node-id="history:round_2"])',
     });
     const historyActions = await page.locator("text=版本操作").count();
@@ -1910,7 +2200,12 @@ async function main() {
     const historyIdOnlyInterventionVisible = await page
       .locator("text=risk_stress_test → node:risk_demand")
       .count();
-    await page.locator('button:has-text("从此继续")').first().click();
+    await clickActionButton(page, "从此继续");
+    await page.waitForSelector("text=历史轮次继续确认", { timeout: 10_000 });
+    const historyContinuePendingIntervention = await page
+      .locator("text=历史轮次继续确认")
+      .count();
+    await clickPendingConfirm(page);
     const historyContinuePersistedMessage = await waitForUserMessage(
       SCENARIO_SESSION_ID,
       (content) =>
@@ -1969,13 +2264,22 @@ async function main() {
       promptControl,
       promptReparseAction,
       promptEditAction,
-      promptCancelAction,
+      promptStopAction,
+      promptStopBehavior,
       promptReparsePersistedMessage,
       topicBoundaryControl,
-      topicConfirmAction,
-      topicEditAction,
-      topicAddConditionAction,
-      topicConfirmPersistedMessage,
+      topicGenerateAction,
+      topicPanelState,
+      topicContinueAction,
+      topicContinueBehavior,
+	      topicEditAction,
+	      topicViewImpactAction,
+	      topicBoundaryEditCard,
+	      topicViewImpactReceipt,
+	      topicContinuePending,
+      topicContinueNewRoundHint,
+      topicContinueOldRoundHint,
+      topicContinuePersistedMessage,
       layerVariableVisible,
       scenarioActions,
       scenarioCompareAction,
@@ -1999,6 +2303,7 @@ async function main() {
       variableLockAction,
       variableResetAction,
       variableRecalculateAction,
+      variableRecalculateBehavior,
       interventionPreview,
       affectedNodes,
       variablePendingIntervention,
@@ -2099,6 +2404,8 @@ async function main() {
       nextActionTypeVisible,
       nextActionTargetVisible,
       nextActionExpectedEffectVisible,
+      nextActionPendingIntervention,
+      nextActionPendingTarget,
       nextActionPersistedMessage,
       recoveryNodes: await page.locator("text=推演处理中断").count(),
       recoveryActions,
@@ -2108,8 +2415,9 @@ async function main() {
       historyActions,
       historyCompareAction,
       historyLatestAction,
-      historyContinueAction,
-      historyInterventionCount,
+	      historyContinueAction,
+	      historyContinuePendingIntervention,
+	      historyInterventionCount,
       historyInterventionVisible,
       historyIdOnlyInterventionVisible,
       historyContinuePersistedMessage,
@@ -2132,7 +2440,8 @@ async function main() {
     assert(result.promptControl > 0, "prompt control not visible");
     assert(result.promptReparseAction > 0, "prompt reparse action not visible");
     assert(result.promptEditAction > 0, "prompt edit action not visible");
-    assert(result.promptCancelAction > 0, "prompt cancel action not visible");
+    assert(result.promptStopAction > 0, "prompt stop action not visible");
+    assert(result.promptStopBehavior > 0, "prompt stop behavior metadata missing");
     assert(
       result.promptReparsePersistedMessage.includes("Prompt ID：prompt_user"),
       "prompt reparse persisted message missing prompt id",
@@ -2142,16 +2451,28 @@ async function main() {
       "prompt reparse persisted message missing double-node relationship",
     );
     assert(result.topicBoundaryControl > 0, "topic boundary control not visible");
-    assert(result.topicConfirmAction > 0, "topic confirm action not visible");
-    assert(result.topicEditAction > 0, "topic edit action not visible");
-    assert(result.topicAddConditionAction > 0, "topic add condition action not visible");
     assert(
-      result.topicConfirmPersistedMessage.includes("Topic ID：topic"),
-      "topic confirm persisted message missing topic id",
+      !result.topicGenerateAction,
+      `topic should not show first-time world model generation after world model exists: ${JSON.stringify(
+        result.topicPanelState,
+      )}`,
+    );
+    assert(result.topicContinueAction > 0, "topic continue action not visible");
+    assert(result.topicContinueBehavior > 0, "topic continue behavior metadata missing");
+    assert(result.topicEditAction > 0, "topic edit action not visible");
+    assert(result.topicViewImpactAction > 0, "topic view impact action not visible");
+    assert(result.topicBoundaryEditCard > 0, "topic boundary edit card not visible");
+    assert(result.topicViewImpactReceipt > 0, "topic view impact receipt not visible");
+    assert(result.topicContinuePending > 0, "topic continue confirmation card not visible");
+    assert(result.topicContinueNewRoundHint > 0, "topic continue new round hint missing");
+    assert(result.topicContinueOldRoundHint > 0, "topic continue old round hint missing");
+    assert(
+      result.topicContinuePersistedMessage.includes("Topic ID：topic"),
+      "topic continue persisted message missing topic id",
     );
     assert(
-      result.topicConfirmPersistedMessage.includes("世界模型层：Entity、Variable、Hypothesis"),
-      "topic confirm persisted message missing world model instruction",
+      result.topicContinuePersistedMessage.includes("生成下一轮推演"),
+      "topic continue persisted message missing next round instruction",
     );
     assert(result.layerVariableVisible > 0, "variable layer filter did not reveal variable node");
     assert(result.scenarioActions > 0, "scenario continuation action not visible");
@@ -2224,6 +2545,10 @@ async function main() {
     assert(result.variableLockAction > 0, "variable lock action not visible");
     assert(result.variableResetAction > 0, "variable reset action not visible");
     assert(result.variableRecalculateAction > 0, "variable recalculate action not visible");
+    assert(
+      result.variableRecalculateBehavior > 0,
+      "variable recalculate behavior metadata missing",
+    );
     assert(result.interventionPreview > 0, "intervention impact preview not visible");
     assert(result.affectedNodes > 0, "affected downstream node not visible");
     assert(result.variablePendingIntervention > 0, "variable pending intervention not visible");
@@ -2441,6 +2766,11 @@ async function main() {
       "next action expected effect not visible",
     );
     assert(
+      result.nextActionPendingIntervention > 0,
+      "next action pending intervention not visible",
+    );
+    assert(result.nextActionPendingTarget > 0, "next action pending target not visible");
+    assert(
       result.nextActionPersistedMessage.includes("Action ID：next_action_add_demand_data"),
       "next action persisted message missing action id",
     );
@@ -2457,6 +2787,10 @@ async function main() {
     assert(result.historyCompareAction > 0, "history compare action not visible");
     assert(result.historyLatestAction > 0, "history latest action not visible");
     assert(result.historyContinueAction > 0, "history continue action not visible");
+    assert(
+      result.historyContinuePendingIntervention > 0,
+      "history continue pending intervention not visible",
+    );
     assert(result.historyInterventionCount > 0, "history intervention count not visible");
     assert(
       result.historyInterventionVisible > 0,
@@ -2544,6 +2878,39 @@ async function main() {
       .locator("text=报告文件已打开验证")
       .count();
     assert(result.reportPreview > 0, "simulation report preview not visible");
+    const operationLogToggle = canvasRoot
+      .locator('[data-simulation-operation-log-toggle="true"]')
+      .first();
+    await operationLogToggle.click();
+    await page.waitForSelector('[data-simulation-operation-log="true"]', {
+      timeout: 10_000,
+    });
+    result.operationLogVisible = await page
+      .locator('[data-simulation-operation-log="true"]')
+      .count();
+    result.operationLogEntries = await page
+      .locator('[data-simulation-operation-log-entry="true"]')
+      .count();
+    result.operationLogNewRoundEntries = await page
+      .locator(
+        '[data-simulation-operation-log-entry="true"][data-creates-new-round="true"]',
+      )
+      .count();
+    result.operationLogReportEntries = await page
+      .locator(
+        '[data-simulation-operation-log-entry="true"][data-requests-report="true"]',
+      )
+      .count();
+    assert(result.operationLogVisible > 0, "operation log not visible");
+    assert(result.operationLogEntries > 0, "operation log should record actions");
+    assert(
+      result.operationLogNewRoundEntries > 0,
+      "operation log should distinguish new Round actions",
+    );
+    assert(
+      result.operationLogReportEntries > 0,
+      "operation log should distinguish report actions",
+    );
     console.log(
       JSON.stringify(
         {

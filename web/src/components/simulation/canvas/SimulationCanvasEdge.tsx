@@ -239,10 +239,14 @@ function SimulationCanvasEdge(props: EdgeProps<CanvasFlowEdge>) {
               {menuOpen ? (
                 <div className="absolute left-1/2 top-5 z-20 flex -translate-x-1/2 flex-col overflow-hidden rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-elevated)] py-1 shadow-[0_18px_40px_rgba(15,23,42,0.18)]">
                   {EDGE_INSERT_OPTIONS.map((option) => (
-                    <button
-                      key={option.type}
-                      type="button"
-                      onClick={(event) => {
+	                    <button
+	                      key={option.type}
+	                      type="button"
+	                      data-action-id="edge.insertNode"
+	                      data-behavior-type="pending"
+	                      data-target-kind="edge"
+	                      data-insert-type={option.type}
+	                      onClick={(event) => {
                         event.stopPropagation();
                         data.onInsertNode?.({
                           edgeId: id,

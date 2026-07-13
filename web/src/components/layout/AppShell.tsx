@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Sidebar } from "./Sidebar";
-import { SidebarExpandButton } from "./SidebarExpandButton";
 import { SidebarLayoutProvider } from "./SidebarLayoutContext";
 import { WorkspacePanel } from "@/components/workspace/WorkspacePanel";
 import { WorkspaceProvider, useWorkspace } from "@/components/workspace/WorkspaceContext";
@@ -38,11 +37,6 @@ function AppShellFrame({
       />
       <main className="relative flex min-h-0 min-w-[480px] flex-1 flex-col overflow-hidden">
         <SidebarLayoutProvider collapsed={sidebarCollapsed}>
-          {sidebarCollapsed && (
-            <SidebarExpandButton
-              onClick={() => onSidebarCollapsedChange(false)}
-            />
-          )}
           {children}
         </SidebarLayoutProvider>
       </main>

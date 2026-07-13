@@ -276,7 +276,18 @@ export function buildLayoutStorageKey(
   return `simulation-canvas-layout:v2-dependency:${layoutScopeId}:${roundId}:${normalized.topic.id}`;
 }
 
-export function SimulationCanvasViewportFit({ fitKey }: { fitKey?: string }) {
+function fitViewNodeOptions(nodeIds: string[] | undefined) {
+  if (!nodeIds?.length) return {};
+  return { nodes: nodeIds.map((id) => ({ id })) };
+}
+
+export function SimulationCanvasViewportFit({
+  fitKey,
+  nodeIds,
+}: {
+  fitKey?: string;
+  nodeIds?: string[];
+}) {
   const { fitView } = useReactFlow<CanvasFlowNode, CanvasFlowEdge>();
   const fittedKey = useRef<string | null>(null);
 
@@ -287,15 +298,35 @@ export function SimulationCanvasViewportFit({ fitKey }: { fitKey?: string }) {
     const hasFittedBefore = fittedKey.current != null;
     fittedKey.current = nextKey;
     const timer = window.setTimeout(() => {
-      void fitView({ padding: 0.16, duration: hasFittedBefore ? 180 : 0 });
+      void fitView({
+        padding: 0.16,
+        duration: hasFittedBefore ? 180 : 0,
+        ...fitViewNodeOptions(nodeIds),
+      });
     }, hasFittedBefore ? 80 : 0);
-    return () => window.clearTimeout(timer);
-  }, [fitKey, fitView]);
+    const settleTimer = window.setTimeout(() => {
+      void fitView({
+        padding: 0.16,
+        duration: 120,
+        ...fitViewNodeOptions(nodeIds),
+      });
+    }, hasFittedBefore ? 320 : 180);
+    return () => {
+      window.clearTimeout(timer);
+      window.clearTimeout(settleTimer);
+    };
+  }, [fitKey, fitView, nodeIds]);
 
   return null;
 }
 
-export function SimulationCanvasLayerFit({ fitKey }: { fitKey: string }) {
+export function SimulationCanvasLayerFit({
+  fitKey,
+  nodeIds,
+}: {
+  fitKey: string;
+  nodeIds: string[];
+}) {
   const { fitView } = useReactFlow<CanvasFlowNode, CanvasFlowEdge>();
   const previousFitKey = useRef(fitKey);
   const hasMounted = useRef(false);
@@ -307,10 +338,24 @@ export function SimulationCanvasLayerFit({ fitKey }: { fitKey: string }) {
     previousFitKey.current = fitKey;
     if (!shouldFit) return;
     const timer = window.setTimeout(() => {
-      void fitView({ padding: 0.18, duration: 180 });
+      void fitView({
+        padding: 0.18,
+        duration: 180,
+        ...fitViewNodeOptions(nodeIds),
+      });
     }, 0);
-    return () => window.clearTimeout(timer);
-  }, [fitKey, fitView]);
+    const settleTimer = window.setTimeout(() => {
+      void fitView({
+        padding: 0.18,
+        duration: 120,
+        ...fitViewNodeOptions(nodeIds),
+      });
+    }, 320);
+    return () => {
+      window.clearTimeout(timer);
+      window.clearTimeout(settleTimer);
+    };
+  }, [fitKey, fitView, nodeIds]);
 
   return null;
 }

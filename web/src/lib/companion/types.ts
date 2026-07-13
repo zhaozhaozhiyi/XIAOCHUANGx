@@ -91,7 +91,7 @@ export type CompanionProjectSummary = {
 
 export type CreateRunBinding =
   | { moduleId: "chat"; mode: ChatModeId }
-  | { moduleId: "writing"; templateId: string }
+  | { moduleId: "writing"; templateId?: string }
   | { moduleId: "ppt"; task: "deck"; templateId?: string }
   | { moduleId: "3d" }
   | { moduleId: "video"; templateId?: string }

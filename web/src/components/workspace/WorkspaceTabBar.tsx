@@ -189,7 +189,7 @@ function TabBarTabs() {
 export function WorkspaceTabBar() {
   return (
     <div
-      className={`flex ${MAIN_TOP_BAR_CLASS} shrink-0 items-center gap-1 border-b border-[var(--border)] bg-[var(--surface)] px-2 ${WORKSPACE_TAB_BAR_RIGHT_PADDING}`}
+      className={`desktop-drag-region flex ${MAIN_TOP_BAR_CLASS} shrink-0 items-center gap-1 border-b border-[var(--border)] bg-[var(--surface)] px-2 ${WORKSPACE_TAB_BAR_RIGHT_PADDING}`}
     >
       <TabBarTabs />
     </div>

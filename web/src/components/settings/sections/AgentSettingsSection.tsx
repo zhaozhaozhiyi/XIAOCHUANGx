@@ -1,7 +1,15 @@
 "use client";
 
-import { ChevronDown, RefreshCw } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { ChevronDown, RefreshCw, SlidersHorizontal } from "lucide-react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
+import { createPortal } from "react-dom";
 import { AgentIcon } from "@/components/settings/AgentIcon";
 import { useSettings } from "@/components/settings/SettingsContext";
 import { ByokSettingsSection } from "@/components/settings/sections/ByokSettingsSection";
@@ -18,6 +26,8 @@ import {
 import type { AgentSettingsTab } from "@/lib/settings";
 import {
   AGENT_DEFINITIONS,
+  agentOriginalShortName,
+  getAgentDisplayName,
   type AgentId,
   type CliStatus,
 } from "@/lib/settings";
@@ -54,6 +64,181 @@ function statusClass(status: CliStatus): string {
     default:
       return "bg-[var(--border)] text-[var(--fg-secondary)]";
   }
+}
+
+function AgentAliasConfigPopover({
+  agentId,
+  agentName,
+  models,
+  open,
+  onOpenChange,
+}: {
+  agentId: AgentId;
+  agentName: string;
+  models: { id: string; label: string }[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { settings, updateSettings } = useSettings();
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [popoverStyle, setPopoverStyle] = useState<CSSProperties>({});
+  const agentAlias = settings.agentAliases[agentId] ?? "";
+  const modelAliases = settings.agentModelAliases[agentId] ?? {};
+  const configured = Boolean(
+    agentAlias.trim() ||
+      models.some((model) => modelAliases[model.id]?.trim()),
+  );
+
+  const syncPopoverPosition = () => {
+    const anchor = anchorRef.current;
+    const popover = popoverRef.current;
+    if (!anchor || !popover) return;
+
+    const anchorRect = anchor.getBoundingClientRect();
+    const popoverRect = popover.getBoundingClientRect();
+    const gap = 6;
+    const pad = 8;
+    const width = Math.min(256, window.innerWidth - pad * 2);
+    let left = anchorRect.right - width;
+    left = Math.max(pad, Math.min(left, window.innerWidth - width - pad));
+
+    let top = anchorRect.bottom + gap;
+    if (top + popoverRect.height > window.innerHeight - pad) {
+      top = anchorRect.top - gap - popoverRect.height;
+    }
+    top = Math.max(pad, top);
+
+    setPopoverStyle({
+      position: "fixed",
+      top,
+      left,
+      width,
+      zIndex: 80,
+    });
+  };
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    syncPopoverPosition();
+    const observer = new ResizeObserver(syncPopoverPosition);
+    if (popoverRef.current) observer.observe(popoverRef.current);
+    window.addEventListener("resize", syncPopoverPosition);
+    window.addEventListener("scroll", syncPopoverPosition, true);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", syncPopoverPosition);
+      window.removeEventListener("scroll", syncPopoverPosition, true);
+    };
+  }, [open, models.length]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        anchorRef.current?.contains(target) ||
+        popoverRef.current?.contains(target)
+      ) {
+        return;
+      }
+      onOpenChange(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open, onOpenChange]);
+
+  const popover =
+    open && typeof document !== "undefined" ? (
+      <div
+        ref={popoverRef}
+        className="agent-alias-popover"
+        style={{
+          ...popoverStyle,
+          visibility:
+            typeof popoverStyle.top === "number" ? "visible" : "hidden",
+        }}
+        role="dialog"
+        aria-label={`${agentName} 显示别名`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="agent-alias-popover__title">客户端显示别名</p>
+        <p className="agent-alias-popover__hint">
+          留空则显示原名，仅影响界面展示
+        </p>
+        <label className="agent-alias-popover__field">
+          <span className="text-overline">智能体</span>
+          <input
+            type="text"
+            className="agent-alias-popover__input"
+            placeholder={agentOriginalShortName(agentId)}
+            value={agentAlias}
+            onChange={(e) =>
+              updateSettings({
+                agentAliases: {
+                  ...settings.agentAliases,
+                  [agentId]: e.target.value,
+                },
+              })
+            }
+          />
+        </label>
+        {models.length > 0 ? (
+          <div className="agent-alias-popover__models">
+            <span className="text-overline">模型别名</span>
+            <ul className="agent-alias-popover__model-list">
+              {models.map((model) => (
+                <li key={model.id} className="agent-alias-popover__model-item">
+                  <span
+                    className="agent-alias-popover__model-label"
+                    title={model.label}
+                  >
+                    {model.label}
+                  </span>
+                  <input
+                    type="text"
+                    className="agent-alias-popover__input"
+                    placeholder={model.label}
+                    value={modelAliases[model.id] ?? ""}
+                    onChange={(e) =>
+                      updateSettings({
+                        agentModelAliases: {
+                          ...settings.agentModelAliases,
+                          [agentId]: {
+                            ...modelAliases,
+                            [model.id]: e.target.value,
+                          },
+                        },
+                      })
+                    }
+                  />
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </div>
+    ) : null;
+
+  return (
+    <>
+      <button
+        ref={anchorRef}
+        type="button"
+        className={`agent-alias-config-btn ${configured ? "agent-alias-config-btn--active" : ""}`}
+        aria-label="配置显示别名"
+        aria-expanded={open}
+        title="配置客户端显示别名"
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpenChange(!open);
+        }}
+      >
+        <SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={1.75} />
+      </button>
+      {popover ? createPortal(popover, document.body) : null}
+    </>
+  );
 }
 
 function AgentSettingsAlerts() {
@@ -97,6 +282,9 @@ function AgentCliSettingsPanel() {
     kind: "success" | "error";
     text: string;
   } | null>(null);
+  const [aliasPopoverAgentId, setAliasPopoverAgentId] = useState<AgentId | null>(
+    null,
+  );
 
   const handleDetect = async () => {
     setRescanNotice(null);
@@ -166,6 +354,8 @@ function AgentCliSettingsPanel() {
             <div
               key={agent.id}
               className={`flex flex-col rounded-xl border p-3 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] ${
+                aliasPopoverAgentId === agent.id ? "relative z-20" : ""
+              } ${
                 selected
                   ? "border-[var(--accent)] bg-[var(--accent-muted)] hover:border-[var(--accent)]"
                   : "border-[var(--border)] bg-[var(--surface-elevated)] hover:border-[var(--accent)]/50"
@@ -199,11 +389,24 @@ function AgentCliSettingsPanel() {
                     </span>
                   </span>
                 </button>
-                <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${statusClass(status)}`}
-                >
-                  {statusLabel(status)}
-                </span>
+                <div className="flex shrink-0 items-center gap-1">
+                  {status === "available" ? (
+                    <AgentAliasConfigPopover
+                      agentId={agent.id}
+                      agentName={agent.name}
+                      models={models}
+                      open={aliasPopoverAgentId === agent.id}
+                      onOpenChange={(next) =>
+                        setAliasPopoverAgentId(next ? agent.id : null)
+                      }
+                    />
+                  ) : null}
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusClass(status)}`}
+                  >
+                    {statusLabel(status)}
+                  </span>
+                </div>
               </div>
               <p
                 className="mt-2 truncate font-mono text-[11px] text-[var(--fg-tertiary)]"
@@ -212,36 +415,6 @@ function AgentCliSettingsPanel() {
                 {runtimeState?.version ? `v${runtimeState.version}` : "—"}
                 {runtimeState?.hint ? ` · ${runtimeState.hint}` : ""}
               </p>
-              {status !== "available" && (
-                <div className="mt-auto space-y-2 border-t border-[var(--border)] pt-3">
-                  <p className="text-xs text-[var(--fg-secondary)]">
-                    {agent.selfServiceHint ??
-                      "完成安装或授权后，回到这里重新检测即可。"}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-                    {agent.installUrl && (
-                      <a
-                        href={agent.installUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-medium text-[var(--accent)] hover:underline"
-                      >
-                        安装 / 配置指引
-                      </a>
-                    )}
-                    {agent.docsUrl && (
-                      <a
-                        href={agent.docsUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-medium text-[var(--accent)] hover:underline"
-                      >
-                        官方文档
-                      </a>
-                    )}
-                  </div>
-                </div>
-              )}
               {selected && status === "available" && (
                 <div className="mt-auto space-y-2 border-t border-[var(--border)] pt-3">
                   <div>
@@ -276,11 +449,9 @@ function AgentCliSettingsPanel() {
                     disabled={agentTest.status === "running"}
                     onClick={() => void runAgentTest(agent.id)}
                   >
-                    {agentTest.status === "running"
-                      ? "测试中…"
-                      : "测试连接"}
+                    {agentTest.status === "running" ? "测试中…" : "测试连接"}
                   </button>
-                  {agentTest.status !== "idle" && selected && (
+                  {agentTest.status !== "idle" && (
                     <p
                       className={`text-xs ${
                         agentTest.status === "ok"
@@ -293,6 +464,36 @@ function AgentCliSettingsPanel() {
                       {agentTest.message}
                     </p>
                   )}
+                </div>
+              )}
+              {status !== "available" && (
+                <div className="mt-auto space-y-2 border-t border-[var(--border)] pt-3">
+                  <p className="text-xs text-[var(--fg-secondary)]">
+                    {agent.selfServiceHint ??
+                      "完成安装或授权后，回到这里重新检测即可。"}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                    {agent.installUrl && (
+                      <a
+                        href={agent.installUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-[var(--accent)] hover:underline"
+                      >
+                        安装 / 配置指引
+                      </a>
+                    )}
+                    {agent.docsUrl && (
+                      <a
+                        href={agent.docsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-[var(--accent)] hover:underline"
+                      >
+                        官方文档
+                      </a>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -442,8 +643,11 @@ export function AgentSettingsSection() {
   );
 }
 
-function agentDisplayName(name: string): string {
-  return name.replace(" CLI", "");
+function agentDisplayName(
+  id: AgentId,
+  aliases?: Partial<Record<AgentId, string>>,
+): string {
+  return getAgentDisplayName(id, aliases);
 }
 
 export function AgentPicker({
@@ -455,7 +659,7 @@ export function AgentPicker({
   onChange: (id: AgentId) => void;
   compact?: boolean;
 }) {
-  const { agentsRuntime } = useSettings();
+  const { agentsRuntime, settings } = useSettings();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -463,8 +667,6 @@ export function AgentPicker({
     ? getAvailableAgentsRuntime(agentsRuntime)
     : AGENT_DEFINITIONS;
   const resolvedValue = resolveSelectableAgentIdRuntime(agentsRuntime, value);
-  const current =
-    AGENT_DEFINITIONS.find((a) => a.id === resolvedValue) ?? AGENT_DEFINITIONS[0]!;
   const noneAvailable = menuAgents.length === 0;
 
   useEffect(() => {
@@ -506,7 +708,9 @@ export function AgentPicker({
         onClick={() => setOpen((o) => !o)}
       >
         <span className="min-w-0 truncate">
-          {noneAvailable ? "无可用" : agentDisplayName(current.name)}
+          {noneAvailable
+            ? "无可用"
+            : agentDisplayName(resolvedValue, settings.agentAliases)}
         </span>
         <ChevronDown
           className={`control-picker__chevron shrink-0 ${open ? "control-picker__chevron--open" : ""}`}
@@ -539,7 +743,9 @@ export function AgentPicker({
                     setOpen(false);
                   }}
                 >
-                  <span className="whitespace-nowrap">{agentDisplayName(a.name)}</span>
+                  <span className="whitespace-nowrap">
+                    {agentDisplayName(a.id, settings.agentAliases)}
+                  </span>
                 </button>
               </li>
             );

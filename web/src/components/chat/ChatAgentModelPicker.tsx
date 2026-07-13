@@ -21,11 +21,11 @@ import {
   modelOptionsForAgent,
   resolveSelectableAgentIdRuntime,
 } from "@/lib/agents-runtime";
-import { AGENT_DEFINITIONS, type AgentId } from "@/lib/settings";
-
-function agentShortName(name: string): string {
-  return name.replace(" CLI", "");
-}
+import {
+  getAgentDisplayName,
+  getAgentModelDisplayName,
+  type AgentId,
+} from "@/lib/settings";
 
 function defaultModelLabel(mode: "compact" | "menu", subject: string): string {
   return mode === "menu" ? `${subject} 默认` : "默认模型";
@@ -50,6 +50,20 @@ function normalizeModelLabel(
     return options.mode === "menu" ? `${options.subject} 自动选择` : "自动选择";
   }
   return label;
+}
+
+function resolveCliModelDisplayLabel(
+  agentId: AgentId,
+  modelId: string,
+  rawLabel: string | undefined,
+  options: {
+    mode: "compact" | "menu";
+    subject: string;
+  },
+  modelAliases?: Partial<Record<AgentId, Record<string, string>>>,
+): string {
+  const normalized = normalizeModelLabel(rawLabel, modelId, options);
+  return getAgentModelDisplayName(agentId, modelId, normalized, modelAliases);
 }
 
 type PickerTab = "cli" | "api";
@@ -104,9 +118,6 @@ export function ChatAgentModelPicker({
     agentsRuntime,
     agentId,
   );
-  const agent =
-    AGENT_DEFINITIONS.find((a) => a.id === resolvedAgentId) ??
-    AGENT_DEFINITIONS[0]!;
   const runtimeState = getAgentRuntimeState(agentsRuntime, resolvedAgentId);
   const models = modelOptionsForAgent(runtimeState, resolvedAgentId);
   const currentModel =
@@ -187,7 +198,10 @@ export function ChatAgentModelPicker({
   const preferredOpenTab: PickerTab =
     effectiveExecutionSource === "api" && apiReady ? "api" : "cli";
 
-  const currentAgentName = agentShortName(agent.name);
+  const currentAgentName = getAgentDisplayName(
+    resolvedAgentId,
+    settings.agentAliases,
+  );
   const currentProviderName =
     "providerLabel" in currentModel
       ? currentModel.providerLabel
@@ -200,10 +214,16 @@ export function ChatAgentModelPicker({
           mode: "compact",
           subject: currentProviderName,
         })
-      : normalizeModelLabel(currentModel.label, currentModel.id, {
-          mode: "compact",
-          subject: currentAgentName,
-        });
+      : resolveCliModelDisplayLabel(
+          resolvedAgentId,
+          currentModel.id,
+          currentModel.label,
+          {
+            mode: "compact",
+            subject: currentAgentName,
+          },
+          settings.agentModelAliases,
+        );
 
   useEffect(() => {
     if (noneAvailable) return;
@@ -399,7 +419,7 @@ export function ChatAgentModelPicker({
               )
             ) : (
               cliAgents.map((a) => {
-                const sectionName = agentShortName(a.name);
+                const sectionName = getAgentDisplayName(a.id, settings.agentAliases);
                 const agentModels = modelOptionsForAgent(
                   getAgentRuntimeState(agentsRuntime, a.id),
                   a.id,
@@ -437,10 +457,16 @@ export function ChatAgentModelPicker({
                           >
                             <span className="agent-model-picker__item-copy">
                               <span className="agent-model-picker__item-title">
-                                {normalizeModelLabel(m.label, m.id, {
-                                  mode: "menu",
-                                  subject: sectionName,
-                                })}
+                                {resolveCliModelDisplayLabel(
+                                  a.id,
+                                  m.id,
+                                  m.label,
+                                  {
+                                    mode: "menu",
+                                    subject: sectionName,
+                                  },
+                                  settings.agentModelAliases,
+                                )}
                               </span>
                             </span>
                             {selected ? (

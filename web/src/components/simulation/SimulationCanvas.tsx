@@ -15,6 +15,7 @@ import {
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SimulationLayerTabs } from "@/components/simulation/SimulationLayerTabs";
+import { SimulationCanvasOperationLog } from "@/components/simulation/SimulationCanvasOperationLog";
 import { type PendingIntervention } from "@/components/simulation/SimulationPendingInterventionCard";
 import {
   buildInterventionActions,
@@ -69,6 +70,7 @@ import {
   buildManualConnectionPrompt,
   findCanvasSourceNode,
 } from "@/components/simulation/canvas/canvasPrompts";
+import { getCanvasActionDefinition } from "@/components/simulation/canvas/canvasActions";
 import { SimulationCanvasActivityProvider } from "@/components/simulation/canvas/SimulationCanvasActivityContext";
 import { SimulationCanvasSideRail, SimulationCanvasTools } from "@/components/simulation/canvas/SimulationCanvasToolbar";
 import { nodeTypes } from "@/components/simulation/canvas/SimulationCanvasNode";
@@ -80,12 +82,37 @@ import type {
   CanvasFlowNode,
   CanvasLayerId,
   CanvasNodeToolbarActionId,
+  CanvasActionFeedbackInput,
+  CanvasActionReceipt,
+  CanvasOperationLogEntry,
   EdgeInsertRequest,
+  InterventionImpact,
   ManualNodePositions,
   QuestionDefinitionActionId,
   Scenario,
   SimulationRequirementSummaryPart,
 } from "@/components/simulation/canvas/canvasTypes";
+
+function impactSummary(impact?: InterventionImpact | null) {
+  if (!impact) return undefined;
+  return {
+    nodes: impact.downstreamNodes.length,
+    edges: impact.affectedEdges.length,
+    paths: impact.affectedPaths.length,
+    scenarios: impact.affectedScenarios.length,
+  };
+}
+
+const OPERATION_LOG_LIMIT = 12;
+
+function requestsReport(input: CanvasActionFeedbackInput): boolean {
+  return (
+    input.targetKind === "deliverables" ||
+    input.targetKind === "report" ||
+    input.actionId.includes("report") ||
+    input.actionId.includes("deck")
+  );
+}
 
 function areAlignmentGuidesEqual(
   left: AlignmentGuideState | null,
@@ -181,6 +208,16 @@ export function SimulationCanvas({
   const [variableDrafts, setVariableDrafts] = useState<Record<string, string>>({});
   const [pendingIntervention, setPendingIntervention] =
     useState<PendingIntervention | null>(null);
+  const [actionReceipt, setActionReceipt] = useState<CanvasActionReceipt | null>(
+    null,
+  );
+  const [operationLog, setOperationLog] = useState<CanvasOperationLogEntry[]>([]);
+  const [isOperationLogOpen, setIsOperationLogOpen] = useState(false);
+  const [impactPreview, setImpactPreview] = useState<{
+    sourceNodeId?: string;
+    nodeIds: string[];
+    edgeIds: string[];
+  } | null>(null);
   const [pendingCanvasEdge, setPendingCanvasEdge] = useState<{
     id: string;
     source: string;
@@ -212,6 +249,80 @@ export function SimulationCanvas({
     () => new Set(selectedGroupIds),
     [selectedGroupIds],
   );
+  const impactPreviewNodeIds = useMemo(
+    () => new Set(impactPreview?.nodeIds ?? []),
+    [impactPreview],
+  );
+  const impactPreviewEdgeIds = useMemo(
+    () => new Set(impactPreview?.edgeIds ?? []),
+    [impactPreview],
+  );
+
+  const showActionFeedback = useCallback((input: CanvasActionFeedbackInput) => {
+    const definition = getCanvasActionDefinition(input.actionId);
+    const nextReceipt: CanvasActionReceipt = {
+      id: `${input.actionId}:${input.targetId ?? "canvas"}:${Date.now()}`,
+      actionId: input.actionId,
+      targetId: input.targetId,
+      targetLabel: input.targetLabel,
+      targetKind: input.targetKind ?? definition?.targetKind,
+      title: input.title ?? `已请求${definition?.label ?? "操作"}`,
+      body: input.body,
+      status: input.status ?? "sent",
+      impactSummary: input.impactSummary ?? impactSummary(input.impact),
+      impactLines: input.impactLines ?? formatInterventionImpact(input.impact),
+      createsNewRound:
+        input.createsNewRound ??
+        (typeof definition?.createsNewRound === "boolean"
+          ? definition.createsNewRound
+          : undefined),
+      oldRoundPreserved: input.oldRoundPreserved,
+      autoCollapse: input.autoCollapse,
+    };
+    setActionReceipt(nextReceipt);
+    setOperationLog((current) =>
+      [
+        {
+          id: nextReceipt.id,
+          actionId: nextReceipt.actionId,
+          title: nextReceipt.title,
+          targetId: nextReceipt.targetId,
+          targetLabel: nextReceipt.targetLabel,
+          targetKind: nextReceipt.targetKind,
+          status: nextReceipt.status,
+          createdAt: Date.now(),
+          createsNewRound: nextReceipt.createsNewRound ?? false,
+          requestsReport: requestsReport(input),
+        },
+        ...current,
+      ].slice(0, OPERATION_LOG_LIMIT),
+    );
+    if (input.impact) {
+      setImpactPreview({
+        sourceNodeId: input.targetId,
+        nodeIds: input.impact.downstreamNodes.map((node) => node.id),
+        edgeIds: input.impact.affectedEdges.map((edge) => edge.id),
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!actionReceipt?.autoCollapse) return;
+    const timer = window.setTimeout(() => {
+      setActionReceipt((current) =>
+        current?.id === actionReceipt.id ? null : current,
+      );
+      setImpactPreview(null);
+    }, 6000);
+    return () => window.clearTimeout(timer);
+  }, [actionReceipt]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setImpactPreview(null);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [normalizedScenario]);
 
   useEffect(() => {
     return () => {
@@ -300,12 +411,34 @@ export function SimulationCanvas({
               .join("\n")
           : nodeId;
         void window.navigator.clipboard?.writeText(text).catch(() => undefined);
+        showActionFeedback({
+          actionId: "node.copy",
+          title: "已复制节点信息",
+          body: "节点摘要已发送到剪贴板。",
+          targetId: nodeId,
+          targetLabel: sourceNode?.label ?? nodeId,
+          targetKind: sourceNode?.type ?? "node",
+          status: "done",
+          createsNewRound: false,
+          autoCollapse: true,
+        });
         return;
       }
       if (!sourceNode || !onContinueAsMessage) return;
-      const impactLines = formatInterventionImpact(
-        computeInterventionImpact(sourceNode, normalizedScenario),
-      );
+      const impact = computeInterventionImpact(sourceNode, normalizedScenario);
+      const impactLines = formatInterventionImpact(impact);
+      showActionFeedback({
+        actionId: "node.expand",
+        title: "已请求沿节点展开",
+        body: "系统将只围绕当前节点生成有依赖关系的后续节点、边和路径变化。",
+        targetId: sourceNode.id,
+        targetLabel: sourceNode.label,
+        targetKind: sourceNode.type,
+        impact,
+        impactLines,
+        createsNewRound: false,
+        autoCollapse: true,
+      });
       onContinueAsMessage(
         buildNodeExpandPrompt({
           node: sourceNode,
@@ -314,7 +447,7 @@ export function SimulationCanvas({
         }),
       );
     },
-    [normalizedScenario, onContinueAsMessage],
+    [normalizedScenario, onContinueAsMessage, showActionFeedback],
   );
 
   const handleInsertEdgeNode = useCallback(
@@ -325,9 +458,19 @@ export function SimulationCanvas({
         target: request.targetId,
         label: "插点生成中",
       });
+      showActionFeedback({
+        actionId: "edge.insertNode",
+        title: "插点生成中",
+        body: `系统正在判断是否可在“${request.sourceLabel} → ${request.targetLabel}”之间插入${request.insertType}节点。`,
+        targetId: request.edgeId,
+        targetLabel: `${request.sourceLabel} → ${request.targetLabel}`,
+        targetKind: "edge",
+        status: "running",
+        createsNewRound: false,
+      });
       onContinueAsMessage?.(buildEdgeInsertPrompt(request));
     },
-    [onContinueAsMessage],
+    [onContinueAsMessage, showActionFeedback],
   );
   const handleCanvasNodeSelect = useCallback((nodeId: string, additive = false) => {
     setSelectedNodeId(nodeId);
@@ -374,6 +517,8 @@ export function SimulationCanvas({
         selectedNodeId,
         selectedNodeIds: selectedGroupSet,
         selectedEdgeId,
+        highlightNodeIds: impactPreviewNodeIds,
+        highlightEdgeIds: impactPreviewEdgeIds,
         manualPositions,
         onNodeToolbarAction: handleNodeToolbarAction,
         onNodeSelect: handleCanvasNodeSelect,
@@ -398,6 +543,8 @@ export function SimulationCanvas({
       selectedNodeId,
       selectedGroupSet,
       selectedEdgeId,
+      impactPreviewNodeIds,
+      impactPreviewEdgeIds,
       manualPositions,
       handleNodeToolbarAction,
       handleCanvasNodeSelect,
@@ -563,6 +710,10 @@ export function SimulationCanvas({
     () => visibleNodes.map((node) => node.id).join("|"),
     [visibleNodes],
   );
+  const visibleNodeIdList = useMemo(
+    () => visibleNodes.map((node) => node.id),
+    [visibleNodes],
+  );
   const visibleNodeIds = useMemo(
     () => new Set(visibleNodes.map((node) => node.id)),
     [visibleNodes],
@@ -719,9 +870,35 @@ export function SimulationCanvas({
   const handleConnect = useCallback<OnConnect>(
     (connection) => {
       if (!connection.source || !connection.target) return;
-      if (connection.source === connection.target) return;
+      if (connection.source === connection.target) {
+        showActionFeedback({
+          actionId: "edge.manualConnect",
+          title: "关系判断失败",
+          body: "不能把节点连接到自身，请选择另一个目标节点。",
+          targetId: connection.source,
+          targetLabel: sourceById.get(connection.source)?.label ?? connection.source,
+          targetKind: "edge",
+          status: "failed",
+          createsNewRound: false,
+        });
+        return;
+      }
       // 与 isValidConnection 一致的兜底：非法短路不入图、不回环给 AI。
-      if (!handleIsValidConnection(connection)) return;
+      if (!handleIsValidConnection(connection)) {
+        showActionFeedback({
+          actionId: "edge.manualConnect",
+          title: "关系判断失败",
+          body: "当前两类节点不支持直接连线，请通过中间节点或边上插点补足推理结构。",
+          targetId: connection.source,
+          targetLabel: `${sourceById.get(connection.source)?.label ?? connection.source} → ${
+            sourceById.get(connection.target)?.label ?? connection.target
+          }`,
+          targetKind: "edge",
+          status: "failed",
+          createsNewRound: false,
+        });
+        return;
+      }
       const sourceLabel = sourceById.get(connection.source)?.label ?? connection.source;
       const targetLabel = sourceById.get(connection.target)?.label ?? connection.target;
       setPendingCanvasEdge({
@@ -729,6 +906,16 @@ export function SimulationCanvas({
         source: connection.source,
         target: connection.target,
         label: "关系生成中",
+      });
+      showActionFeedback({
+        actionId: "edge.manualConnect",
+        title: "关系生成中",
+        body: `系统正在判断“${sourceLabel} → ${targetLabel}”是否构成有效关系边。`,
+        targetId: `${connection.source}:${connection.target}`,
+        targetLabel: `${sourceLabel} → ${targetLabel}`,
+        targetKind: "edge",
+        status: "running",
+        createsNewRound: false,
       });
       onContinueAsMessage?.(
         buildManualConnectionPrompt({
@@ -739,7 +926,7 @@ export function SimulationCanvas({
         }),
       );
     },
-    [handleIsValidConnection, onContinueAsMessage, sourceById],
+    [handleIsValidConnection, onContinueAsMessage, showActionFeedback, sourceById],
   );
   const effectiveSelectedNodeId =
     selectedNodeId && visibleNodeIds.has(selectedNodeId) ? selectedNodeId : null;
@@ -747,6 +934,9 @@ export function SimulationCanvas({
     ? sourceById.get(effectiveSelectedNodeId)
     : undefined;
   const showInspector = shouldShowCanvasInspector(embedded, selected);
+  const canvasFitMode = showInspector ? "inspector" : "full";
+  const canvasViewportFitKey = `${visibleNodeFitKey}:${canvasFitMode}`;
+  const canvasLayerFitKey = `${activeLayerId}:${canvasFitMode}`;
   const selectedSource = selected?.source;
   const selectedPath =
     selected?.kind === "path"
@@ -761,7 +951,7 @@ export function SimulationCanvas({
     ? computeInterventionImpact(selectedNode, normalizedScenario)
     : null;
   const selectedImpactLines = formatInterventionImpact(selectedImpact);
-  const selectedNodeActions = selectedNode
+  const selectedNodeActions = selectedNode && selectedNode.type !== "topic"
     ? buildInterventionActions({
         node: selectedNode,
         nodeTypeLabel: nodeKindLabel(selectedNode.type),
@@ -1032,6 +1222,7 @@ export function SimulationCanvas({
 
   return (
     <div
+      data-simulation-canvas-root="true"
       className={
         embedded
           ? "flex h-full min-h-0 flex-col overflow-hidden bg-[var(--surface)]"
@@ -1059,7 +1250,14 @@ export function SimulationCanvas({
             : "relative min-h-[520px] xl:h-[calc(100vh-12rem)]"
         }
       >
-        <div className="h-full min-h-0 min-w-0 bg-[var(--surface)]">
+        <div
+          className={[
+            "min-h-0 min-w-0 overflow-hidden bg-[var(--surface)]",
+            showInspector
+              ? "absolute inset-y-0 left-0 right-0 lg:right-[424px]"
+              : "h-full",
+          ].join(" ")}
+        >
           <SimulationCanvasActivityProvider value={topicAnalysisActivity}>
             <ReactFlow
               nodes={visibleNodes}
@@ -1105,8 +1303,14 @@ export function SimulationCanvas({
               }
             >
               <Background gap={20} size={1} />
-              <SimulationCanvasViewportFit fitKey={visibleNodeFitKey} />
-              <SimulationCanvasLayerFit fitKey={activeLayerId} />
+              <SimulationCanvasViewportFit
+                fitKey={canvasViewportFitKey}
+                nodeIds={visibleNodeIdList}
+              />
+              <SimulationCanvasLayerFit
+                fitKey={canvasLayerFitKey}
+                nodeIds={visibleNodeIdList}
+              />
               <SimulationAlignmentGuides guides={alignmentGuides} />
               {embedded ? (
                 <SimulationCanvasSideRail
@@ -1126,6 +1330,9 @@ export function SimulationCanvas({
                   onUndo={handleUndoLayout}
                   onRedo={handleRedoLayout}
                   onResetLayout={handleResetLayout}
+                  operationLogCount={operationLog.length}
+                  isOperationLogOpen={isOperationLogOpen}
+                  onToggleOperationLog={() => setIsOperationLogOpen((current) => !current)}
                 />
               ) : null}
               {!embedded ? <Controls position="bottom-right" showInteractive={false} /> : null}
@@ -1137,7 +1344,24 @@ export function SimulationCanvas({
                   onUndo={handleUndoLayout}
                   onRedo={handleRedoLayout}
                   onResetLayout={handleResetLayout}
+                  operationLogCount={operationLog.length}
+                  isOperationLogOpen={isOperationLogOpen}
+                  onToggleOperationLog={() => setIsOperationLogOpen((current) => !current)}
                 />
+              ) : null}
+              {isOperationLogOpen ? (
+                <Panel
+                  position="top-right"
+                  className={[
+                    "nodrag nowheel !m-3",
+                    showInspector ? "lg:!mr-[424px]" : "",
+                  ].join(" ")}
+                >
+                  <SimulationCanvasOperationLog
+                    entries={operationLog}
+                    onClose={() => setIsOperationLogOpen(false)}
+                  />
+                </Panel>
               ) : null}
               {!embedded ? (
                 <Panel
@@ -1197,6 +1421,7 @@ export function SimulationCanvas({
             selectedDecisionBranches={selectedDecisionBranches}
             selectedRelatedPaths={selectedRelatedPaths}
             pendingIntervention={pendingIntervention}
+            actionReceipt={actionReceipt}
             effectiveSelectedNodeId={effectiveSelectedNodeId}
             scenario={scenario}
             normalizedScenario={normalizedScenario}
@@ -1207,6 +1432,11 @@ export function SimulationCanvas({
             setSelectedNodeId={setSelectedNodeId}
             setPendingIntervention={setPendingIntervention}
             setVariableDrafts={setVariableDrafts}
+            onActionFeedback={showActionFeedback}
+            onDismissActionReceipt={() => {
+              setActionReceipt(null);
+              setImpactPreview(null);
+            }}
           />
         ) : null}
       </div>

@@ -295,12 +295,23 @@ function SimulationCanvasNode({ id, data }: NodeProps<CanvasFlowNode>) {
       {showQuestionDefinitionActions && !showEntryRequirements ? (
         <div className="nodrag mt-2 flex flex-wrap gap-1.5">
           {[
-            { id: "confirm" as const, label: "确认进入世界模型" },
-            { id: "edit" as const, label: "修改定义" },
+            {
+              id: "confirm" as const,
+              label: "生成世界模型",
+              actionId: "topic.generateWorldModel",
+            },
+            {
+              id: "edit" as const,
+              label: "编辑边界",
+              actionId: "topic.editBoundary",
+            },
           ].map((action) => (
             <button
               key={action.id}
               type="button"
+              data-action-id={action.actionId}
+              data-behavior-type="prompt"
+              data-target-kind="topic"
               onMouseDown={(event) => event.stopPropagation()}
               onClick={(event) => {
                 event.stopPropagation();

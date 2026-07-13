@@ -2,6 +2,7 @@
 
 import {
   SimulationActionButton,
+  SimulationActionMoreMenu,
   SimulationActionButtonRow,
 } from "@/components/simulation/SimulationActionButtons";
 import {
@@ -9,6 +10,10 @@ import {
   buildVariableInterventionPrompt,
   type SimulationInterventionAction,
 } from "@/components/simulation/SimulationPromptBuilders";
+import type {
+  CanvasActionFeedbackInput,
+  InterventionImpact,
+} from "@/components/simulation/canvas/canvasTypes";
 import type { SimulationNode } from "@/lib/chat-parts";
 
 type VariableDrafts = Record<string, string>;
@@ -20,6 +25,11 @@ type PendingInterventionPayload = {
   nextValue?: string;
   impactLines: string[];
   message: string;
+  actionId?: string;
+  targetKind?: string;
+  createsNewRound?: boolean;
+  oldRoundPreserved?: boolean;
+  confirmLabel?: string;
 };
 
 type SimulationNodeInterventionPanelProps = {
@@ -27,10 +37,12 @@ type SimulationNodeInterventionPanelProps = {
   nodeTypeLabel: string;
   variableDrafts: VariableDrafts;
   impactLines: string[];
+  impact?: InterventionImpact | null;
   actions: SimulationInterventionAction[];
   onDraftChange: (nodeId: string, value: string) => void;
   onContinueAsMessage?: (message: string) => void;
   onPendingIntervention: (payload: PendingInterventionPayload) => void;
+  onActionFeedback: (input: CanvasActionFeedbackInput) => void;
 };
 
 function valueText(value: unknown): string {
@@ -57,10 +69,12 @@ export function SimulationNodeInterventionPanel({
   nodeTypeLabel,
   variableDrafts,
   impactLines,
+  impact,
   actions,
   onDraftChange,
   onContinueAsMessage,
   onPendingIntervention,
+  onActionFeedback,
 }: SimulationNodeInterventionPanelProps) {
   return (
     <>
@@ -88,34 +102,41 @@ export function SimulationNodeInterventionPanel({
             />
             {onContinueAsMessage ? (
               <SimulationActionButtonRow withTopMargin={false}>
-                {[
-                  {
-                    label: "查看影响",
-                    value: "查看影响",
-                    instruction:
-                      "请只输出该变量影响哪些节点、边、Scenario、Risk 和 Conclusion，不要开始重算。",
-                  },
-                  {
-                    label: "锁定变量",
-                    value: "锁定变量",
+	                {(() => {
+                    const items = [
+	                  {
+	                    label: "查看影响",
+	                    value: "查看影响",
+	                    actionId: "variable.viewImpact",
+	                    instruction:
+	                      "请只输出该变量影响哪些节点、边、Scenario、Risk 和 Conclusion，不要开始重算。",
+	                  },
+	                  {
+	                    label: "确认并生成新 Round",
+	                    value: "确认重算",
+	                    actionId: "variable.recalculate",
+	                    instruction:
+	                      "请先说明影响预览，再重算下游 Scenario、Inference、Risk 和 Conclusion，并保留旧轮次可回看。",
+	                  },
+	                  {
+	                    label: "锁定变量",
+	                    value: "锁定变量",
+	                    actionId: "variable.lock",
                     instruction:
                       "请将该变量作为后续推演约束，说明锁定后会限制哪些路径变化，并等待用户确认是否生成新 Round。",
                   },
                   {
-                    label: "恢复默认",
+                    label: "恢复为默认假设",
                     value: "恢复默认",
-                    instruction:
-                      "请清除用户覆盖，将变量恢复到默认值，再说明恢复会影响哪些下游路径和结论。",
-                  },
-                  {
-                    label: "确认重算",
-                    value: "确认重算",
-                    instruction:
-                      "请先说明影响预览，再重算下游 Scenario、Inference、Risk 和 Conclusion，并保留旧轮次可回看。",
-                  },
-                ].map((item) => (
-                  <SimulationActionButton
-                    key={item.value}
+                    actionId: "variable.restoreDefault",
+	                    instruction:
+	                      "请清除用户覆盖，将变量恢复到默认值，再说明恢复会影响哪些下游路径和结论。",
+	                  },
+	                ];
+                    const renderItem = (item: (typeof items)[number]) => (
+	                  <SimulationActionButton
+	                    key={item.value}
+	                    actionId={item.actionId}
                     onClick={() => {
                       const currentValue = valueText(node.value);
                       const defaultValue = valueText(node.defaultValue);
@@ -140,24 +161,61 @@ export function SimulationNodeInterventionPanel({
                             ? "确认重算属于硬选择点，请在同一 Run 内生成新 Round。"
                             : "不要静默改写画布；先说明影响和后续可选动作。",
                       });
-                      if (item.value === "确认重算") {
+	                      if (item.value === "确认重算") {
                         onPendingIntervention({
+                          actionId: item.actionId,
+                          targetKind: "variable",
                           title: "变量重算",
                           targetNodeId: node.id,
                           targetLabel: node.label,
                           nextValue,
                           impactLines,
                           message,
+                          createsNewRound: true,
+                          oldRoundPreserved: true,
+                          confirmLabel: "确认并生成新 Round",
                         });
-                        return;
-                      }
-                      onContinueAsMessage(message);
-                    }}
-                  >
-                    {item.label}
-                  </SimulationActionButton>
-                ))}
-              </SimulationActionButtonRow>
+	                        return;
+	                      }
+                      onActionFeedback({
+                        actionId: item.actionId,
+                        title:
+                          item.value === "查看影响"
+                            ? "已请求预览变量影响"
+                            : item.value === "锁定变量"
+                              ? "已请求锁定变量"
+                              : "已请求恢复默认假设",
+                        body:
+                          item.value === "查看影响"
+                            ? "系统将只输出该变量影响范围，不重算、不改画布。"
+                            : item.value === "锁定变量"
+                              ? "系统将把该变量作为后续推演约束，并说明路径影响。"
+                              : "系统将先恢复草稿值，再说明下游路径和结论影响。",
+                        targetId: node.id,
+                        targetLabel: node.label,
+                        targetKind: "variable",
+                        impact,
+                        impactLines,
+                        createsNewRound: false,
+                        status: "sent",
+                        autoCollapse: item.value !== "查看影响",
+                      });
+	                      onContinueAsMessage(message);
+	                    }}
+	                  >
+	                    {item.label}
+	                  </SimulationActionButton>
+	                );
+                    return (
+                      <>
+                        {items.slice(0, 2).map(renderItem)}
+                        <SimulationActionMoreMenu>
+                          {items.slice(2).map(renderItem)}
+                        </SimulationActionMoreMenu>
+                      </>
+                    );
+                  })()}
+	              </SimulationActionButtonRow>
             ) : null}
           </div>
         </div>
@@ -168,13 +226,29 @@ export function SimulationNodeInterventionPanel({
             可干预动作
           </div>
           <SimulationActionButtonRow>
-            {actions.map((action) => (
-              <SimulationActionButton
-                key={action.label}
-                onClick={() => onContinueAsMessage(action.prompt)}
-              >
-                {action.label}
-              </SimulationActionButton>
+	            {actions.map((action) => (
+	              <SimulationActionButton
+	                key={action.label}
+	                actionId={action.actionId}
+	                onClick={() => {
+                    onActionFeedback({
+                      actionId: action.actionId ?? "node.expand",
+                      title: `已请求${action.label}`,
+                      body: "系统将基于当前节点上下文继续处理，并标注受影响对象。",
+                      targetId: node.id,
+                      targetLabel: node.label,
+                      targetKind: node.type,
+                      impact,
+                      impactLines,
+                      createsNewRound: action.createsNewRound,
+                      status: "sent",
+                      autoCollapse: true,
+                    });
+                    onContinueAsMessage(action.prompt);
+                  }}
+	              >
+	                {action.label}
+	              </SimulationActionButton>
             ))}
           </SimulationActionButtonRow>
         </div>
@@ -182,15 +256,31 @@ export function SimulationNodeInterventionPanel({
       {onContinueAsMessage ? (
         <button
           type="button"
-          onClick={() =>
+          data-action-id="node.expand"
+          data-behavior-type="prompt"
+          data-target-kind="node"
+	          onClick={() => {
+            onActionFeedback({
+              actionId: "node.expand",
+              title: "已请求沿节点展开",
+              body: "系统将只围绕当前节点生成有依赖关系的后续节点、边和路径变化。",
+              targetId: node.id,
+              targetLabel: node.label,
+              targetKind: node.type,
+              impact,
+              impactLines,
+              createsNewRound: false,
+              status: "sent",
+              autoCollapse: true,
+            });
             onContinueAsMessage(
               buildNodeExpandPrompt({
                 node,
                 nodeTypeLabel,
                 impactLines,
               }),
-            )
-          }
+            );
+          }}
           className="inline-flex h-8 items-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-elevated)] px-2.5 text-xs font-medium text-[var(--fg-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--fg)]"
         >
           沿此节点展开

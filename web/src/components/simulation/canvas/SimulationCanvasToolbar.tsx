@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { Panel, useReactFlow, useViewport } from "@xyflow/react";
 import {
+  Clock3,
   Maximize2,
   Minus,
   Palette,
@@ -71,6 +72,9 @@ export function SimulationCanvasSideRail({
   onUndo,
   onRedo,
   onResetLayout,
+  operationLogCount,
+  isOperationLogOpen,
+  onToggleOperationLog,
 }: {
   isRevealing: boolean;
   revealedCount: number;
@@ -88,6 +92,9 @@ export function SimulationCanvasSideRail({
   onUndo: () => void;
   onRedo: () => void;
   onResetLayout: () => void;
+  operationLogCount: number;
+  isOperationLogOpen: boolean;
+  onToggleOperationLog: () => void;
 }) {
   const { zoomIn, zoomOut, fitView } = useReactFlow<CanvasFlowNode, CanvasFlowEdge>();
   const { zoom } = useViewport();
@@ -111,6 +118,17 @@ export function SimulationCanvasSideRail({
         <div className="simulation-canvas-actionbar__divider" aria-hidden />
 
         <div className="flex items-center">
+          <button
+            type="button"
+            title={`最近操作（${operationLogCount}）`}
+            aria-label="最近操作"
+            aria-pressed={isOperationLogOpen}
+            data-simulation-operation-log-toggle="true"
+            onClick={onToggleOperationLog}
+            className={actionBtn}
+          >
+            <Clock3 className="h-3.5 w-3.5" aria-hidden />
+          </button>
           <button
             type="button"
             title="撤销布局"
@@ -208,6 +226,9 @@ export function SimulationCanvasTools({
   onUndo,
   onRedo,
   onResetLayout,
+  operationLogCount,
+  isOperationLogOpen,
+  onToggleOperationLog,
 }: {
   manualPositionCount: number;
   canUndo: boolean;
@@ -215,12 +236,26 @@ export function SimulationCanvasTools({
   onUndo: () => void;
   onRedo: () => void;
   onResetLayout: () => void;
+  operationLogCount: number;
+  isOperationLogOpen: boolean;
+  onToggleOperationLog: () => void;
 }) {
   const { fitView } = useReactFlow<CanvasFlowNode, CanvasFlowEdge>();
 
   return (
     <Panel position="top-left" className="!m-3">
       <div className="flex items-center gap-1 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-elevated)] p-1 shadow-[var(--shadow-sm)]">
+        <button
+          type="button"
+          title={`最近操作（${operationLogCount}）`}
+          aria-label="最近操作"
+          aria-pressed={isOperationLogOpen}
+          data-simulation-operation-log-toggle="true"
+          onClick={onToggleOperationLog}
+          className="inline-flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] text-[var(--fg-secondary)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--fg)]"
+        >
+          <Clock3 className="h-3.5 w-3.5" aria-hidden />
+        </button>
         <button
           type="button"
           title="撤销布局"

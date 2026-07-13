@@ -43,8 +43,10 @@ import { useProjectFileIndex } from "@/hooks/useProjectFileIndex";
 import type { WorkspaceFileNode } from "@/lib/workspace";
 import type { ChatPendingAttachment } from "@/lib/chat";
 import {
+  clearStoredModuleSkillTemplateId,
   getModuleSkillOptions,
   MODULE_SKILL_CHANGED_EVENT,
+  notifyModuleSkillTemplateChanged,
   sessionHrefFromNewEntry,
   readStoredModuleSkillTemplateId,
   writeStoredModuleSkillTemplateId,
@@ -53,6 +55,12 @@ import {
   type VideoSkillTemplateId,
   type WritingSkillTemplateId,
 } from "@/lib/module-chat-config";
+
+const MODULE_SKILL_PLACEHOLDER: Record<ModuleSkillPickerKind, string> = {
+  writing: "版式",
+  ppt: "模板",
+  video: "类型",
+};
 
 export type ChatComposerSendPayload = {
   text: string;
@@ -432,6 +440,8 @@ export function ChatComposer({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachRef = useRef<HTMLDivElement>(null);
+  const moduleSkillPickerRef = useRef<HTMLDivElement>(null);
+  const moduleSkillMenuRef = useRef<HTMLUListElement>(null);
   /** 中文等 IME 组字中；此期间 Enter 用于选字，不得触发发送 */
   const isComposingRef = useRef(false);
 
@@ -440,10 +450,10 @@ export function ChatComposer({
     defaultMode ?? settings.defaultChatMode,
   );
   const [modeOpen, setModeOpen] = useState(false);
-  const [moduleSkillId, setModuleSkillId] = useState(() =>
+  const [moduleSkillId, setModuleSkillId] = useState<string | null>(() =>
     skillPickerModule
       ? readStoredModuleSkillTemplateId(skillPickerModule, sessionId)
-      : "",
+      : null,
   );
   const [moduleSkillOpen, setModuleSkillOpen] = useState(false);
   const [attachOpen, setAttachOpen] = useState(false);
@@ -518,9 +528,17 @@ export function ChatComposer({
   const moduleSkillOptions = skillPickerModule
     ? getModuleSkillOptions(skillPickerModule)
     : [];
-  const currentModuleSkill =
-    moduleSkillOptions.find((o) => o.templateId === moduleSkillId) ??
-    moduleSkillOptions[0];
+  const currentModuleSkill = moduleSkillId
+    ? (moduleSkillOptions.find((o) => o.templateId === moduleSkillId) ?? null)
+    : null;
+
+  const clearModuleSkill = useCallback(() => {
+    if (!skillPickerModule) return;
+    setModuleSkillId(null);
+    clearStoredModuleSkillTemplateId(skillPickerModule, sessionId);
+    notifyModuleSkillTemplateChanged();
+    setModuleSkillOpen(false);
+  }, [sessionId, skillPickerModule]);
 
   useEffect(() => {
     if (!skillPickerModule) return;
@@ -547,13 +565,79 @@ export function ChatComposer({
         const target = e.target as Node;
         const inSkill =
           target instanceof Element &&
-          target.closest("[data-module-skill-picker]");
+          (target.closest("[data-module-skill-picker]") ||
+            target.closest("[data-module-skill-menu]"));
         if (!inSkill) setModuleSkillOpen(false);
       }
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [attachOpen, moduleSkillOpen]);
+
+  useLayoutEffect(() => {
+    if (!moduleSkillOpen) return;
+
+    const syncPlacement = () => {
+      const picker = moduleSkillPickerRef.current;
+      const menu = moduleSkillMenuRef.current;
+      if (!picker || !menu) return;
+
+      const pickerRect = picker.getBoundingClientRect();
+      const menuContentHeight = menu.scrollHeight + 2;
+      const viewportGutter = 12;
+      const availableAbove = pickerRect.top - viewportGutter;
+      const availableBelow =
+        window.innerHeight - pickerRect.bottom - viewportGutter;
+      const nextPlacement =
+        availableBelow > availableAbove &&
+        availableAbove < menuContentHeight + 24
+          ? "below"
+          : "above";
+      const availableForPlacement =
+        nextPlacement === "below" ? availableBelow : availableAbove;
+      const maxMenuHeight = Math.min(288, Math.max(0, availableForPlacement));
+      const menuWidth = Math.max(menu.offsetWidth, menu.scrollWidth);
+      const renderedHeight = Math.ceil(
+        Math.min(menuContentHeight, maxMenuHeight),
+      );
+      const maxLeft = Math.max(
+        viewportGutter,
+        window.innerWidth - menuWidth - viewportGutter,
+      );
+      const nextLeft = Math.min(
+        Math.max(viewportGutter, pickerRect.left),
+        maxLeft,
+      );
+      const nextTop =
+        nextPlacement === "below"
+          ? Math.min(
+              pickerRect.bottom + 8,
+              window.innerHeight - renderedHeight - viewportGutter,
+            )
+          : Math.max(viewportGutter, pickerRect.top - renderedHeight - 8);
+
+      menu.style.setProperty(
+        "--chat-composer-skill-menu-max-h",
+        `${Math.floor(maxMenuHeight)}px`,
+      );
+      menu.style.position = "fixed";
+      menu.style.zIndex = "1000";
+      menu.style.left = `${Math.round(nextLeft)}px`;
+      menu.style.top = `${Math.round(nextTop)}px`;
+      menu.style.bottom = "auto";
+      menu.style.height = `${renderedHeight}px`;
+      menu.style.transform = "none";
+
+    };
+
+    syncPlacement();
+    window.addEventListener("resize", syncPlacement);
+    window.addEventListener("scroll", syncPlacement, true);
+    return () => {
+      window.removeEventListener("resize", syncPlacement);
+      window.removeEventListener("scroll", syncPlacement, true);
+    };
+  }, [moduleSkillOpen, moduleSkillOptions.length]);
 
   useEffect(() => {
     const p = getResearchProject(projectId);
@@ -659,13 +743,13 @@ export function ChatComposer({
         agentId,
         agentModel,
         projectId,
-        ...(skillPickerModule === "writing"
+        ...(skillPickerModule === "writing" && moduleSkillId
           ? { writingTemplateId: moduleSkillId as WritingSkillTemplateId }
           : {}),
-        ...(skillPickerModule === "ppt"
+        ...(skillPickerModule === "ppt" && moduleSkillId
           ? { pptTemplateId: moduleSkillId as PptSkillTemplateId }
           : {}),
-        ...(skillPickerModule === "video"
+        ...(skillPickerModule === "video" && moduleSkillId
           ? { videoTemplateId: moduleSkillId as VideoSkillTemplateId }
           : {}),
       });
@@ -791,53 +875,119 @@ export function ChatComposer({
     </div>
   );
 
-  const skillPickerControl =
-    skillPickerModule && currentModuleSkill ? (
-      <div className="relative min-w-0" data-module-skill-picker>
-        <button
-          type="button"
-          onClick={() => setModuleSkillOpen((o) => !o)}
-          className="control-picker control-picker--compact max-w-[9.5rem]"
-          aria-expanded={moduleSkillOpen}
-          disabled={locked}
-          title={currentModuleSkill.description}
+  const skillPickerControl = skillPickerModule ? (
+      <div
+        ref={moduleSkillPickerRef}
+        className="chat-composer__skill-picker relative min-w-0"
+        data-module-skill-picker
+      >
+        <div
+          className={`control-picker control-picker--compact chat-composer__skill-trigger ${currentModuleSkill ? "control-picker--with-clear" : ""}`}
         >
-          <span className="truncate">{currentModuleSkill.label}</span>
-          <ChevronDown
-            className={`control-picker__chevron shrink-0 ${moduleSkillOpen ? "control-picker__chevron--open" : ""}`}
-            strokeWidth={1.75}
-          />
-        </button>
-        {moduleSkillOpen && (
-          <ul className="control-picker-menu control-picker-menu--above absolute left-0 z-50 max-h-[min(16rem,50vh)] min-w-[11rem] overflow-y-auto">
-            {moduleSkillOptions.map((option) => (
-              <li key={option.templateId}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setModuleSkillId(option.templateId);
-                    writeStoredModuleSkillTemplateId(
-                      skillPickerModule,
-                      option.templateId,
-                      sessionId,
-                    );
-                    setModuleSkillOpen(false);
-                  }}
-                  className={`control-picker-menu__item flex-col items-start gap-0.5 ${
-                    moduleSkillId === option.templateId
-                      ? "control-picker-menu__item--selected"
-                      : ""
-                  }`}
-                >
-                  <span>{option.label}</span>
-                  <span className="mt-0.5 block text-xs text-[var(--fg-tertiary)]">
-                    {option.description}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
+          <button
+            type="button"
+            onClick={() => setModuleSkillOpen((o) => !o)}
+            className="control-picker__main min-w-0 flex-1"
+            aria-expanded={moduleSkillOpen}
+            disabled={locked}
+            title={
+              currentModuleSkill?.description ??
+              `选择${MODULE_SKILL_PLACEHOLDER[skillPickerModule]}（可选）`
+            }
+          >
+            <span
+              className={`truncate ${currentModuleSkill ? "" : "text-[var(--fg-tertiary)]"}`}
+            >
+              {currentModuleSkill?.label ??
+                MODULE_SKILL_PLACEHOLDER[skillPickerModule]}
+            </span>
+            <ChevronDown
+              className={`control-picker__chevron shrink-0 ${moduleSkillOpen ? "control-picker__chevron--open" : ""}`}
+              strokeWidth={1.75}
+            />
+          </button>
+          {currentModuleSkill ? (
+            <button
+              type="button"
+              className="control-picker__clear"
+              aria-label={`清除${MODULE_SKILL_PLACEHOLDER[skillPickerModule]}选择`}
+              disabled={locked}
+              onClick={(e) => {
+                e.stopPropagation();
+                clearModuleSkill();
+              }}
+            >
+              <X className="h-3 w-3" strokeWidth={2} />
+            </button>
+          ) : null}
+        </div>
+        {moduleSkillOpen && typeof document !== "undefined"
+          ? createPortal(
+              <ul
+                ref={moduleSkillMenuRef}
+                className="control-picker-menu chat-composer__skill-menu"
+                data-module-skill-menu
+                aria-label={`选择${MODULE_SKILL_PLACEHOLDER[skillPickerModule]}`}
+              >
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => clearModuleSkill()}
+                    className={`control-picker-menu__item chat-composer__skill-item chat-composer__skill-item--plain ${
+                      !moduleSkillId
+                        ? "control-picker-menu__item--selected chat-composer__skill-item--selected"
+                        : ""
+                    }`}
+                  >
+                    <span className="chat-composer__skill-item-title">
+                      不指定{MODULE_SKILL_PLACEHOLDER[skillPickerModule]}
+                    </span>
+                    <span className="chat-composer__skill-item-description">
+                      使用当前模块的基础写作能力
+                    </span>
+                    <span
+                      className="chat-composer__skill-item-status"
+                      aria-hidden="true"
+                    />
+                  </button>
+                </li>
+                {moduleSkillOptions.map((option) => (
+                  <li key={option.templateId}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setModuleSkillId(option.templateId);
+                        writeStoredModuleSkillTemplateId(
+                          skillPickerModule,
+                          option.templateId,
+                          sessionId,
+                        );
+                        notifyModuleSkillTemplateChanged();
+                        setModuleSkillOpen(false);
+                      }}
+                      className={`control-picker-menu__item chat-composer__skill-item ${
+                        moduleSkillId === option.templateId
+                          ? "control-picker-menu__item--selected chat-composer__skill-item--selected"
+                          : ""
+                      }`}
+                    >
+                      <span className="chat-composer__skill-item-title">
+                        {option.label}
+                      </span>
+                      <span className="chat-composer__skill-item-description">
+                        {option.description}
+                      </span>
+                      <span
+                        className="chat-composer__skill-item-status"
+                        aria-hidden="true"
+                      />
+                    </button>
+                  </li>
+                ))}
+              </ul>,
+              document.body,
+            )
+          : null}
       </div>
     ) : null;
 

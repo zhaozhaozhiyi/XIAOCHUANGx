@@ -73,7 +73,7 @@ import { assertAgentAvailableRuntime } from "@/lib/agents-runtime";
 import { useSettings } from "@/components/settings/SettingsContext";
 import { assertAgentAvailable } from "@/lib/hermes/agent";
 import { streamChatCompletion } from "@/lib/hermes/client";
-import { agentLabel } from "@/lib/settings";
+import { getAgentDisplayName, localizeAgentMentions, type AgentId } from "@/lib/settings";
 import {
   persistedAttachment,
   uploadChatAttachments,
@@ -180,7 +180,7 @@ export function useChatSend(
   surfaceModuleId: ChatSurfaceModuleId = "chat",
 ) {
   const surface = MODULE_CHAT_SURFACES[surfaceModuleId];
-  const { agentsRuntime } = useSettings();
+  const { agentsRuntime, settings } = useSettings();
   const [messages, setMessagesState] = useState<ChatMessage[]>(initialMessages);
   const messagesRef = useRef<ChatMessage[]>(initialMessages);
   const setMessages: Dispatch<SetStateAction<ChatMessage[]>> = useCallback(
@@ -307,7 +307,11 @@ export function useChatSend(
         context.executionSource === "api"
           ? null
           : agentsRuntime.execution === "companion"
-            ? assertAgentAvailableRuntime(agentsRuntime, context.agentId)
+            ? assertAgentAvailableRuntime(
+                agentsRuntime,
+                context.agentId,
+                settings.agentAliases,
+              )
             : assertAgentAvailable(context.agentId);
       if (agentError) {
         markSessionStarted(sessionId);
@@ -480,7 +484,14 @@ export function useChatSend(
             applyAssistantCanonicalOutput(assistantId, runId, canonicalOutput);
           },
           onToolProgress: (payload) => {
-            schedulePatch((s) => reduceToolProgress(s, payload));
+            schedulePatch((s) =>
+              reduceToolProgress(s, {
+                ...payload,
+                message: payload.message
+                  ? localizeAgentMentions(payload.message, settings.agentAliases)
+                  : payload.message,
+              }),
+            );
           },
           onClarificationRequired: (payload) => {
             setSessionRunStatus(sessionId, "waiting_user");
@@ -504,10 +515,11 @@ export function useChatSend(
             schedulePatch((s) => reduceTodoItems(s, items));
           },
           onStatus: (label, phase) => {
-            if (isWaitingUserSignal(label, phase)) {
+            const localized = localizeAgentMentions(label, settings.agentAliases);
+            if (isWaitingUserSignal(localized, phase)) {
               setSessionRunStatus(sessionId, "waiting_user");
             }
-            schedulePatch((s) => reduceStatusLabel(s, label, phase));
+            schedulePatch((s) => reduceStatusLabel(s, localized, phase));
           },
           onRunFinished: () => {
             if (!isCurrentRun(runId)) return;
@@ -555,6 +567,7 @@ export function useChatSend(
             errorMessage(error),
             context.agentId,
             context.executionSource,
+            settings.agentAliases,
           ),
         );
         commitAssistantSnapshot(assistantId, { status: "error" });
@@ -575,6 +588,7 @@ export function useChatSend(
             result.error,
             context.agentId,
             context.executionSource,
+            settings.agentAliases,
           ),
         );
         commitAssistantSnapshot(assistantId, { status: "error" });
@@ -606,6 +620,7 @@ export function useChatSend(
       sessionId,
       setCompanionRunId,
       setMessages,
+      settings.agentAliases,
     ],
   );
 
@@ -628,8 +643,9 @@ export function useChatSend(
 
 function accumulatedErrorMessage(
   error: string,
-  agentId: Parameters<typeof agentLabel>[0],
+  agentId: AgentId,
   executionSource: ChatSendContext["executionSource"],
+  agentAliases?: Partial<Record<AgentId, string>>,
 ) {
   const readable = workspaceErrorMessage(error) ?? error;
   if (executionSource === "api") {
@@ -640,5 +656,6 @@ function accumulatedErrorMessage(
     });
     return `无法通过模型 API 完成请求：${friendly}\n\n建议优先检查 Provider 地址、API Key、模型 ID 是否匹配；若使用企业网关，也请确认该地址未被安全策略拦截。`;
   }
-  return `无法通过 ${agentLabel(agentId)} 完成请求：${readable}\n\n请检查本机 Companion、对应 CLI 登录/权限与网络状态；若使用 Hermes 捷径，请确认 gateway 已启动且 HERMES_API_URL 可访问。`;
+  const agentName = getAgentDisplayName(agentId, agentAliases);
+  return `无法通过 ${agentName} 完成请求：${localizeAgentMentions(readable, agentAliases)}\n\n请检查本机 Companion、对应 CLI 登录/权限与网络状态；若使用 Hermes 捷径，请确认 gateway 已启动且 HERMES_API_URL 可访问。`;
 }

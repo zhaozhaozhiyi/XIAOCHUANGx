@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   getModuleSkillOptions,
+  MODULE_SKILL_CHANGED_EVENT,
   notifyModuleSkillTemplateChanged,
   readStoredModuleSkillTemplateId,
   writeStoredModuleSkillTemplateId,
@@ -42,7 +43,7 @@ export function TemplateSkillGallery({ module }: Props) {
   const copy = MODULE_GALLERY_COPY[module];
   const previews = listTemplatePreviews(module);
   const options = getModuleSkillOptions(module);
-  const [activeTemplateId, setActiveTemplateId] = useState(() =>
+  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(() =>
     readStoredModuleSkillTemplateId(module),
   );
   const [previewTarget, setPreviewTarget] = useState<{
@@ -71,6 +72,12 @@ export function TemplateSkillGallery({ module }: Props) {
     notifyModuleSkillTemplateChanged();
     setActiveTemplateId(templateId);
   };
+
+  useEffect(() => {
+    const sync = () => setActiveTemplateId(readStoredModuleSkillTemplateId(module));
+    window.addEventListener(MODULE_SKILL_CHANGED_EVENT, sync);
+    return () => window.removeEventListener(MODULE_SKILL_CHANGED_EVENT, sync);
+  }, [module]);
 
   if (cards.length === 0) return null;
 

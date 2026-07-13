@@ -79,6 +79,8 @@ export function buildCanvas(input: {
   selectedNodeId: string | null;
   selectedNodeIds?: Set<string>;
   selectedEdgeId?: string | null;
+  highlightNodeIds?: Set<string>;
+  highlightEdgeIds?: Set<string>;
   manualPositions?: ManualNodePositions;
   onNodeToolbarAction?: (
     action: CanvasNodeToolbarActionId,
@@ -118,6 +120,8 @@ export function buildCanvas(input: {
     selectedNodeId,
     selectedNodeIds = new Set<string>(),
     selectedEdgeId,
+    highlightNodeIds = new Set<string>(),
+    highlightEdgeIds = new Set<string>(),
     manualPositions = {},
     onNodeToolbarAction,
     onNodeSelect,
@@ -272,8 +276,10 @@ export function buildCanvas(input: {
   ) => {
     const manualPosition = manualPositions[node.id];
     const isSelected = selectedNodeId === node.id || selectedNodeIds.has(node.id);
+    const isImpactHighlighted = highlightNodeIds.has(node.id);
     const isPathHighlighted =
       Boolean(node.data.isSelected) ||
+      isImpactHighlighted ||
       Boolean(selectedScenarioView?.nodeIds.includes(node.id)) ||
       Boolean(
         node.id.startsWith("path:") &&
@@ -332,9 +338,13 @@ export function buildCanvas(input: {
     animated?: boolean;
     strokeDasharray?: string;
   }) => {
-    const isSelected = selectedEdgeId === id;
+      const isSelected = selectedEdgeId === id;
+    const isImpactHighlighted = highlightEdgeIds.has(id);
     const isHighlighted =
-      selected || selectedNodeId === source || selectedNodeId === target;
+      selected ||
+      isImpactHighlighted ||
+      selectedNodeId === source ||
+      selectedNodeId === target;
     const active = isSelected || isHighlighted;
     const sourceLabel = sourceById.get(source)?.label ?? source;
     const targetLabel = sourceById.get(target)?.label ?? target;
@@ -355,6 +365,7 @@ export function buildCanvas(input: {
         label,
         relationType,
         isSelected: active,
+        isImpactHighlighted,
         sourceLabel,
         targetLabel,
         onInsertNode: onInsertEdgeNode,

@@ -168,6 +168,10 @@ test.describe("3D M1 release gate", () => {
     );
 
     await page.goto(`/3d/${sessionId}`);
+    await expect(
+      page.getByRole("heading", { name: "生成一个参数化支架" }),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "展开工作区" })).toBeVisible();
     await page.evaluate((path) => {
       window.dispatchEvent(
         new CustomEvent("jlc-open-workspace-file", {

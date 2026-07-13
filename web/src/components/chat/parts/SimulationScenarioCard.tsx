@@ -156,14 +156,29 @@ export function SimulationScenarioCard({
   useEffect(() => {
     if (!sessionId) return;
     let cancelled = false;
-    void fetchSimulationRounds(sessionId)
-      .then((res) => {
-        if (cancelled) return;
-        setRounds(res.rounds);
-      })
-      .catch(() => {
-        if (!cancelled) setRounds([]);
-      });
+    const retryDelay = (attempt: number) =>
+      new Promise((resolve) => setTimeout(resolve, attempt * 350));
+    const loadRounds = async () => {
+      for (let attempt = 1; attempt <= 6; attempt += 1) {
+        try {
+          const res = await fetchSimulationRounds(sessionId);
+          if (cancelled) return;
+          if (res.rounds.length === 0 && attempt < 6) {
+            await retryDelay(attempt);
+            continue;
+          }
+          setRounds(res.rounds);
+          return;
+        } catch {
+          if (attempt === 6) {
+            if (!cancelled) setRounds([]);
+            return;
+          }
+          await retryDelay(attempt);
+        }
+      }
+    };
+    void loadRounds();
     return () => {
       cancelled = true;
     };

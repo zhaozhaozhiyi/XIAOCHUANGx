@@ -1,6 +1,6 @@
 # 文档中心
 
-> 当前平台发布版本为 **`0.1.3-alpha`（Desktop Alpha 交付体验补强版）**。产品边界以 [平台与工作区边界定义](./product/platform-workspace-boundary.md) 为准：**Desktop = 本地文件夹工作区**；**Web 在线沙箱工作区 = 下一大版本目标**。需求、技术、计划、归档文档统一收纳在本目录下；运行时资产文档（如 `skills/*/SKILL.md`、`prompts/*`）仍保留在对应资产目录。
+> 当前平台发布版本为 **`0.1.4-alpha`（Desktop Alpha 推演画布交互闭环补丁版）**。产品边界以 [平台与工作区边界定义](./product/platform-workspace-boundary.md) 为准：**Desktop = 本地文件夹工作区**；**Web 在线沙箱工作区 = 下一大版本目标**。需求、技术、计划、归档文档统一收纳在本目录下；运行时资产文档（如 `skills/*/SKILL.md`、`prompts/*`）仍保留在对应资产目录。
 
 ## 目录约定
 
@@ -22,8 +22,10 @@
 | [requirements-0.1.1-alpha.md](./product/requirements-0.1.1-alpha.md) | `0.1.1-alpha` 小优化需求清单 |
 | [requirements-0.1.2-alpha.md](./product/requirements-0.1.2-alpha.md) | `0.1.2-alpha` 当前版本内容梳理 |
 | [release-notes-0.1.2-alpha.md](./product/release-notes-0.1.2-alpha.md) | `0.1.2-alpha` 版本升级说明 |
-| [requirements-0.1.3-alpha.md](./product/requirements-0.1.3-alpha.md) | `0.1.3-alpha` 下一小版本内容梳理 |
+| [requirements-0.1.3-alpha.md](./product/requirements-0.1.3-alpha.md) | `0.1.3-alpha` 版本内容梳理 |
 | [release-notes-0.1.3-alpha.md](./product/release-notes-0.1.3-alpha.md) | `0.1.3-alpha` 版本升级说明 |
+| [requirements-0.1.4-alpha.md](./product/requirements-0.1.4-alpha.md) | `0.1.4-alpha` 推演画布交互闭环补丁内容梳理 |
+| [release-notes-0.1.4-alpha.md](./product/release-notes-0.1.4-alpha.md) | `0.1.4-alpha` 版本升级说明 |
 | [platform-workspace-boundary.md](./product/platform-workspace-boundary.md) | Web / Desktop / Sandbox / Companion 边界定义 |
 | [功能清单.md](./product/功能清单.md) | 当前模块与功能清单 |
 | [需求整理.md](./product/需求整理.md) | 需求整理来源文档 |

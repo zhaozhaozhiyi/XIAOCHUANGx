@@ -8,7 +8,7 @@ export function SubNav({ module: mod }: { module: NavModule }) {
   const pathname = usePathname();
 
   return (
-    <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-[var(--border)] bg-[var(--bg)] px-4 py-2">
+    <div className="desktop-drag-region flex shrink-0 items-center gap-1 overflow-x-auto border-b border-[var(--border)] bg-[var(--bg)] px-4 py-2">
       {mod.subNav.map((item) => {
         const active = pathname === item.href;
         return (
