@@ -1,8 +1,9 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { access } from "node:fs/promises";
-import { createServer } from "node:net";
+import { connect, createServer } from "node:net";
 import { dirname, join } from "node:path";
 import { app } from "electron";
+import { resolveElectronNodeRuntime } from "./electron-node-runtime.js";
 
 let child: ChildProcess | null = null;
 let startedUrl: string | null = null;
@@ -48,24 +49,48 @@ async function findFreePort(): Promise<number> {
   });
 }
 
-async function waitForHttpReady(url: string, attempts = 60): Promise<boolean> {
+async function waitForTcpReady(
+  hostname: string,
+  port: number,
+  attempts = 120,
+): Promise<boolean> {
   for (let i = 0; i < attempts; i += 1) {
-    try {
-      const res = await fetch(`${url}/api/runtime/health`, {
-        signal: AbortSignal.timeout(2000),
-      });
-      if (res.ok || res.status < 500) return true;
-    } catch {
-      /* retry */
+    if (await probeTcpReady(hostname, port)) {
+      return true;
     }
     await new Promise((r) => setTimeout(r, 250));
   }
   return false;
 }
 
+async function probeTcpReady(hostname: string, port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (ready: boolean) => {
+      if (settled) return;
+      settled = true;
+      resolve(ready);
+    };
+    const socket = connect({ host: hostname, port });
+    socket.setTimeout(500);
+    socket.on("connect", () => {
+      socket.destroy();
+      done(true);
+    });
+    socket.on("timeout", () => {
+      socket.destroy();
+      done(false);
+    });
+    socket.on("error", () => {
+      /* retry */
+      done(false);
+    });
+  });
+}
+
 /**
  * 打包态启动内嵌 Next standalone（与浏览器同一 web/ 构建产物）。
- * 使用 ELECTRON_RUN_AS_NODE 以 Electron 二进制充当 Node 运行时。
+ * 使用 ELECTRON_RUN_AS_NODE 以 Electron Helper 充当 Node 运行时。
  */
 export async function startEmbeddedWebServer(): Promise<string | null> {
   if (startedUrl) return startedUrl;
@@ -84,10 +109,16 @@ export async function startEmbeddedWebServer(): Promise<string | null> {
   const cwd = dirname(serverJs);
   const hostname = "127.0.0.1";
   const url = `http://${hostname}:${port}`;
+  const nodeRuntime = resolveElectronNodeRuntime();
 
-  console.info("[desktop] starting embedded web", { serverJs, cwd, url });
+  console.info("[desktop] starting embedded web", {
+    serverJs,
+    cwd,
+    url,
+    nodeRuntime,
+  });
 
-  const spawned = spawn(process.execPath, [serverJs], {
+  const spawned = spawn(nodeRuntime, [serverJs], {
     cwd,
     env: {
       ...process.env,
@@ -115,7 +146,7 @@ export async function startEmbeddedWebServer(): Promise<string | null> {
     startedUrl = null;
   });
 
-  const ready = await waitForHttpReady(url);
+  const ready = await waitForTcpReady(hostname, port);
   if (!ready) {
     console.error("[desktop] embedded web did not become ready", { url });
     stopEmbeddedWebServer();

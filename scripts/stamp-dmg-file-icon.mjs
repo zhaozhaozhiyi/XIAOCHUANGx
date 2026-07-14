@@ -101,7 +101,12 @@ try {
   const resourceFile = join(tempDir, "icon.rsrc");
   copyFileSync(iconPng, tempIcon);
   run("sips", ["-i", tempIcon], { stdio: "ignore" });
-  writeFileSync(resourceFile, execFileSync("DeRez", ["-only", "icns", tempIcon]));
+  writeFileSync(
+    resourceFile,
+    execFileSync("DeRez", ["-only", "icns", tempIcon], {
+      maxBuffer: 16 * 1024 * 1024,
+    }),
+  );
 
   for (const target of targets) {
     stampIcon(target, resourceFile);

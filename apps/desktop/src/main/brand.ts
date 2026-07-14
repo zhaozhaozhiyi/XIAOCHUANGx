@@ -13,9 +13,11 @@ let cachedBrandIcon: Electron.NativeImage | undefined;
 export function resolveBrandIcon(): Electron.NativeImage | undefined {
   if (cachedBrandIcon && !cachedBrandIcon.isEmpty()) return cachedBrandIcon;
 
+  // macOS Finder / Applications uses the app bundle .icns. Prefer the same file
+  // for runtime Dock overrides so the Dock does not render a different PNG path.
   const iconNames =
     process.platform === "darwin"
-      ? ["icon.png", "icon.icns"]
+      ? ["icon.icns", "icon.png"]
       : ["icon.png", "icon.ico"];
   const iconDirs = [
     join(__dirname, "../../build"),

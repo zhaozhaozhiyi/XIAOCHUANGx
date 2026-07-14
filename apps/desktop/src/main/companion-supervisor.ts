@@ -23,6 +23,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { app, BrowserWindow } from "electron";
 import { getCompanionHealth } from "./companion-health.js";
+import { resolveElectronNodeRuntime } from "./electron-node-runtime.js";
 import { writeToStdio } from "./stdio.js";
 
 // -----------------------------------------------------------------------------
@@ -67,14 +68,14 @@ const SPAWN_GRACE_MS = 8_000; // spawn 后给 8s 让 Companion 监听端口
  *  - Companion 用 esbuild 打成单个 CJS（`companion.cjs`，~数百 KB），
  *    放进 `process.resourcesPath/companion/`
  *  - Skills / Prompts 不进 bundle，作为静态目录放在 `process.resourcesPath/{skills,prompts}/`
- *  - 运行时由 supervisor 用 `spawn(process.execPath, [bundlePath], { ELECTRON_RUN_AS_NODE: "1" })`
+ *  - 运行时由 supervisor 用 Electron Helper + ELECTRON_RUN_AS_NODE
  *    跑成纯 Node 进程（Electron binary 内嵌 Node runtime）
  *
  * 偏离 roadmap §6.3 写的 pkg/nexe 路线 —— 见 docs/plans/desktop-d1.4-bundle-status.md
  * 的"决策"小节。
  */
 export type SidecarLayout = {
-  /** Electron 主进程 binary（process.execPath），用作 Node runtime */
+  /** Electron Node runtime（macOS 打包态优先用 Helper，避免 Dock 露出 exec） */
   execPath: string;
   /** companion.cjs 绝对路径 */
   bundlePath: string;
@@ -102,7 +103,7 @@ export function findCompanionBundle(): SidecarLayout | null {
   // 但既然 prepare 脚本会一起拷，缺意味着安装包损坏；这里仍 return 让用户能跑，
   // 失败由 Companion 启动期暴露
   return {
-    execPath: process.execPath,
+    execPath: resolveElectronNodeRuntime(),
     bundlePath,
     skillsDir: join(resources, "skills"),
     promptsDir: join(resources, "prompts"),

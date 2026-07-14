@@ -1,6 +1,6 @@
 {
   "name": "@jlc/runtime-core",
-  "version": "0.1.4-alpha.1",
+  "version": "0.1.4-alpha.2",
   "private": true,
   "description": "Spawn Codex / Claude / Hermes CLI and parse stdout streams",
   "type": "module",
