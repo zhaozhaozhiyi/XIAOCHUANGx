@@ -96,6 +96,10 @@ jobs:
           echo "release=${release}" >> "${GITHUB_OUTPUT}"
           echo "release=${release}"
 
+      - name: Install Playwright ffmpeg
+        if: steps.mode.outputs.release == 'true'
+        run: pnpm --filter web exec playwright install ffmpeg
+
       - name: Resolve desktop package version
         id: desktop_version
         shell: bash
