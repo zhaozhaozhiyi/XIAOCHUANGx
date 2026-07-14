@@ -1,42 +1,35 @@
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="base" x1="258" y1="126" x2="780" y2="902" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#F47A4F"/>
-      <stop offset="0.52" stop-color="#D86542"/>
-      <stop offset="1" stop-color="#A9432F"/>
+    <linearGradient id="base" x1="512" y1="80" x2="512" y2="944" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D36C49"/>
+      <stop offset="0.52" stop-color="#CC6342"/>
+      <stop offset="1" stop-color="#C65D3E"/>
     </linearGradient>
-    <radialGradient id="topGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(366 256) rotate(50.6) scale(506 386)">
-      <stop stop-color="#FFB08A" stop-opacity="0.72"/>
-      <stop offset="0.55" stop-color="#FFB08A" stop-opacity="0.16"/>
-      <stop offset="1" stop-color="#FFB08A" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="inner" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(436 388) rotate(55.7) scale(300)">
-      <stop stop-color="#F28B62"/>
-      <stop offset="0.58" stop-color="#D86643"/>
-      <stop offset="1" stop-color="#B84E36"/>
-    </radialGradient>
-    <linearGradient id="ring" x1="320" y1="258" x2="702" y2="764" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FFFFFF"/>
-      <stop offset="0.45" stop-color="#FFF8F0"/>
-      <stop offset="1" stop-color="#EADDD1"/>
+    <linearGradient id="ring" x1="512" y1="270" x2="512" y2="754" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFDF9"/>
+      <stop offset="0.5" stop-color="#FFF7F1"/>
+      <stop offset="1" stop-color="#F1DDD2"/>
     </linearGradient>
+    <filter id="appShadow" x="25" y="25" width="974" height="999" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="22"/>
+    </filter>
+    <filter id="ringShadow" x="145" y="145" width="734" height="734" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="9"/>
+    </filter>
     <clipPath id="squircleClip">
-      <rect width="1024" height="1024" rx="230"/>
+      <rect x="80" y="72" width="864" height="864" rx="205"/>
     </clipPath>
   </defs>
-  <g transform="translate(80 80) scale(0.84375)">
-    <rect x="12" y="30" width="1000" height="982" rx="226" fill="#5A1F12" fill-opacity="0.28"/>
-    <g clip-path="url(#squircleClip)">
-      <rect width="1024" height="1024" rx="230" fill="url(#base)"/>
-      <rect width="1024" height="1024" rx="230" fill="url(#topGlow)"/>
-      <path d="M84 158C84 116.027 118.027 82 160 82H864C905.973 82 940 116.027 940 158V204C940 162.027 905.973 128 864 128H160C118.027 128 84 162.027 84 204V158Z" fill="white" fill-opacity="0.18"/>
-      <path d="M0 694C152 803 335 862 524 862C704 862 872 808 1024 708V1024H0V694Z" fill="#6E2417" fill-opacity="0.16"/>
-      <path d="M1024 0V1024H0C191 944 362 888 537 888C716 888 878 940 1024 1024V0Z" fill="#2E0F0A" fill-opacity="0.06"/>
-    </g>
-    <circle cx="512" cy="536" r="291" stroke="#7F2E1C" stroke-opacity="0.34" stroke-width="142"/>
-    <circle cx="512" cy="512" r="291" stroke="url(#ring)" stroke-width="134"/>
-    <circle cx="512" cy="512" r="218" fill="url(#inner)"/>
-    <circle cx="512" cy="512" r="218" fill="none" stroke="#7B2A1A" stroke-opacity="0.16" stroke-width="8"/>
-    <path d="M370 374C410 328 461 304 522 304C577 304 624 322 664 358" stroke="white" stroke-width="26" stroke-linecap="round" opacity="0.22"/>
+
+  <rect x="80" y="90" width="864" height="864" rx="205" fill="#3D2A24" opacity="0.14" filter="url(#appShadow)"/>
+  <rect x="80" y="72" width="864" height="864" rx="205" fill="url(#base)"/>
+  <g clip-path="url(#squircleClip)">
+    <path d="M285 76H739C846 76 926 158 939 254" stroke="#FFAF91" stroke-width="8" stroke-linecap="round" opacity="0.34"/>
   </g>
+
+  <circle cx="512" cy="513" r="244" stroke="#8D3522" stroke-width="110" opacity="0.16" filter="url(#ringShadow)"/>
+  <circle cx="512" cy="504" r="244" stroke="url(#ring)" stroke-width="106"/>
+  <circle cx="512" cy="504" r="297" stroke="#FFF4EC" stroke-width="5" opacity="0.56"/>
+  <circle cx="512" cy="504" r="191" stroke="#FFEFE6" stroke-width="5" opacity="0.72"/>
+  <path d="M322 409C356 341 425 303 501 301" stroke="white" stroke-width="6" stroke-linecap="round" opacity="0.28"/>
 </svg>

@@ -1,6 +1,6 @@
 {
   "name": "@jlcresearch/companion",
-  "version": "0.1.4-alpha.2",
+  "version": "0.1.4-alpha.3",
   "private": true,
   "description": "小窗 — 本机 Companion（模式 B）",
   "type": "module",
