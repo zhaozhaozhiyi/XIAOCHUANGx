@@ -21,11 +21,12 @@
     "verify:openscad-wasm:required": "node ../../scripts/prepare-openscad-wasm.mjs --check --required",
     "verify:openscad:required": "node ../../scripts/verify-openscad-runtime.mjs --required",
     "prepare:openscad:required": "node ../../scripts/prepare-openscad-runtime.mjs --required && pnpm verify:openscad:required",
+    "stamp:dmg-icon": "node ../../scripts/stamp-dmg-file-icon.mjs",
     "pack:dir": "pnpm icons && pnpm build && pnpm prepare:web && pnpm prepare:companion && pnpm prepare:openscad && electron-builder --dir",
-    "pack": "pnpm icons && pnpm build && pnpm prepare:web && pnpm prepare:companion && pnpm prepare:openscad && electron-builder",
-    "pack:release": "pnpm icons && pnpm build && pnpm prepare:web && pnpm prepare:companion && pnpm prepare:openscad:required && pnpm --dir ../.. m1:3d:release-gate && electron-builder",
-    "pack:ci": "pnpm icons && pnpm build && pnpm prepare:web && pnpm prepare:companion && pnpm prepare:openscad && electron-builder --publish never",
-    "pack:ci:release": "pnpm icons && pnpm build && pnpm prepare:web && pnpm prepare:companion && pnpm verify:openscad:required && pnpm --dir ../.. m1:3d:release-gate && electron-builder --publish never"
+    "pack": "pnpm icons && pnpm build && pnpm prepare:web && pnpm prepare:companion && pnpm prepare:openscad && electron-builder && pnpm stamp:dmg-icon",
+    "pack:release": "pnpm icons && pnpm build && pnpm prepare:web && pnpm prepare:companion && pnpm prepare:openscad:required && pnpm --dir ../.. m1:3d:release-gate && electron-builder && pnpm stamp:dmg-icon",
+    "pack:ci": "pnpm icons && pnpm build && pnpm prepare:web && pnpm prepare:companion && pnpm prepare:openscad && electron-builder --publish never && pnpm stamp:dmg-icon",
+    "pack:ci:release": "pnpm icons && pnpm build && pnpm prepare:web && pnpm prepare:companion && pnpm verify:openscad:required && pnpm --dir ../.. m1:3d:release-gate && electron-builder --publish never && pnpm stamp:dmg-icon"
   },
   "dependencies": {
     "electron-updater": "^6.6.2"
