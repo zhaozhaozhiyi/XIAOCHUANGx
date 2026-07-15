@@ -17,60 +17,6 @@ import { SvgPreview } from "./SvgPreview";
 import { workspaceErrorMessage } from "@/lib/workspace-errors";
 import { inferMimeFromPath, isStreamableWorkspacePath } from "@/lib/workspace-binary";
 import { useWorkspace } from "./WorkspaceContext";
-import type { WorkspaceFileNode } from "@/lib/workspace";
-
-const DIRECT_EDIT_SOURCE_EXTENSIONS = new Set([
-  ".html",
-  ".htm",
-  ".css",
-  ".scss",
-  ".less",
-  ".js",
-  ".mjs",
-  ".cjs",
-  ".jsx",
-  ".ts",
-  ".tsx",
-  ".vue",
-  ".svelte",
-  ".astro",
-  ".json",
-  ".jsonc",
-  ".yaml",
-  ".yml",
-  ".toml",
-  ".md",
-  ".mdx",
-  ".txt",
-  ".csv",
-  ".tsv",
-  ".py",
-  ".go",
-  ".rs",
-  ".java",
-  ".kt",
-  ".swift",
-  ".php",
-  ".rb",
-  ".sh",
-  ".bash",
-  ".zsh",
-  ".sql",
-  ".xml",
-  ".svg",
-]);
-
-function getFileExtension(path: string): string {
-  const fileName = path.split(/[\\/]/).pop() ?? path;
-  const dotIndex = fileName.lastIndexOf(".");
-  if (dotIndex <= 0) return "";
-  return fileName.slice(dotIndex).toLowerCase();
-}
-
-function shouldDirectEditSourceFile(file: WorkspaceFileNode | null): boolean {
-  if (!file || file.type !== "file" || !file.relativePath) return false;
-  return DIRECT_EDIT_SOURCE_EXTENSIONS.has(getFileExtension(file.relativePath));
-}
 
 export function FileViewer() {
   const {
@@ -140,7 +86,6 @@ export function FileViewer() {
   const isVideo =
     isFileSelected &&
     isStreamableWorkspacePath(selectedFile.relativePath ?? selectedFile.name);
-  const directEditSource = shouldDirectEditSourceFile(selectedFile);
 
   const openHtmlInBrowser = useCallback(() => {
     if (!body.trim()) return;
@@ -206,8 +151,6 @@ export function FileViewer() {
         projectId={workspaceProjectId}
         relativePath={selectedFile.relativePath}
         content={body}
-        language={isSvg ? "html" : selectedFile.language}
-        directEdit={directEditSource}
         onSaved={(nextContent) => {
           if (selectedFileId) {
             updateFileCacheContent(selectedFileId, nextContent);

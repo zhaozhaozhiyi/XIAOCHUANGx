@@ -2,15 +2,11 @@
 
 import { RotateCcw, Save } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { FileSourceView } from "./FileSourceView";
-import type { CodeLanguage } from "./FileSourceView";
 
 type Props = {
   projectId: string;
   relativePath: string;
   content: string;
-  language?: CodeLanguage;
-  directEdit?: boolean;
   onSaved?: (nextContent: string) => void;
   onWorkspaceChanged?: () => void;
 };
@@ -46,22 +42,18 @@ export function EditableFileSourceView({
   projectId,
   relativePath,
   content,
-  language,
-  directEdit = false,
   onSaved,
   onWorkspaceChanged,
 }: Props) {
   const [draft, setDraft] = useState(content);
-  const [editing, setEditing] = useState(directEdit);
   const [saveState, setSaveState] = useState<SaveState>({ status: "idle" });
 
   useEffect(() => {
     // The editor draft should reset when the workspace selection changes.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setDraft(content);
-    setEditing(directEdit);
     setSaveState({ status: "idle" });
-  }, [content, directEdit, relativePath]);
+  }, [content, relativePath]);
 
   const dirty = draft !== content;
   const lineCount = useMemo(() => Math.max(1, draft.split("\n").length), [draft]);
@@ -80,9 +72,6 @@ export function EditableFileSourceView({
       await writeWorkspaceFile({ projectId, path: relativePath, content: draft });
       onSaved?.(draft);
       onWorkspaceChanged?.();
-      if (!directEdit) {
-        setEditing(false);
-      }
       setSaveState({ status: "saved", message: "源文件已保存。" });
     } catch (err) {
       setSaveState({
@@ -95,88 +84,52 @@ export function EditableFileSourceView({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
-        {directEdit ? (
-          <span
-            className={`text-xs ${
-              saveState.status === "error"
-                ? "text-[var(--danger)]"
-                : dirty || saveState.status === "saving"
-                  ? "text-[var(--fg-secondary)]"
-                  : "text-[var(--fg-tertiary)]"
-            }`}
-          >
-            {saveLabel}
-          </span>
-        ) : (
-          <p className="text-xs text-[var(--fg-tertiary)]">
-            {editing ? "正在编辑源文件" : "点击后编辑源文件，保存后会刷新工作区。"}
-          </p>
-        )}
+        <span
+          className={`text-xs ${
+            saveState.status === "error"
+              ? "text-[var(--danger)]"
+              : dirty || saveState.status === "saving"
+                ? "text-[var(--fg-secondary)]"
+                : "text-[var(--fg-tertiary)]"
+          }`}
+        >
+          {saveLabel}
+        </span>
         <div className="flex items-center gap-2">
-          {!directEdit && saveState.status !== "idle" && (
-            <span
-              className={`text-xs ${
-                saveState.status === "error"
-                  ? "text-[var(--danger)]"
-                  : "text-[var(--fg-tertiary)]"
-              }`}
-            >
-              {saveState.status === "saving" ? "正在保存…" : saveState.message}
-            </span>
-          )}
-          {editing && (
-            <button
-              type="button"
-              className="btn btn-secondary px-3 py-1.5 text-xs"
-              disabled={saveState.status === "saving" || !dirty}
-              onClick={() => {
-                setDraft(content);
-                setSaveState({ status: "idle" });
-              }}
-            >
-              <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.75} />
-              还原
-            </button>
-          )}
-          {editing ? (
-            <button
-              type="button"
-              className="btn btn-primary px-3 py-1.5 text-xs"
-              disabled={saveState.status === "saving" || !dirty}
-              onClick={() => void save()}
-            >
-              <Save className="h-3.5 w-3.5" strokeWidth={1.75} />
-              保存
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="btn btn-secondary px-3 py-1.5 text-xs"
-              onClick={() => {
-                setEditing(true);
-                setSaveState({ status: "idle" });
-              }}
-            >
-              编辑源文件
-            </button>
-          )}
+          <button
+            type="button"
+            className="btn btn-secondary px-3 py-1.5 text-xs"
+            disabled={saveState.status === "saving" || !dirty}
+            onClick={() => {
+              setDraft(content);
+              setSaveState({ status: "idle" });
+            }}
+          >
+            <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.75} />
+            还原
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary px-3 py-1.5 text-xs"
+            disabled={saveState.status === "saving" || !dirty}
+            onClick={() => void save()}
+          >
+            <Save className="h-3.5 w-3.5" strokeWidth={1.75} />
+            保存
+          </button>
         </div>
       </div>
 
-      {editing ? (
-        <textarea
-          value={draft}
-          onChange={(event) => {
-            setDraft(event.target.value);
-            setSaveState({ status: "idle" });
-          }}
-          spellCheck={false}
-          className="min-h-[420px] flex-1 resize-y rounded-lg border border-[var(--border)] bg-[var(--bg)] p-3 font-mono text-[13px] leading-relaxed text-[var(--fg)] outline-none focus:border-[var(--focus)] focus:ring-2 focus:ring-[var(--focus)]/20"
-          style={{ height: `${Math.min(720, Math.max(420, lineCount * 21))}px` }}
-        />
-      ) : (
-        <FileSourceView content={content} language={language} />
-      )}
+      <textarea
+        value={draft}
+        onChange={(event) => {
+          setDraft(event.target.value);
+          setSaveState({ status: "idle" });
+        }}
+        spellCheck={false}
+        className="min-h-[420px] flex-1 resize-y rounded-lg border border-[var(--border)] bg-[var(--bg)] p-3 font-mono text-[13px] leading-relaxed text-[var(--fg)] outline-none focus:border-[var(--focus)] focus:ring-2 focus:ring-[var(--focus)]/20"
+        style={{ height: `${Math.min(720, Math.max(420, lineCount * 21))}px` }}
+      />
     </div>
   );
 }
