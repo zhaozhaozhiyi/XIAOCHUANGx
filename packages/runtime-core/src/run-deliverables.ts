@@ -75,6 +75,12 @@ function isPreviewType(type: string): boolean {
     "webp",
     "svg",
     "stl",
+    "mp4",
+    "webm",
+    "mov",
+    "m4v",
+    "ogg",
+    "ogv",
   ].includes(type);
 }
 
@@ -88,6 +94,10 @@ function isGeneratedFormatType(type: string): boolean {
     "docx",
     "mp4",
     "webm",
+    "mov",
+    "m4v",
+    "ogg",
+    "ogv",
     "stl",
     "dxf",
     "svg",
@@ -98,7 +108,9 @@ function previewTypeForArtifact(type: string): ArtifactPreview["type"] {
   if (type === "html" || type === "htm") return "html";
   if (["png", "jpg", "jpeg", "webp", "svg"].includes(type)) return "image";
   if (["stl", "scad", "dxf", "off"].includes(type)) return "model";
-  if (["mp4", "webm"].includes(type)) return "video";
+  if (["mp4", "webm", "mov", "m4v", "ogg", "ogv"].includes(type)) {
+    return "video";
+  }
   if (type === "directory") return "directory";
   return "document";
 }
@@ -351,6 +363,10 @@ function guessMime(rel: string): string | undefined {
   if (ext === ".stl") return "model/stl";
   if (ext === ".dxf") return "image/vnd.dxf";
   if (ext === ".off") return "model/vnd.off";
+  if (ext === ".mp4" || ext === ".m4v") return "video/mp4";
+  if (ext === ".webm") return "video/webm";
+  if (ext === ".mov") return "video/quicktime";
+  if (ext === ".ogg" || ext === ".ogv") return "video/ogg";
   return undefined;
 }
 

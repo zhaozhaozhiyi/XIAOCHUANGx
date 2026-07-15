@@ -53,6 +53,7 @@ import {
   resolveFileInTree,
   resolveFileMessage,
 } from "@/lib/file-path-resolve";
+import { isStreamableWorkspacePath } from "@/lib/workspace-binary";
 
 export type FileViewMode = "preview" | "source" | "render";
 
@@ -567,6 +568,14 @@ export function WorkspaceProvider({
       setFileCache((prev) => ({
         ...prev,
         [fileId]: { content: "", binaryBase64: null, loading: false, error: null },
+      }));
+      return;
+    }
+
+    if (isStreamableWorkspacePath(node.relativePath)) {
+      setFileCache((prev) => ({
+        ...prev,
+        [fileId]: { content: null, binaryBase64: null, loading: false, error: null },
       }));
       return;
     }

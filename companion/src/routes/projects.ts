@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { createReadStream } from "node:fs";
 import { verifyDesktopImportToken } from "../desktop/secrets.js";
 import {
   createProject,
@@ -15,6 +16,7 @@ import {
   getProjectTree,
   getProjectTreeChildren,
   readProjectFile,
+  resolveProjectMediaFile,
   writeProjectFile,
 } from "../projects/tree.js";
 import { listProjectFilePaths } from "../projects/files-index.js";
@@ -22,6 +24,44 @@ import type { WorkspaceKind } from "../types.js";
 
 function isWorkspaceKind(v: string): v is WorkspaceKind {
   return v === "sandbox" || v === "local_bound" || v === "cloud";
+}
+
+type ByteRange =
+  | { ok: true; partial: boolean; start: number; end: number }
+  | { ok: false };
+
+function parseByteRange(rangeHeader: string | string[] | undefined, size: number): ByteRange {
+  if (size <= 0) return { ok: false };
+  const header = Array.isArray(rangeHeader) ? rangeHeader[0] : rangeHeader;
+  if (!header) return { ok: true, partial: false, start: 0, end: size - 1 };
+  const match = /^bytes=(\d*)-(\d*)$/.exec(header.trim());
+  if (!match) return { ok: false };
+  const [, rawStart, rawEnd] = match;
+  if (!rawStart && !rawEnd) return { ok: false };
+
+  let start: number;
+  let end: number;
+  if (!rawStart) {
+    const suffixLength = Number(rawEnd);
+    if (!Number.isSafeInteger(suffixLength) || suffixLength <= 0) return { ok: false };
+    start = Math.max(size - suffixLength, 0);
+    end = size - 1;
+  } else {
+    start = Number(rawStart);
+    end = rawEnd ? Number(rawEnd) : size - 1;
+  }
+
+  if (
+    !Number.isSafeInteger(start) ||
+    !Number.isSafeInteger(end) ||
+    start < 0 ||
+    end < start ||
+    start >= size
+  ) {
+    return { ok: false };
+  }
+
+  return { ok: true, partial: true, start, end: Math.min(end, size - 1) };
 }
 
 export async function projectRoutes(app: FastifyInstance): Promise<void> {
@@ -221,6 +261,56 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       return reply.code(400).send({ error: msg });
+    }
+  });
+
+  app.get<{
+    Params: { projectId: string };
+    Querystring: { path?: string };
+  }>("/v1/projects/:projectId/media", async (request, reply) => {
+    const rel = request.query.path ?? "";
+    if (!rel) return reply.code(400).send({ error: "path_required" });
+    const project = await getProject(request.params.projectId);
+    if (!project) {
+      return reply.code(404).send({ error: "project_not_found" });
+    }
+
+    try {
+      const root = await resolveWorkspaceRoot(project.projectId);
+      const media = await resolveProjectMediaFile(root, rel);
+      const range = parseByteRange(request.headers.range, media.size);
+      reply.header("Accept-Ranges", "bytes");
+      reply.header("Cache-Control", "no-store");
+      reply.header("Content-Type", media.mime);
+
+      if (!range.ok) {
+        reply.header("Content-Range", `bytes */${media.size}`);
+        return reply.code(416).send();
+      }
+
+      const stream = createReadStream(media.fullPath, {
+        start: range.start,
+        end: range.end,
+      });
+      const contentLength = range.end - range.start + 1;
+      reply.header("Content-Length", String(contentLength));
+      if (range.partial) {
+        reply.header(
+          "Content-Range",
+          `bytes ${range.start}-${range.end}/${media.size}`,
+        );
+        return reply.code(206).send(stream);
+      }
+      return reply.send(stream);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      const status =
+        msg === "project_not_found"
+          ? 404
+          : msg === "unsupported_media_type"
+            ? 415
+            : 400;
+      return reply.code(status).send({ error: msg });
     }
   });
 

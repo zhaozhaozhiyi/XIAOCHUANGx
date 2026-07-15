@@ -33,7 +33,9 @@ function StepIcon({
   kind: ReturnType<typeof activityStepMeta>["icon"];
   running: boolean;
 }) {
-  const className = `h-4 w-4 shrink-0 ${running ? "text-[var(--accent)]" : "text-[var(--fg-tertiary)]"}`;
+  const className = `h-4 w-4 shrink-0 ${
+    running ? "text-[var(--activity-running-fg)]" : "text-[var(--fg-tertiary)]"
+  }`;
   if (running && kind === "reasoning") {
     return (
       <Clock3

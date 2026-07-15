@@ -106,6 +106,16 @@ export function companionProjectFileUrl(
   );
 }
 
+export function companionProjectMediaUrl(
+  projectId: string,
+  relPath: string,
+): string {
+  const q = new URLSearchParams({ path: relPath });
+  return companionUrl(
+    `/v1/projects/${encodeURIComponent(projectId)}/media?${q}`,
+  );
+}
+
 export function companionProjectFilesUrl(projectId: string): string {
   return companionUrl(`/v1/projects/${encodeURIComponent(projectId)}/files`);
 }

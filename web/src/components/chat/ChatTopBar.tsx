@@ -16,13 +16,19 @@ export function ChatTopBar({
 }: ChatTopBarProps) {
   return (
     <header
-      className={`desktop-drag-region grid ${MAIN_TOP_BAR_CLASS} shrink-0 grid-cols-[minmax(9.5rem,1fr)_auto_minmax(6rem,1fr)] items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] pl-4 pr-6`}
+      className={`grid ${MAIN_TOP_BAR_CLASS} shrink-0 grid-cols-[minmax(9.5rem,1fr)_auto_minmax(6rem,1fr)] items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] pl-4 pr-6`}
     >
-      <div className="flex min-w-0 items-center justify-start gap-2">{left}</div>
+      <div className="flex h-full min-w-0 items-center justify-start gap-2">
+        {left}
+        <div className="desktop-drag-region h-full min-w-4 flex-1" aria-hidden />
+      </div>
       <div className="flex min-w-0 max-w-[min(100%,28rem)] items-center justify-center px-2">
         {center}
       </div>
-      <div className="flex min-w-0 items-center justify-end gap-2">{right}</div>
+      <div className="flex h-full min-w-0 items-center justify-end gap-2">
+        <div className="desktop-drag-region h-full min-w-4 flex-1" aria-hidden />
+        {right}
+      </div>
     </header>
   );
 }

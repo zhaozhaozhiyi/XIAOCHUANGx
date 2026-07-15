@@ -34,10 +34,14 @@
   --danger-muted-dot: #966b6b;
 
   /* Agent 过程条（运行/阶段） */
-  --activity-chip-bg: var(--accent-muted);
-  --activity-chip-fg: var(--accent-hover);
-  --activity-chip-dot: var(--accent);
-  --activity-chip-phase: color-mix(in srgb, var(--accent-hover) 78%, var(--fg-secondary));
+  --activity-running-bg: #e8f5f0;
+  --activity-running-fg: #0a7a5e;
+  --activity-running-dot: #10a37f;
+  --activity-running-phase: color-mix(in srgb, var(--activity-running-fg) 78%, var(--fg-secondary));
+  --activity-chip-bg: color-mix(in srgb, var(--surface-elevated) 82%, var(--fg-tertiary));
+  --activity-chip-fg: var(--fg-secondary);
+  --activity-chip-dot: var(--fg-tertiary);
+  --activity-chip-phase: var(--fg-tertiary);
   --activity-chip-wait-bg: #f5f0e6;
   --activity-chip-wait-fg: var(--warn);
   --activity-chip-wait-dot: var(--warn);
@@ -250,7 +254,14 @@ body {
   border-radius: var(--radius-md);
   padding: 0.5rem;
   color: var(--fg-secondary);
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
   transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.btn-icon > svg,
+.btn-icon > svg * {
+  pointer-events: none;
 }
 
 .btn-icon:hover {
@@ -1271,7 +1282,7 @@ body {
 .chat-history-sidebar__status--running {
   width: 0.5rem;
   height: 0.5rem;
-  color: var(--accent);
+  color: var(--activity-running-fg);
   opacity: 0.88;
 }
 
@@ -2283,6 +2294,19 @@ body {
   font-weight: 400;
 }
 
+.chat-activity-chip--running {
+  background: var(--activity-running-bg);
+  color: var(--activity-running-fg);
+}
+
+.chat-activity-chip--running .chat-activity-chip__dot {
+  background: var(--activity-running-dot);
+}
+
+.chat-activity-chip--running .chat-activity-chip__phase {
+  color: var(--activity-running-phase);
+}
+
 .chat-activity-chip--wait {
   background: var(--activity-chip-wait-bg);
   color: var(--activity-chip-wait-fg);
@@ -3023,7 +3047,14 @@ body {
   position: fixed;
   inset: 0;
   z-index: 70;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
   animation: settings-modal-fade-in 0.16s ease-out;
+}
+
+.settings-drawer-root * {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
 }
 
 .settings-drawer-backdrop {
@@ -3901,8 +3932,8 @@ html[data-platform="linux"] ::-webkit-scrollbar-corner,
 
 /* —— 桌面壳：拖拽契约 ——
    用法：
-     <DesktopTitleBar> 容器自带 -webkit-app-region: drag（内联 style）
-     业务顶栏可加 className="desktop-drag-region"，其内互动控件会自动 no-drag。
+     只给明确的空白拖拽手柄加 className="desktop-drag-region"；
+     不要把整条业务顶栏设为 drag，否则 Electron 会抢占顶部控件的鼠标事件。
    见 docs/design/desktop-titlebar-design.md §7.3
 */
 .desktop-drag-region {

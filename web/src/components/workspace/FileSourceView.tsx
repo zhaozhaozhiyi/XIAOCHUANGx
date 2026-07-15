@@ -34,7 +34,8 @@ export type CodeLanguage =
   | "python"
   | "scad"
   | "stl"
-  | "dxf";
+  | "dxf"
+  | "video";
 
 type Token = { text: string; type: TokenType };
 

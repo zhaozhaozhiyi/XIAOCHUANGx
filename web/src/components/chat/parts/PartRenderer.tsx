@@ -40,7 +40,9 @@ import { BadgePlus, ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import {
   activityChipClass,
+  activityStatusDisplayText,
   activityTone,
+  isKnownActivityStatus,
 } from "@/lib/activity-status-tone";
 
 export type PartPresentation = "default" | "timeline";
@@ -51,14 +53,21 @@ type SimulationRequirementsPart = RequirementsPart & {
 
 function StatusChip({ part }: { part: Extract<ChatPart, { kind: "status" }> }) {
   const { settings } = useSettings();
-  const label = localizeAgentMentions(part.label, settings.agentAliases);
-  const tone = activityTone(label, part.phase);
+  const rawLabel = localizeAgentMentions(part.label, settings.agentAliases);
+  const label = activityStatusDisplayText(rawLabel);
+  const phaseLabel = activityStatusDisplayText(part.phase);
+  const showPhase =
+    !!phaseLabel &&
+    phaseLabel !== label &&
+    !label.includes(phaseLabel) &&
+    !(isKnownActivityStatus(rawLabel) && isKnownActivityStatus(part.phase));
+  const tone = activityTone(rawLabel, part.phase);
   return (
     <div className={activityChipClass(tone)}>
       <span className="chat-activity-chip__dot" aria-hidden />
       <span>{label}</span>
-      {part.phase && (
-        <span className="chat-activity-chip__phase">· {part.phase}</span>
+      {showPhase && (
+        <span className="chat-activity-chip__phase">· {phaseLabel}</span>
       )}
     </div>
   );
@@ -111,7 +120,7 @@ function ReasoningBlock({
         )}
         推理过程
         {part.streaming && (
-          <span className="ml-1 text-[var(--accent)]">进行中</span>
+          <span className="ml-1 text-[var(--activity-running-fg)]">进行中</span>
         )}
       </button>
       {open && (
@@ -143,7 +152,7 @@ function NarrationBlock({
       <div className="mb-1.5 flex flex-wrap items-center gap-2 text-[11px] font-medium text-[var(--fg-tertiary)]">
         <span>{part.streaming ? "当前动作" : "执行说明"}</span>
         {part.streaming ? (
-          <span className="text-[var(--accent)]">进行中</span>
+          <span className="text-[var(--activity-running-fg)]">进行中</span>
         ) : null}
       </div>
       <ChatMarkdown markdown={normalizeMarkdown(part.markdown)} />

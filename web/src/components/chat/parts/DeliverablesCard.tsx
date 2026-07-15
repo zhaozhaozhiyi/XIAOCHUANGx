@@ -5,7 +5,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { DeliverableItem, DeliverablesPart } from "@/lib/chat-parts";
 import { deliverableTypeLabel } from "@/lib/deliverable-mime";
 import { useOpenFileAt } from "@/hooks/useOpenFileAt";
-import { ExternalLink, FileText, Folder, FolderOpen, ImageIcon, Presentation } from "lucide-react";
+import {
+  ExternalLink,
+  FileText,
+  Film,
+  Folder,
+  FolderOpen,
+  ImageIcon,
+  Presentation,
+} from "lucide-react";
 import { useWorkspaceOptional } from "@/components/workspace/WorkspaceContext";
 import { useWorkspaceProject } from "@/components/workspace/WorkspaceProjectContext";
 import { isCadWorkbenchPath, selectMainCadPath } from "@/lib/cad-workbench";
@@ -74,6 +82,12 @@ function RowIcon({
   const ext = path.split(".").pop()?.toLowerCase() ?? "";
   if (mime?.startsWith("image/") || ["png", "jpg", "jpeg", "webp"].includes(ext)) {
     return <ImageIcon className={className} aria-hidden />;
+  }
+  if (
+    mime?.startsWith("video/") ||
+    ["mp4", "webm", "mov", "m4v", "ogg", "ogv"].includes(ext)
+  ) {
+    return <Film className={className} aria-hidden />;
   }
   if (ext === "pptx" || ext === "ppt" || mime?.includes("presentation")) {
     return <Presentation className={className} aria-hidden />;

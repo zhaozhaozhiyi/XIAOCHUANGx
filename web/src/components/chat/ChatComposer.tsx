@@ -110,6 +110,8 @@ const TEXT_ATTACHMENT_MAX_CHARS = 60_000;
 const COMPOSER_TEXTAREA_MIN_HEIGHT_PX = 22;
 const COMPOSER_TEXTAREA_MULTILINE_MIN_HEIGHT_PX = 24;
 const COMPOSER_TEXTAREA_MAX_HEIGHT_PX = 200;
+const COMPOSER_INLINE_COLUMN_GAP_PX = 8;
+const COMPOSER_INLINE_MEASURE_MIN_WIDTH_PX = 120;
 // Use hysteresis so the inline/stacked switch does not bounce around
 // the wrap boundary when the available width changes.
 const COMPOSER_MULTILINE_ENTER_PX = 30;
@@ -437,6 +439,9 @@ export function ChatComposer({
   const { settings, updateSettings } = useSettings();
   const { setWorkspaceProject } = useWorkspaceProject();
   const stackRef = useRef<HTMLDivElement>(null);
+  const composerBodyRef = useRef<HTMLDivElement>(null);
+  const leftToolsMeasureRef = useRef<HTMLDivElement>(null);
+  const rightToolsMeasureRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachRef = useRef<HTMLDivElement>(null);
@@ -470,6 +475,40 @@ export function ChatComposer({
   const [isMultiline, setIsMultiline] = useState(false);
   const isMultilineRef = useRef(false);
 
+  const measureInlineTextareaWidth = useCallback(() => {
+    const body = composerBodyRef.current;
+    if (!body) return null;
+    const bodyWidth = body.getBoundingClientRect().width;
+    if (bodyWidth <= 0) return null;
+
+    const leftWidth =
+      leftToolsMeasureRef.current?.getBoundingClientRect().width ?? 0;
+    const rightWidth =
+      rightToolsMeasureRef.current?.getBoundingClientRect().width ?? 0;
+    const occupiedWidth =
+      leftWidth + rightWidth + COMPOSER_INLINE_COLUMN_GAP_PX * 2;
+    return Math.max(
+      bodyWidth - occupiedWidth,
+      COMPOSER_INLINE_MEASURE_MIN_WIDTH_PX,
+    );
+  }, []);
+
+  const measureTextareaContentHeight = useCallback(
+    (textarea: HTMLTextAreaElement, width?: number | null) => {
+      const previousHeight = textarea.style.height;
+      const previousWidth = textarea.style.width;
+      textarea.style.height = "0px";
+      if (typeof width === "number" && Number.isFinite(width) && width > 0) {
+        textarea.style.width = `${width}px`;
+      }
+      const contentHeight = textarea.scrollHeight;
+      textarea.style.width = previousWidth;
+      textarea.style.height = previousHeight;
+      return contentHeight;
+    },
+    [],
+  );
+
   const resizeTextarea = useCallback(
     (textarea: HTMLTextAreaElement, multiline = isMultilineRef.current) => {
       const minHeight = multiline
@@ -500,12 +539,14 @@ export function ChatComposer({
   const syncTextareaLayout = useCallback((textarea: HTMLTextAreaElement) => {
     const value = textarea.value;
     const currentMultiline = isMultilineRef.current;
-    textarea.style.height = "0px";
-    const contentHeight = textarea.scrollHeight;
+    const inlineContentHeight = measureTextareaContentHeight(
+      textarea,
+      measureInlineTextareaWidth(),
+    );
     const shouldUseMultiline =
       value.length > 0 &&
       (value.includes("\n") ||
-        contentHeight >
+        inlineContentHeight >
           (currentMultiline
             ? COMPOSER_MULTILINE_EXIT_PX
             : COMPOSER_MULTILINE_ENTER_PX));
@@ -514,7 +555,11 @@ export function ChatComposer({
       isMultilineRef.current = shouldUseMultiline;
       setIsMultiline(shouldUseMultiline);
     }
-  }, [resizeTextarea]);
+  }, [
+    measureInlineTextareaWidth,
+    measureTextareaContentHeight,
+    resizeTextarea,
+  ]);
 
   useComposerDockSync(stackRef);
 
@@ -1059,13 +1104,16 @@ export function ChatComposer({
       onChange={(e) => {
         setText(e.target.value);
         syncMention(e.target.value, e.target.selectionStart);
+        const inputEvent = e.nativeEvent as InputEvent;
+        if (isComposingRef.current || inputEvent.isComposing) return;
         syncTextareaLayout(e.target);
       }}
       onCompositionStart={() => {
         isComposingRef.current = true;
       }}
-      onCompositionEnd={() => {
+      onCompositionEnd={(e) => {
         isComposingRef.current = false;
+        syncTextareaLayout(e.currentTarget);
       }}
       onKeyDown={(e) => {
         const imeComposing =
@@ -1183,6 +1231,7 @@ export function ChatComposer({
           </ul>
         )}
         <div
+          ref={composerBodyRef}
           className={[
             "chat-composer__body",
             isMultiline
@@ -1191,7 +1240,10 @@ export function ChatComposer({
           ].join(" ")}
         >
           {!isMultiline ? (
-            <div className="chat-composer__left-tools flex items-center gap-1.5">
+            <div
+              ref={leftToolsMeasureRef}
+              className="chat-composer__left-tools flex items-center gap-1.5"
+            >
               {attachControl}
               {skillPickerControl}
             </div>
@@ -1202,17 +1254,26 @@ export function ChatComposer({
           </div>
           {isMultiline ? (
             <div className="chat-composer__toolbar flex items-center justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-1.5">
+              <div
+                ref={leftToolsMeasureRef}
+                className="flex min-w-0 items-center gap-1.5"
+              >
                 {attachControl}
                 {skillPickerControl}
               </div>
-              <div className="flex shrink-0 items-center gap-2">
+              <div
+                ref={rightToolsMeasureRef}
+                className="flex shrink-0 items-center gap-2"
+              >
                 {modePickerControl}
                 {sendControl}
               </div>
             </div>
           ) : (
-            <div className="chat-composer__right-tools flex shrink-0 items-center gap-2">
+            <div
+              ref={rightToolsMeasureRef}
+              className="chat-composer__right-tools flex shrink-0 items-center gap-2"
+            >
               {modePickerControl}
               {sendControl}
             </div>

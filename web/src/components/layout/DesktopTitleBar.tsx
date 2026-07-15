@@ -82,7 +82,7 @@ export function DesktopTitleBar() {
     <header
       role="presentation"
       className="flex shrink-0 items-stretch border-b border-[var(--titlebar-border)] bg-[var(--titlebar-bg)]"
-      style={{ ...dragStyle, height: "var(--titlebar-h, 36px)" }}
+      style={{ height: "var(--titlebar-h, 36px)", userSelect: "none" }}
     >
       {/* 左侧菜单按钮组 */}
       <nav
@@ -104,7 +104,7 @@ export function DesktopTitleBar() {
       </nav>
 
       {/* 拖拽主区域 */}
-      <div className="min-w-0 flex-1" aria-hidden />
+      <div className="min-w-0 flex-1" style={dragStyle} aria-hidden />
 
       {/* 右侧系统按钮避让区（titleBarOverlay 在此区域绘制 ─ ▢ ✕） */}
       <div

@@ -140,7 +140,7 @@ function SidebarHeader({
 }) {
   return (
     <div
-      className={`desktop-drag-region relative flex h-14 items-center gap-2 px-3 ${collapsed ? "sidebar-collapsed-header justify-center px-2" : "justify-between"}`}
+      className={`relative flex h-14 items-center gap-2 px-3 ${collapsed ? "sidebar-collapsed-header justify-center px-2" : ""}`}
     >
       {!collapsed ? (
         <>
@@ -150,6 +150,7 @@ function SidebarHeader({
               小窗
             </span>
           </Link>
+          <div className="desktop-drag-region h-full min-w-4 flex-1" aria-hidden />
           <button
             type="button"
             onClick={onToggleCollapse}
@@ -162,6 +163,8 @@ function SidebarHeader({
         </>
       ) : (
         <>
+          <div className="desktop-drag-region absolute inset-y-0 left-0 w-2" aria-hidden />
+          <div className="desktop-drag-region absolute inset-y-0 right-0 w-2" aria-hidden />
           <div
             className="sidebar-collapsed-logo flex h-9 w-9 items-center justify-center transition-opacity duration-150"
             aria-hidden="true"

@@ -16,7 +16,7 @@ function WorkspaceToggleButtonInner() {
     <button
       type="button"
       onClick={toggleOpen}
-      className="btn-icon"
+      className="btn-icon no-drag"
       aria-label={open ? "收起工作区" : "展开工作区"}
       title={open ? "收起工作区" : "展开工作区"}
     >

@@ -79,7 +79,9 @@ export function TimelineCollapsible({
       >
         {showFull ? text : preview}
         {streaming ? (
-          <span className="mt-1 block text-[var(--accent)]">{streamingLabel}</span>
+          <span className="mt-1 block text-[var(--activity-running-fg)]">
+            {streamingLabel}
+          </span>
         ) : null}
       </pre>
       {completeLabel && !streaming && text ? (

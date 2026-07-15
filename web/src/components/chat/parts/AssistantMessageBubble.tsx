@@ -41,9 +41,9 @@ function LoadingBubble() {
   return (
     <div className="flex items-center gap-2 text-[var(--fg-secondary)]">
       <span className="inline-flex gap-1" aria-hidden>
-        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--accent)] [animation-delay:0ms]" />
-        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--accent)] [animation-delay:150ms]" />
-        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--accent)] [animation-delay:300ms]" />
+        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--activity-running-dot)] [animation-delay:0ms]" />
+        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--activity-running-dot)] [animation-delay:150ms]" />
+        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--activity-running-dot)] [animation-delay:300ms]" />
       </span>
       <span className="text-sm">处理中…</span>
     </div>
@@ -141,7 +141,7 @@ export function AssistantMessageBubble({
 
         {hasContent ? (
           <div className="chat-assistant-stage">
-            {showToolRunningDots ? <ToolRunningDots label="Activity running…" /> : null}
+            {showToolRunningDots ? <ToolRunningDots label="工具执行中…" /> : null}
             {viewModel.contentParts.length > 0 ? (
               <ActivityProcessList
                 parts={viewModel.contentParts}

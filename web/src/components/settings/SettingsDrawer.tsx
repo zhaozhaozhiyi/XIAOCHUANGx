@@ -55,15 +55,15 @@ export function SettingsDrawer() {
   const navItems = visibleMenuItems(settings.simulateAdmin);
 
   return (
-    <div className="settings-drawer-root" role="presentation">
+    <div className="settings-drawer-root no-drag" role="presentation">
       <button
         type="button"
-        className="settings-drawer-backdrop"
+        className="settings-drawer-backdrop no-drag"
         aria-label="关闭设置"
         onClick={closeDrawer}
       />
       <aside
-        className="settings-drawer"
+        className="settings-drawer no-drag"
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-drawer-title"
@@ -81,7 +81,7 @@ export function SettingsDrawer() {
             )}
             <button
               type="button"
-              className="btn-icon"
+              className="btn-icon no-drag"
               aria-label="关闭"
               onClick={closeDrawer}
             >

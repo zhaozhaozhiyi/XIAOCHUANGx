@@ -10,7 +10,7 @@ function TodoIcon({ status }: { status: TodoPart["items"][0]["status"] }) {
   if (status === "in_progress") {
     return (
       <Loader2
-        className="h-3.5 w-3.5 animate-spin text-[var(--accent)]"
+        className="h-3.5 w-3.5 animate-spin text-[var(--activity-running-fg)]"
         aria-hidden
       />
     );

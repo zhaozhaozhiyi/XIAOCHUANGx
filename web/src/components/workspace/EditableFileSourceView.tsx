@@ -10,6 +10,7 @@ type Props = {
   relativePath: string;
   content: string;
   language?: CodeLanguage;
+  directEdit?: boolean;
   onSaved?: (nextContent: string) => void;
   onWorkspaceChanged?: () => void;
 };
@@ -46,22 +47,32 @@ export function EditableFileSourceView({
   relativePath,
   content,
   language,
+  directEdit = false,
   onSaved,
   onWorkspaceChanged,
 }: Props) {
   const [draft, setDraft] = useState(content);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(directEdit);
   const [saveState, setSaveState] = useState<SaveState>({ status: "idle" });
 
   useEffect(() => {
     // The editor draft should reset when the workspace selection changes.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setDraft(content);
+    setEditing(directEdit);
     setSaveState({ status: "idle" });
-  }, [content, relativePath]);
+  }, [content, directEdit, relativePath]);
 
   const dirty = draft !== content;
   const lineCount = useMemo(() => Math.max(1, draft.split("\n").length), [draft]);
+  const saveLabel =
+    saveState.status === "saving"
+      ? "保存中…"
+      : saveState.status === "error"
+        ? saveState.message
+        : dirty
+          ? "未保存"
+          : "已保存";
 
   const save = async () => {
     setSaveState({ status: "saving" });
@@ -69,7 +80,9 @@ export function EditableFileSourceView({
       await writeWorkspaceFile({ projectId, path: relativePath, content: draft });
       onSaved?.(draft);
       onWorkspaceChanged?.();
-      setEditing(false);
+      if (!directEdit) {
+        setEditing(false);
+      }
       setSaveState({ status: "saved", message: "源文件已保存。" });
     } catch (err) {
       setSaveState({
@@ -82,11 +95,25 @@ export function EditableFileSourceView({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
-        <p className="text-xs text-[var(--fg-tertiary)]">
-          {editing ? "正在编辑源文件" : "源文件可直接编辑，保存后会刷新工作区。"}
-        </p>
+        {directEdit ? (
+          <span
+            className={`text-xs ${
+              saveState.status === "error"
+                ? "text-[var(--danger)]"
+                : dirty || saveState.status === "saving"
+                  ? "text-[var(--fg-secondary)]"
+                  : "text-[var(--fg-tertiary)]"
+            }`}
+          >
+            {saveLabel}
+          </span>
+        ) : (
+          <p className="text-xs text-[var(--fg-tertiary)]">
+            {editing ? "正在编辑源文件" : "点击后编辑源文件，保存后会刷新工作区。"}
+          </p>
+        )}
         <div className="flex items-center gap-2">
-          {saveState.status !== "idle" && (
+          {!directEdit && saveState.status !== "idle" && (
             <span
               className={`text-xs ${
                 saveState.status === "error"

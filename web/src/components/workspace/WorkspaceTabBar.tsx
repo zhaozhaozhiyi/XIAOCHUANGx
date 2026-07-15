@@ -169,7 +169,7 @@ function TabBarTabs() {
         role="tablist"
         aria-label="工作区页签"
       >
-        <div className="flex h-full w-max items-center gap-1 py-0.5 pr-0.5">
+        <div className="flex h-full w-max min-w-full items-center gap-1 py-0.5 pr-0.5">
           {openTabs.map((tab) => (
             <EditorTabButton
               key={tab.id}
@@ -179,6 +179,7 @@ function TabBarTabs() {
               onClose={() => closeTab(tab.id)}
             />
           ))}
+          <div className="desktop-drag-region h-full min-w-8 flex-1" aria-hidden />
         </div>
       </div>
       {fadeRight && <div className="workspace-tab-fade workspace-tab-fade-right" aria-hidden />}
@@ -189,7 +190,7 @@ function TabBarTabs() {
 export function WorkspaceTabBar() {
   return (
     <div
-      className={`desktop-drag-region flex ${MAIN_TOP_BAR_CLASS} shrink-0 items-center gap-1 border-b border-[var(--border)] bg-[var(--surface)] px-2 ${WORKSPACE_TAB_BAR_RIGHT_PADDING}`}
+      className={`flex ${MAIN_TOP_BAR_CLASS} shrink-0 items-center gap-1 border-b border-[var(--border)] bg-[var(--surface)] px-2 ${WORKSPACE_TAB_BAR_RIGHT_PADDING}`}
     >
       <TabBarTabs />
     </div>

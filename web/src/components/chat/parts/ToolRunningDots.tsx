@@ -11,9 +11,9 @@ export function ToolRunningDots({ label = "工具执行中…" }: Props) {
       aria-live="polite"
     >
       <span className="inline-flex gap-0.5" aria-hidden>
-        <span className="h-1 w-1 animate-bounce rounded-full bg-[var(--accent)]/75 [animation-delay:0ms]" />
-        <span className="h-1 w-1 animate-bounce rounded-full bg-[var(--accent)]/75 [animation-delay:150ms]" />
-        <span className="h-1 w-1 animate-bounce rounded-full bg-[var(--accent)]/75 [animation-delay:300ms]" />
+        <span className="h-1 w-1 animate-bounce rounded-full bg-[var(--activity-running-dot)]/75 [animation-delay:0ms]" />
+        <span className="h-1 w-1 animate-bounce rounded-full bg-[var(--activity-running-dot)]/75 [animation-delay:150ms]" />
+        <span className="h-1 w-1 animate-bounce rounded-full bg-[var(--activity-running-dot)]/75 [animation-delay:300ms]" />
       </span>
       <span>{label}</span>
     </div>

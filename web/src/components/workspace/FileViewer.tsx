@@ -12,9 +12,65 @@ import { DocxPreview } from "./DocxPreview";
 import { StlPreview } from "./StlPreview";
 import { ScadPreview } from "./ScadPreview";
 import { DxfPreview } from "./DxfPreview";
+import { VideoPreview } from "./VideoPreview";
+import { SvgPreview } from "./SvgPreview";
 import { workspaceErrorMessage } from "@/lib/workspace-errors";
-import { inferMimeFromPath } from "@/lib/workspace-binary";
+import { inferMimeFromPath, isStreamableWorkspacePath } from "@/lib/workspace-binary";
 import { useWorkspace } from "./WorkspaceContext";
+import type { WorkspaceFileNode } from "@/lib/workspace";
+
+const DIRECT_EDIT_SOURCE_EXTENSIONS = new Set([
+  ".html",
+  ".htm",
+  ".css",
+  ".scss",
+  ".less",
+  ".js",
+  ".mjs",
+  ".cjs",
+  ".jsx",
+  ".ts",
+  ".tsx",
+  ".vue",
+  ".svelte",
+  ".astro",
+  ".json",
+  ".jsonc",
+  ".yaml",
+  ".yml",
+  ".toml",
+  ".md",
+  ".mdx",
+  ".txt",
+  ".csv",
+  ".tsv",
+  ".py",
+  ".go",
+  ".rs",
+  ".java",
+  ".kt",
+  ".swift",
+  ".php",
+  ".rb",
+  ".sh",
+  ".bash",
+  ".zsh",
+  ".sql",
+  ".xml",
+  ".svg",
+]);
+
+function getFileExtension(path: string): string {
+  const fileName = path.split(/[\\/]/).pop() ?? path;
+  const dotIndex = fileName.lastIndexOf(".");
+  if (dotIndex <= 0) return "";
+  return fileName.slice(dotIndex).toLowerCase();
+}
+
+function shouldDirectEditSourceFile(file: WorkspaceFileNode | null): boolean {
+  if (!file || file.type !== "file" || !file.relativePath) return false;
+  return DIRECT_EDIT_SOURCE_EXTENSIONS.has(getFileExtension(file.relativePath));
+}
 
 export function FileViewer() {
   const {
@@ -74,12 +130,17 @@ export function FileViewer() {
       selectedFile.name.toLowerCase().endsWith(".pptx"));
   const isImage =
     isFileSelected &&
-    /\.(png|jpe?g|gif|webp|svg)$/i.test(selectedFile.name);
+    /\.(png|jpe?g|gif|webp)$/i.test(selectedFile.name);
+  const isSvg = isFileSelected && /\.svg$/i.test(selectedFile.name);
   const isPdf = isFileSelected && /\.pdf$/i.test(selectedFile.name);
   const isDocx = isFileSelected && /\.docx$/i.test(selectedFile.name);
   const isStl = isFileSelected && /\.stl$/i.test(selectedFile.name);
   const isScad = isFileSelected && /\.scad$/i.test(selectedFile.name);
   const isDxf = isFileSelected && /\.dxf$/i.test(selectedFile.name);
+  const isVideo =
+    isFileSelected &&
+    isStreamableWorkspacePath(selectedFile.relativePath ?? selectedFile.name);
+  const directEditSource = shouldDirectEditSourceFile(selectedFile);
 
   const openHtmlInBrowser = useCallback(() => {
     if (!body.trim()) return;
@@ -94,7 +155,13 @@ export function FileViewer() {
 
   useEffect(() => {
     if (!isFileSelected) return;
-    if (isMarkdown || isScad || isDxf) {
+    if (isVideo) {
+      if (fileViewMode !== "preview") {
+        setFileViewMode("preview");
+      }
+      return;
+    }
+    if (isMarkdown || isSvg || isScad || isDxf) {
       if (fileViewMode !== "preview" && fileViewMode !== "source") {
         setFileViewMode("preview");
       }
@@ -116,6 +183,8 @@ export function FileViewer() {
     isHtml,
     isMarkdown,
     isScad,
+    isSvg,
+    isVideo,
     setFileViewMode,
   ]);
 
@@ -137,10 +206,14 @@ export function FileViewer() {
         projectId={workspaceProjectId}
         relativePath={selectedFile.relativePath}
         content={body}
-        language={selectedFile.language}
+        language={isSvg ? "html" : selectedFile.language}
+        directEdit={directEditSource}
         onSaved={(nextContent) => {
           if (selectedFileId) {
             updateFileCacheContent(selectedFileId, nextContent);
+          }
+          if (isHtml) {
+            refreshHtmlRender();
           }
         }}
         onWorkspaceChanged={refreshTree}
@@ -277,6 +350,39 @@ export function FileViewer() {
               </button>
             </div>
           )}
+          {isSvg && (
+            <div
+              className="flex rounded-md border border-[var(--border)] bg-[var(--bg)] p-0.5 text-[11px]"
+              role="tablist"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={fileViewMode === "preview"}
+                onClick={() => setFileViewMode("preview")}
+                className={`rounded px-2 py-0.5 ${
+                  fileViewMode === "preview"
+                    ? "bg-[var(--surface-elevated)] font-medium text-[var(--fg)] shadow-[var(--shadow-ring)]"
+                    : "text-[var(--fg-tertiary)]"
+                }`}
+              >
+                Preview
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={fileViewMode === "source"}
+                onClick={() => setFileViewMode("source")}
+                className={`rounded px-2 py-0.5 ${
+                  fileViewMode === "source"
+                    ? "bg-[var(--surface-elevated)] font-medium text-[var(--fg)] shadow-[var(--shadow-ring)]"
+                    : "text-[var(--fg-tertiary)]"
+                }`}
+              >
+                Code
+              </button>
+            </div>
+          )}
           {isHtml && (
             <div
               className="flex rounded-md border border-[var(--border)] bg-[var(--bg)] p-0.5 text-[11px]"
@@ -364,6 +470,8 @@ export function FileViewer() {
       <div
         className={`min-h-0 flex-1 overflow-y-auto p-4 ${
           ((isPptx || isImage || isPdf || isDocx || isStl) && fileBinaryBase64) ||
+          (isVideo && selectedFile.relativePath) ||
+          (isSvg && fileViewMode === "preview") ||
           ((isScad || isDxf) && fileViewMode === "preview")
             ? "flex flex-col"
             : ""
@@ -443,6 +551,16 @@ export function FileViewer() {
           )}
         {!fileLoading &&
           !fileErrorText &&
+          isVideo &&
+          selectedFile.relativePath && (
+            <VideoPreview
+              projectId={workspaceProjectId}
+              relativePath={selectedFile.relativePath}
+              fileName={selectedFile.name}
+            />
+          )}
+        {!fileLoading &&
+          !fileErrorText &&
           isScad &&
           fileViewMode === "preview" &&
           selectedFile.relativePath && (
@@ -467,11 +585,19 @@ export function FileViewer() {
           )}
         {!fileLoading &&
           !fileErrorText &&
+          isSvg &&
+          fileViewMode === "preview" && (
+            <SvgPreview source={body} fileName={selectedFile.name} />
+          )}
+        {!fileLoading &&
+          !fileErrorText &&
           !isPptx &&
           !isImage &&
           !isPdf &&
           !isDocx &&
           !isStl &&
+          !isVideo &&
+          !isSvg &&
           !isScad &&
           !isDxf &&
           ((!isMarkdown && !isHtml) || fileViewMode === "source") &&
@@ -484,6 +610,11 @@ export function FileViewer() {
         {!fileLoading &&
           !fileErrorText &&
           isDxf &&
+          fileViewMode === "source" &&
+          renderEditableSource()}
+        {!fileLoading &&
+          !fileErrorText &&
+          isSvg &&
           fileViewMode === "source" &&
           renderEditableSource()}
         {!fileLoading && !fileErrorText && isPptx && !fileBinaryBase64 && (
@@ -500,6 +631,9 @@ export function FileViewer() {
         )}
         {!fileLoading && !fileErrorText && isStl && !fileBinaryBase64 && (
           <p className="text-sm text-[var(--fg-tertiary)]">无法加载 STL</p>
+        )}
+        {!fileLoading && !fileErrorText && isVideo && !selectedFile.relativePath && (
+          <p className="text-sm text-[var(--fg-tertiary)]">无法加载视频</p>
         )}
       </div>
     </div>

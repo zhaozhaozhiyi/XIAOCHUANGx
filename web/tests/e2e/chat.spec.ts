@@ -64,6 +64,46 @@ test.describe("MVP chat", () => {
     await expect(fileChooserPromise).resolves.toBeTruthy();
   });
 
+  test("keeps the composer layout stable near the wrap boundary", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 480, height: 320 });
+    const composer = page.locator(".chat-composer:visible").first();
+    const textarea = composer.locator(".chat-composer__textarea");
+    const body = composer.locator(".chat-composer__body");
+
+    await textarea.fill(`${"速度".repeat(11)}d f`);
+    await expect(body).toHaveClass(/chat-composer__body--stacked/);
+
+    const samples: Array<{ mode: string; height: number }> = [];
+    const sample = async () => {
+      samples.push(
+        await composer.evaluate((node) => {
+          const body = node.querySelector(".chat-composer__body");
+          return {
+            mode: body?.classList.contains("chat-composer__body--stacked")
+              ? "stacked"
+              : "inline",
+            height: Math.round(node.getBoundingClientRect().height),
+          };
+        }),
+      );
+    };
+
+    await sample();
+    for (let i = 0; i < 4; i += 1) {
+      await textarea.type("x");
+      await sample();
+      await textarea.press("Backspace");
+      await sample();
+    }
+
+    expect(new Set(samples.map((state) => state.mode))).toEqual(
+      new Set(["stacked"]),
+    );
+    expect(new Set(samples.map((state) => state.height)).size).toBe(1);
+  });
+
   test("shows selected attachments in the composer", async ({ page }) => {
     await page.getByRole("button", { name: "更多", exact: true }).click();
 

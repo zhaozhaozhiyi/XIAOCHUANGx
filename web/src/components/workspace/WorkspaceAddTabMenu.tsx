@@ -31,10 +31,10 @@ export function WorkspaceAddTabMenu({ className = "" }: Props) {
   };
 
   return (
-    <div className={`relative ${className}`} ref={ref}>
+    <div className={`no-drag relative ${className}`} ref={ref}>
       <button
         type="button"
-        className="btn-icon"
+        className="btn-icon no-drag"
         aria-label="新建页签"
         aria-expanded={menuOpen}
         title="新建页签"
@@ -44,13 +44,13 @@ export function WorkspaceAddTabMenu({ className = "" }: Props) {
       </button>
       {menuOpen && (
         <div
-          className="absolute right-0 top-full z-50 mt-1 min-w-[140px] rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] py-1 shadow-[var(--shadow-whisper)]"
+          className="no-drag absolute right-0 top-full z-50 mt-1 min-w-[140px] rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] py-1 shadow-[var(--shadow-whisper)]"
           role="menu"
         >
           <button
             type="button"
             role="menuitem"
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[var(--sidebar-hover)]"
+            className="no-drag flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[var(--sidebar-hover)]"
             onClick={() => pick(() => openTerminalTab())}
           >
             <SquareTerminal className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -59,7 +59,7 @@ export function WorkspaceAddTabMenu({ className = "" }: Props) {
           <button
             type="button"
             role="menuitem"
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[var(--sidebar-hover)]"
+            className="no-drag flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[var(--sidebar-hover)]"
             onClick={() => pick(() => openBrowserTab())}
           >
             <Globe className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -68,7 +68,7 @@ export function WorkspaceAddTabMenu({ className = "" }: Props) {
           <button
             type="button"
             role="menuitem"
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[var(--sidebar-hover)]"
+            className="no-drag flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[var(--sidebar-hover)]"
             onClick={() => pick(() => openActivityLogTab())}
           >
             <ScrollText className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -77,7 +77,7 @@ export function WorkspaceAddTabMenu({ className = "" }: Props) {
           <button
             type="button"
             role="menuitem"
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[var(--sidebar-hover)]"
+            className="no-drag flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[var(--sidebar-hover)]"
             onClick={() => pick(() => openExplorerTab())}
           >
             <FolderTree className="h-3.5 w-3.5" strokeWidth={1.75} />

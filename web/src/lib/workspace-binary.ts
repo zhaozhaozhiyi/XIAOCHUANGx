@@ -1,7 +1,13 @@
-const BINARY_EXT = /\.(pptx|docx|xlsx|pdf|png|jpe?g|gif|webp|svg|stl)$/i;
+const BINARY_EXT =
+  /\.(pptx|docx|xlsx|pdf|png|jpe?g|gif|webp|stl|mp4|webm|mov|m4v|og[gv])$/i;
+const STREAMABLE_MEDIA_EXT = /\.(mp4|webm|mov|m4v|og[gv])$/i;
 
 export function isBinaryWorkspacePath(relPath: string): boolean {
   return BINARY_EXT.test(relPath.toLowerCase());
+}
+
+export function isStreamableWorkspacePath(relPath: string): boolean {
+  return STREAMABLE_MEDIA_EXT.test(relPath.toLowerCase());
 }
 
 export function inferMimeFromPath(relPath: string): string {
@@ -21,6 +27,10 @@ export function inferMimeFromPath(relPath: string): string {
   if (lower.endsWith(".stl")) return "model/stl";
   if (lower.endsWith(".dxf")) return "image/vnd.dxf";
   if (lower.endsWith(".scad")) return "text/x-openscad";
+  if (lower.endsWith(".mp4") || lower.endsWith(".m4v")) return "video/mp4";
+  if (lower.endsWith(".webm")) return "video/webm";
+  if (lower.endsWith(".mov")) return "video/quicktime";
+  if (lower.endsWith(".ogg") || lower.endsWith(".ogv")) return "video/ogg";
   return "application/octet-stream";
 }
 

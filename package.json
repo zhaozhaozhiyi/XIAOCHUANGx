@@ -1,6 +1,6 @@
 {
   "name": "jlc-research-platform",
-  "version": "0.1.4-alpha.3",
+  "version": "0.1.5",
   "private": true,
   "scripts": {
     "dev": "node scripts/dev-all.mjs",

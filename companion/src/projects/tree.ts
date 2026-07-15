@@ -89,9 +89,11 @@ export async function getProjectTreeChildren(
   return listDirectoryLevel(projectRoot, full);
 }
 
-const BINARY_EXT = /\.(pptx|docx|xlsx|pdf|png|jpe?g|gif|webp|svg|stl)$/i;
+const BINARY_EXT =
+  /\.(pptx|docx|xlsx|pdf|png|jpe?g|gif|webp|stl|mp4|webm|mov|m4v|og[gv])$/i;
+const STREAMABLE_MEDIA_EXT = /\.(mp4|webm|mov|m4v|og[gv])$/i;
 
-function mimeForPath(relPath: string): string {
+export function mimeForPath(relPath: string): string {
   const lower = relPath.toLowerCase();
   if (lower.endsWith(".pptx")) {
     return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
@@ -108,9 +110,30 @@ function mimeForPath(relPath: string): string {
   if (lower.endsWith(".stl")) return "model/stl";
   if (lower.endsWith(".dxf")) return "image/vnd.dxf";
   if (lower.endsWith(".scad")) return "text/x-openscad";
+  if (lower.endsWith(".mp4") || lower.endsWith(".m4v")) return "video/mp4";
+  if (lower.endsWith(".webm")) return "video/webm";
+  if (lower.endsWith(".mov")) return "video/quicktime";
+  if (lower.endsWith(".ogg") || lower.endsWith(".ogv")) return "video/ogg";
   if (lower.endsWith(".md")) return "text/markdown";
   if (lower.endsWith(".json")) return "application/json";
   return "text/plain";
+}
+
+export async function resolveProjectMediaFile(
+  projectRoot: string,
+  relPath: string,
+): Promise<{ fullPath: string; mime: string; size: number }> {
+  if (!STREAMABLE_MEDIA_EXT.test(relPath)) {
+    throw new Error("unsupported_media_type");
+  }
+  const fullPath = safeRelativePath(projectRoot, relPath);
+  const st = await stat(fullPath);
+  if (!st.isFile()) throw new Error("not_a_file");
+  return {
+    fullPath,
+    mime: mimeForPath(relPath),
+    size: st.size,
+  };
 }
 
 export async function readProjectFile(

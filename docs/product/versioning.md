@@ -2,12 +2,12 @@
 
 | 项 | 当前值 |
 |----|--------|
-| 平台发布版本 | `0.1.4-alpha` |
+| 平台发布版本 | `0.1.5` |
 | 当前整理目标 | `0.2.0-beta` |
 | 当前产品阶段 | Desktop Alpha → Desktop Beta 收口过渡 |
 | 当前产品形态 | Desktop + 本地 Companion + 本地文件夹工作区 |
 | 当前文档基线 | PRD 文档 `v4.1` |
-| 下一小版本目标 | `0.1.5-alpha` |
+| 下一小版本目标 | `0.1.6` |
 | 下一 Beta 目标 | `0.2.0-beta` |
 | 下一大版本目标 | Web Sandbox `1.0.0` 或独立 Web 版本线 |
 
@@ -28,6 +28,7 @@
 | `0.1.2-alpha` | Desktop Alpha 补强版 | `0.1.1-alpha` 后的六模块入口收束、3D M1、视频 P0、懒工作区、Runtime parts 与 Desktop release gate 候选版本 |
 | `0.1.3-alpha` | Desktop Alpha 交付体验补强版 | `0.1.2-alpha` 后的交付物结构化、3D 交付卡动作、视频三路径与 poetic 短动画、推演图例、QA gate 补强版本 |
 | `0.1.4-alpha` | Desktop Alpha 推演画布交互闭环补丁版 | `0.1.3-alpha` 后的推演画布按钮定义、确认反馈、Topic 边界编辑、新版世界模型生成与 UI smoke 稳定补丁版本 |
+| `0.1.5` | Desktop Alpha 工作区媒体与对话过程体验补强版 | `0.1.4-alpha` 后的工作区视频预览、SVG/源码编辑、对话过程状态收束、Composer 稳定性与桌面打包/交互补强版本 |
 | `0.2.0-beta` | Desktop Beta | 写作 / PPT 收口、对话增强，3D M1 / 视频 0.x / 推演 Beta 按子线节奏推进，桌面本地工作区体验可试用 |
 | `1.0.0` | Desktop Stable | 桌面端正式稳定版 |
 | `1.x` | Desktop 增量 | 桌面端功能迭代与体验增强 |
@@ -63,8 +64,8 @@
 
 当前平台版本定义为：
 
-> **小窗 `0.1.4-alpha`，Desktop Alpha 推演画布交互闭环补丁版。**
-> `0.1.0-alpha` 是已通过的 Alpha 基线，`0.1.1-alpha` 是小优化版，`0.1.2-alpha` 是六模块入口与 release gate 补强版，`0.1.3-alpha` 是交付体验补强版；当前工作区内容按 `0.1.4-alpha` 封版，根 `package.json`、桌面安装包、Web/API/Companion 与必要内部包版本已同步。
+> **小窗 `0.1.5`，Desktop Alpha 工作区媒体与对话过程体验补强版。**
+> `0.1.0-alpha` 是已通过的 Alpha 基线，`0.1.1-alpha` 是小优化版，`0.1.2-alpha` 是六模块入口与 release gate 补强版，`0.1.3-alpha` 是交付体验补强版，`0.1.4-alpha` 是推演画布交互闭环补丁版；当前工作区内容按 `0.1.5` 封版，根 `package.json`、桌面安装包、Web/API/Companion 与必要内部包版本已同步。
 
 当前版本已经具备：
 
@@ -74,6 +75,7 @@
 - Turn 吸顶、停止生成、状态点、文件深链与关键 Web 回归。
 - 写作 / PPT 对话壳、需求卡 / 摘要 / 大纲、真实落盘与关键 smoke / E2E。
 - 3D M1 入口、Skill、OpenSCAD CLI / WASM 与导出链路。
+- 工作区媒体预览、SVG 预览/源码编辑、文本源码直接编辑与对话过程运行态展示补强。
 
 当前版本尚未完成：
 
@@ -94,6 +96,7 @@
 - Alpha 补强版本：`0.1.2-alpha`，内容梳理统一记录在 [`requirements-0.1.2-alpha.md`](./requirements-0.1.2-alpha.md)
 - 后续 Alpha 补强版本：`0.1.3-alpha`，内容梳理统一记录在 [`requirements-0.1.3-alpha.md`](./requirements-0.1.3-alpha.md)
 - 推演画布交互闭环补丁版本：`0.1.4-alpha`，内容梳理统一记录在 [`requirements-0.1.4-alpha.md`](./requirements-0.1.4-alpha.md)
+- 工作区媒体与对话过程体验补强版本：`0.1.5`，更新说明记录在 [`../release-notes/0.1.5.md`](../release-notes/0.1.5.md)
 - 产品阶段：Desktop Alpha、Desktop Beta、Web Sandbox
 - 文档版本：PRD `v4.1`、技术方案 `v1.5`
 - 优先级：P0 / P1 / P2 仅表示任务优先级，不表示产品版本

@@ -1,6 +1,12 @@
 export function deliverableTypeLabel(path: string, mime?: string): string {
   const ext = path.split(".").pop()?.toLowerCase() ?? "";
   if (mime?.startsWith("image/")) return `图像 · ${ext.toUpperCase() || "IMG"}`;
+  if (
+    mime?.startsWith("video/") ||
+    ["mp4", "webm", "mov", "m4v", "ogg", "ogv"].includes(ext)
+  ) {
+    return `视频 · ${ext.toUpperCase() || "VIDEO"}`;
+  }
   if (mime?.includes("presentation") || ext === "pptx" || ext === "ppt") {
     return "幻灯片 · PPTX";
   }

@@ -8,7 +8,7 @@ type ChatSessionStatusIndicatorProps = {
   className?: string;
 };
 
-/** 侧栏会话状态：灰=已读、蓝=未读、转圈=执行中、橙=待用户确认 */
+/** 侧栏会话状态：灰=已读、品牌色=未读、绿=执行中、琥珀=待用户确认 */
 export function ChatSessionStatusIndicator({
   indicator,
   className = "",

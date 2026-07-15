@@ -38,6 +38,14 @@ $TMPDIR/
 
 # local-only documentation/reference material
 docs/
+!docs/
+docs/*
+!docs/release-notes/
+docs/release-notes/*
+!docs/release-notes/0.1.5.md
+!docs/plans/
+docs/plans/*
+!docs/plans/chat-process-collapse-implementation-plan.md
 参考项目/
 
 # OS & IDE

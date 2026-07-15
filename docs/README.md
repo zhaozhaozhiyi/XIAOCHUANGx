@@ -1,6 +1,6 @@
 # 文档中心
 
-> 当前平台发布版本为 **`0.1.4-alpha`（Desktop Alpha 推演画布交互闭环补丁版）**。产品边界以 [平台与工作区边界定义](./product/platform-workspace-boundary.md) 为准：**Desktop = 本地文件夹工作区**；**Web 在线沙箱工作区 = 下一大版本目标**。需求、技术、计划、归档文档统一收纳在本目录下；运行时资产文档（如 `skills/*/SKILL.md`、`prompts/*`）仍保留在对应资产目录。
+> 当前平台发布版本为 **`0.1.5`（Desktop Alpha 工作区媒体与对话过程体验补强版）**。产品边界以 [平台与工作区边界定义](./product/platform-workspace-boundary.md) 为准：**Desktop = 本地文件夹工作区**；**Web 在线沙箱工作区 = 下一大版本目标**。需求、技术、计划、归档文档统一收纳在本目录下；运行时资产文档（如 `skills/*/SKILL.md`、`prompts/*`）仍保留在对应资产目录。
 
 ## 目录约定
 

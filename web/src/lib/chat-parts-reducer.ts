@@ -629,11 +629,12 @@ function addFileEdit(
 }
 
 function isDocumentPath(path: string): boolean {
-  return /\.(pdf|docx|pptx|ppt|html|md)$/i.test(path);
+  return /\.(pdf|docx|pptx|ppt|html|md|mp4|webm|mov|m4v|og[gv])$/i.test(path);
 }
 
 function detectDocumentType(path: string): string {
   const lower = path.toLowerCase();
+  if (/\.(mp4|webm|mov|m4v|og[gv])$/i.test(lower)) return "视频";
   if (lower.endsWith(".pdf")) return "PDF";
   if (lower.endsWith(".docx")) return "DOCX";
   if (lower.endsWith(".pptx") || lower.endsWith(".ppt")) return "PPT";

@@ -2,7 +2,10 @@
 
 import type { PartPresentation } from "@/components/chat/parts/PartRenderer";
 import type { ToolBatchPart } from "@/lib/chat-parts";
-import { toolStatusTextClass } from "@/lib/activity-status-tone";
+import {
+  activityStatusDisplayText,
+  toolStatusTextClass,
+} from "@/lib/activity-status-tone";
 import { toolDisplayName } from "@/lib/tool-family";
 import { ChevronDown, ChevronRight, FolderSearch } from "lucide-react";
 import { useState } from "react";
@@ -75,7 +78,7 @@ export function ToolBatchCard({
           {part.title}
         </span>
         {part.streaming && (
-          <span className="text-xs text-[var(--accent)]">进行中</span>
+          <span className="text-xs text-[var(--activity-running-fg)]">进行中</span>
         )}
       </button>
       {displayOpen && (
@@ -94,7 +97,7 @@ export function ToolBatchCard({
                 <span
                   className={`ml-auto shrink-0 text-xs ${toolStatusTextClass(item.status)}`}
                 >
-                  {item.status}
+                  {activityStatusDisplayText(item.status)}
                 </span>
               )}
             </li>

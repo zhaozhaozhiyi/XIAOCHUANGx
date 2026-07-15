@@ -1,7 +1,11 @@
 "use client";
 
 import type { ChatPart } from "@/lib/chat-parts";
-import { toolStatusTextClass } from "@/lib/activity-status-tone";
+import {
+  activityStatusDisplayText,
+  isRunningActivityStatus,
+  toolStatusTextClass,
+} from "@/lib/activity-status-tone";
 import { toolDisplayName } from "@/lib/tool-family";
 import {
   ChevronDown,
@@ -97,7 +101,7 @@ export function ToolCardRow({
   const toolKey = part.kind === "command" ? "Bash" : part.tool;
   const status = statusLabel(part);
   const running =
-    status === "running" || !!(part as { streaming?: boolean }).streaming;
+    isRunningActivityStatus(status) || !!(part as { streaming?: boolean }).streaming;
   const previewRaw = previewText(part);
   const preview = previewRaw
     ? localizeAgentMentions(previewRaw, settings.agentAliases)
@@ -181,7 +185,7 @@ export function ToolCardRow({
         <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[var(--surface-elevated)] text-[var(--fg-tertiary)]">
           {running ? (
             <Loader2
-              className="h-3.5 w-3.5 animate-spin text-[var(--accent)]"
+              className="h-3.5 w-3.5 animate-spin text-[var(--activity-running-fg)]"
               aria-hidden
             />
           ) : (
@@ -195,7 +199,7 @@ export function ToolCardRow({
             </span>
             {status ? (
               <span className={`text-[11px] ${toolStatusTextClass(status)}`}>
-                {running ? "进行中" : status === "error" ? "失败" : "完成"}
+                {activityStatusDisplayText(status)}
               </span>
             ) : null}
             {hasDetails ? (

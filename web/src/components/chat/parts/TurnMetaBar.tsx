@@ -34,7 +34,7 @@ export function TurnMetaBar({ part }: { part: TurnMetaPart }) {
         ? "text-[var(--warn)]"
         : part.runStatus === "complete"
           ? "text-[var(--fg-secondary)]"
-          : "text-[var(--accent)]";
+          : "text-[var(--activity-running-fg)]";
 
   return (
     <div className="chat-turn-meta text-xs text-[var(--fg-tertiary)]">

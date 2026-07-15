@@ -101,7 +101,8 @@ export type WorkspaceFileNode = {
     | "python"
     | "scad"
     | "stl"
-    | "dxf";
+    | "dxf"
+    | "video";
   content?: string;
   children?: WorkspaceFileNode[];
 };
