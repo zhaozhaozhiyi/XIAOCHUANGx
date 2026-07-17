@@ -5,6 +5,7 @@ import {
   resolveWindowsCommand,
   type AgentId,
 } from "@jlc/runtime-core";
+import { ensureCliSearchPath } from "../agents/cli-paths.js";
 
 const BINS: Record<AgentId, string> = Object.fromEntries(
   Object.entries(AGENT_REGISTRY).map(([id, entry]) => [id, entry.execution.bin]),
@@ -19,6 +20,7 @@ export async function trySpawnVersionProbe(
   cwd: string,
   signal?: AbortSignal,
 ): Promise<{ ok: boolean; output: string }> {
+  ensureCliSearchPath();
   const command = resolveWindowsCommand(BINS[agentId]);
   const args = buildResolvedCommandArgs(command, ["--version"]);
   return new Promise((resolve) => {

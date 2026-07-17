@@ -1,6 +1,6 @@
 {
   "name": "jlc-research-platform",
-  "version": "0.1.5",
+  "version": "0.1.6-rc.1",
   "private": true,
   "scripts": {
     "dev": "node scripts/dev-all.mjs",
@@ -35,6 +35,8 @@
     "smoke:simulation": "pnpm -C companion exec tsx --tsconfig ../web/tsconfig.json ../scripts/smoke-simulation-p0.ts",
     "smoke:simulation:actions": "pnpm -C companion exec tsx --tsconfig ../web/tsconfig.json ../scripts/verify-simulation-action-registry.ts",
     "smoke:simulation:ui": "pnpm --filter web exec node ../scripts/smoke-simulation-ui.mjs",
+    "chat-activity:verify": "pnpm -C companion exec tsx --tsconfig ../web/tsconfig.json ../scripts/verify-chat-activity-view-model.ts",
+    "release:version:verify": "node scripts/verify-release-version.mjs",
     "smoke:video:module-routes": "pnpm -C companion exec tsx --tsconfig ../web/tsconfig.json ../scripts/smoke-module-session-paths.ts",
     "smoke:video:ai-ui-parts": "pnpm -C companion exec tsx --tsconfig ../web/tsconfig.json ../scripts/smoke-video-ai-ui-parts.ts",
     "smoke:video:web-presentation": "node scripts/smoke-video-web-presentation.mjs",

@@ -44,6 +44,7 @@ import {
   activityTone,
   isKnownActivityStatus,
 } from "@/lib/activity-status-tone";
+import { sanitizeActivityDetail } from "@/lib/activity-detail-sanitize";
 
 export type PartPresentation = "default" | "timeline";
 
@@ -88,12 +89,15 @@ function StatusChipTag({
 function ReasoningBlock({
   part,
   presentation = "default",
+  onDisclosureIntent,
 }: {
   part: Extract<ChatPart, { kind: "reasoning" }>;
   presentation?: PartPresentation;
+  onDisclosureIntent?: (trigger: HTMLElement) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const text = normalizeMarkdown(part.markdown);
+  const sanitized = sanitizeActivityDetail(part.markdown);
+  const text = normalizeMarkdown(typeof sanitized === "string" ? sanitized : "");
 
   if (presentation === "timeline") {
     if (!text && !part.streaming) return null;
@@ -102,6 +106,7 @@ function ReasoningBlock({
         text={text}
         streaming={part.streaming}
         className="chat-timeline-reasoning"
+        onDisclosureIntent={onDisclosureIntent}
       />
     );
   }
@@ -111,7 +116,10 @@ function ReasoningBlock({
       <button
         type="button"
         className="flex w-full items-center gap-1.5 px-3 py-2 text-left text-xs font-medium text-[var(--fg-secondary)]"
-        onClick={() => setOpen((v) => !v)}
+        onClick={(event) => {
+          onDisclosureIntent?.(event.currentTarget);
+          setOpen((value) => !value);
+        }}
       >
         {open ? (
           <ChevronDown className="h-3.5 w-3.5" />
@@ -222,6 +230,7 @@ export function PartRenderer({
   onRequirementsContinue,
   onRequirementsDraftChange,
   onOutlineCommitted,
+  onDisclosureIntent,
 }: {
   part: ChatPart;
   presentation?: PartPresentation;
@@ -246,6 +255,7 @@ export function PartRenderer({
     },
   ) => void;
   onOutlineCommitted?: (partId: string, patch: OutlineCommitPayload) => void;
+  onDisclosureIntent?: (trigger: HTMLElement) => void;
 }) {
   if (!isRenderablePart(part)) return null;
   switch (part.kind) {
@@ -253,18 +263,36 @@ export function PartRenderer({
     case "text":
       return <SummaryMarkdown part={part} />;
     case "turn_meta":
-      return <TurnMetaBar part={part} />;
+      return <TurnMetaBar part={part} onDisclosureIntent={onDisclosureIntent} />;
     case "tool_batch":
-      return <ToolBatchCard part={part} presentation={presentation} />;
+      return (
+        <ToolBatchCard
+          part={part}
+          presentation={presentation}
+          onDisclosureIntent={onDisclosureIntent}
+        />
+      );
     case "tool":
     case "command":
-      return <ToolCardRow part={part} presentation={presentation} />;
+      return (
+        <ToolCardRow
+          part={part}
+          presentation={presentation}
+          onDisclosureIntent={onDisclosureIntent}
+        />
+      );
     case "status":
       return <StatusChip part={part} />;
     case "status_chip":
       return <StatusChipTag part={part} />;
     case "reasoning":
-      return <ReasoningBlock part={part} presentation={presentation} />;
+      return (
+        <ReasoningBlock
+          part={part}
+          presentation={presentation}
+          onDisclosureIntent={onDisclosureIntent}
+        />
+      );
     case "narration":
       return <NarrationBlock part={part} presentation={presentation} />;
     case "skill":
@@ -351,7 +379,7 @@ export function PartRenderer({
     case "citation":
       return <CitationPartCard part={part} />;
     case "json":
-      return <JsonPartCard part={part} />;
+      return <JsonPartCard part={part} onDisclosureIntent={onDisclosureIntent} />;
     case "research_map":
       return <ResearchMapCard part={part} />;
     case "error":

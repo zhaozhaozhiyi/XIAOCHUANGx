@@ -87,7 +87,8 @@ export function ClarificationCard({
     if (!result.ok) {
       if (
         result.error === "clarification_not_pending" ||
-        result.error === "run_not_resumable"
+        result.error === "run_not_resumable" ||
+        result.error === "resume_write_failed"
       ) {
         onContinueAsMessage?.(content);
         return;

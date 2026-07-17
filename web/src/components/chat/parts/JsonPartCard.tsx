@@ -3,16 +3,9 @@
 import type { ChatPart } from "@/lib/chat-parts";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Fragment, useMemo, useState, type ReactNode } from "react";
+import { formatSanitizedActivityDetail } from "@/lib/activity-detail-sanitize";
 
 type JsonPart = Extract<ChatPart, { kind: "json" }>;
-
-function safeStringify(value: unknown): string {
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return "[无法序列化 JSON]";
-  }
-}
 
 function renderJsonLine(line: string, keyPrefix: string) {
   const tokenRegex =
@@ -61,10 +54,19 @@ function renderJsonLine(line: string, keyPrefix: string) {
   return nodes;
 }
 
-export function JsonPartCard({ part }: { part: JsonPart }) {
+export function JsonPartCard({
+  part,
+  onDisclosureIntent,
+}: {
+  part: JsonPart;
+  onDisclosureIntent?: (trigger: HTMLElement) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const jsonText = useMemo(() => safeStringify(part.value), [part.value]);
+  const jsonText = useMemo(
+    () => (open ? formatSanitizedActivityDetail(part.value) : ""),
+    [open, part.value],
+  );
   const jsonLines = useMemo(() => jsonText.split("\n"), [jsonText]);
 
   const handleCopy = async () => {
@@ -81,7 +83,10 @@ export function JsonPartCard({ part }: { part: JsonPart }) {
     <div className="my-1 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)]">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={(event) => {
+          onDisclosureIntent?.(event.currentTarget);
+          setOpen((value) => !value);
+        }}
         className="flex w-full items-center gap-1.5 px-3 py-2 text-left text-xs font-medium text-[var(--fg-secondary)]"
         aria-expanded={open}
       >

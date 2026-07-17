@@ -149,11 +149,12 @@ export function isActivityExpanded(
   collapse: ActivityCollapse | undefined,
   status: ChatMessage["status"],
 ): boolean {
-  if (status === "loading" || status === "streaming") {
-    return collapse !== "user_collapsed";
-  }
   if (collapse === "user_expanded") return true;
-  if (collapse === "user_collapsed" || collapse === "collapsed") return false;
+  if (collapse === "user_collapsed") return false;
+  // 0.1.7: active / error turns show process unless user collapsed.
+  if (status === "loading" || status === "streaming" || status === "error") {
+    return true;
+  }
   return collapse === "expanded";
 }
 

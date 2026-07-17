@@ -43,6 +43,10 @@ docs/*
 !docs/release-notes/
 docs/release-notes/*
 !docs/release-notes/0.1.5.md
+!docs/release-notes/0.1.6.md
+!docs/product/
+docs/product/*
+!docs/product/requirements-0.1.6.md
 !docs/plans/
 docs/plans/*
 !docs/plans/chat-process-collapse-implementation-plan.md

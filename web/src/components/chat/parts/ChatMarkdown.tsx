@@ -174,9 +174,11 @@ function parseBlocks(source: string): Block[] {
 function MarkdownTable({
   header,
   rows,
+  anchor,
 }: {
   header: string[];
   rows: string[][];
+  anchor: string;
 }) {
   const colCount = Math.max(
     header.length,
@@ -185,7 +187,10 @@ function MarkdownTable({
   );
 
   return (
-    <div className="my-2 overflow-x-auto rounded-lg border border-[var(--border)]">
+    <div
+      className="my-2 overflow-x-auto rounded-lg border border-[var(--border)]"
+      data-scroll-anchor={anchor}
+    >
       <table className="w-full min-w-[280px] border-collapse text-sm">
         <thead className="bg-[var(--surface)]">
           <tr>
@@ -244,9 +249,11 @@ type Props = {
 function CodeBlock({
   text,
   language,
+  anchor,
 }: {
   text: string;
   language?: string;
+  anchor: string;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -304,7 +311,10 @@ function CodeBlock({
   const isJsonLike = language === "json" || language === "jsonc";
 
   return (
-    <div className="my-2 rounded-lg border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_88%,var(--sidebar-hover))]">
+    <div
+      className="my-2 rounded-lg border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_88%,var(--sidebar-hover))]"
+      data-scroll-anchor={anchor}
+    >
       <div className="flex justify-end px-2 pt-2">
         <button
           type="button"
@@ -329,15 +339,59 @@ function CodeBlock({
 
 export function ChatMarkdown({ markdown, streaming }: Props) {
   const blocks = useMemo(() => parseBlocks(markdown), [markdown]);
+  const anchors = useMemo(() => {
+    const occurrences = new Map<string, number>();
+    return blocks.map((block) => {
+      let identity: string;
+      switch (block.type) {
+        case "h":
+          identity = `${block.level}:${block.text}`;
+          break;
+        case "ul":
+        case "ol":
+          identity = block.items.join("\n");
+          break;
+        case "code":
+          identity = `${block.language ?? ""}:${block.text}`;
+          break;
+        case "table":
+          identity = JSON.stringify([block.header, block.rows]);
+          break;
+        case "image":
+          identity = `${block.src}:${block.alt}`;
+          break;
+        case "p":
+          identity = block.text;
+          break;
+        case "hr":
+          identity = "hr";
+          break;
+      }
+
+      const normalized = identity.replace(/\s+/g, " ").trim();
+      let hash = 0x811c9dc5;
+      const source = `${block.type}:${normalized}`;
+      for (let index = 0; index < source.length; index += 1) {
+        hash ^= source.charCodeAt(index);
+        hash = Math.imul(hash, 0x01000193);
+      }
+      const base = `md-${block.type}-${(hash >>> 0).toString(36)}`;
+      const occurrence = (occurrences.get(base) ?? 0) + 1;
+      occurrences.set(base, occurrence);
+      return `${base}-${occurrence}`;
+    });
+  }, [blocks]);
 
   if (!blocks.length && !streaming) return null;
 
   const renderBlock = (block: Block, i: number): ReactNode => {
+    const anchor = anchors[i]!;
     switch (block.type) {
       case "hr":
         return (
           <hr
-            key={i}
+            key={anchor}
+            data-scroll-anchor={anchor}
             className="my-2 border-0 border-t border-[var(--border)]"
           />
         );
@@ -345,7 +399,8 @@ export function ChatMarkdown({ markdown, streaming }: Props) {
         if (block.level === 1) {
           return (
             <h3
-              key={i}
+              key={anchor}
+              data-scroll-anchor={anchor}
               className="mb-1 mt-2 text-base font-medium text-[var(--fg)] first:mt-0"
             >
               {renderInlineMarkdown(block.text, `h-${i}`)}
@@ -355,7 +410,8 @@ export function ChatMarkdown({ markdown, streaming }: Props) {
         if (block.level === 2) {
           return (
             <h4
-              key={i}
+              key={anchor}
+              data-scroll-anchor={anchor}
               className="mb-1 mt-2 text-[15px] font-medium text-[var(--fg)] first:mt-0"
             >
               {renderInlineMarkdown(block.text, `h-${i}`)}
@@ -364,7 +420,8 @@ export function ChatMarkdown({ markdown, streaming }: Props) {
         }
         return (
           <h5
-            key={i}
+            key={anchor}
+            data-scroll-anchor={anchor}
             className="mb-1 mt-1.5 text-sm font-medium text-[var(--fg)] first:mt-0"
           >
             {renderInlineMarkdown(block.text, `h-${i}`)}
@@ -372,7 +429,11 @@ export function ChatMarkdown({ markdown, streaming }: Props) {
         );
       case "ul":
         return (
-          <ul key={i} className="my-1 list-disc space-y-0.5 pl-5">
+          <ul
+            key={anchor}
+            data-scroll-anchor={anchor}
+            className="my-1 list-disc space-y-0.5 pl-5"
+          >
             {block.items.map((item, li) => (
               <li key={li}>{renderInlineMarkdown(item, `ul-${i}-${li}`)}</li>
             ))}
@@ -380,7 +441,11 @@ export function ChatMarkdown({ markdown, streaming }: Props) {
         );
       case "ol":
         return (
-          <ol key={i} className="my-1 list-decimal space-y-0.5 pl-5">
+          <ol
+            key={anchor}
+            data-scroll-anchor={anchor}
+            className="my-1 list-decimal space-y-0.5 pl-5"
+          >
             {block.items.map((item, li) => (
               <li key={li}>{renderInlineMarkdown(item, `ol-${i}-${li}`)}</li>
             ))}
@@ -389,23 +454,32 @@ export function ChatMarkdown({ markdown, streaming }: Props) {
       case "code":
         if (block.language === "mermaid") {
           return (
-            <div key={i} className="my-2">
+            <div key={anchor} className="my-2" data-scroll-anchor={anchor}>
               <MermaidDiagram source={block.text} sourceType="markdown" />
             </div>
           );
         }
-        return <CodeBlock key={i} text={block.text} language={block.language} />;
+        return (
+          <CodeBlock
+            key={anchor}
+            text={block.text}
+            language={block.language}
+            anchor={anchor}
+          />
+        );
       case "table":
         return (
           <MarkdownTable
-            key={i}
+            key={anchor}
             header={block.header}
             rows={block.rows}
+            anchor={anchor}
           />
         );
       case "image":
         return (
-          <figure key={i} className="my-2">
+          <figure key={anchor} className="my-2" data-scroll-anchor={anchor}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={block.src}
               alt={block.alt}
@@ -421,7 +495,11 @@ export function ChatMarkdown({ markdown, streaming }: Props) {
         );
       case "p":
         return (
-          <p key={i} className="my-1 first:mt-0 last:mb-0">
+          <p
+            key={anchor}
+            data-scroll-anchor={anchor}
+            className="my-1 first:mt-0 last:mb-0"
+          >
             {renderInlineMarkdown(block.text, `p-${i}`)}
           </p>
         );

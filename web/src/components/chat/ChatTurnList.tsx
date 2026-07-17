@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import type { ChatMessage } from "@/lib/chat";
-import type { OutlineCommitPayload } from "@/lib/chat-parts";
+import type { ActivityCollapse, OutlineCommitPayload } from "@/lib/chat-parts";
 import { groupMessagesIntoTurns } from "@/lib/chat-turns";
+import { isTurnActive, resolveTurnDisplayState } from "@/lib/chat-turn-display-state";
 import { AssistantMessageBubble } from "@/components/chat/parts/AssistantMessageBubble";
 import { UserMessageBubble } from "@/components/chat/UserMessageBubble";
 import { useActiveTurn } from "./useActiveTurn";
@@ -15,6 +16,8 @@ type Props = {
   bottomRef?: React.RefObject<HTMLDivElement | null>;
   /** 深度模式显示更短的步间思考间隔 */
   thinkingGapMinMs?: number;
+  onActivityCollapseChange?: (messageId: string, collapse: ActivityCollapse) => void;
+  onDisclosureIntent?: (trigger: HTMLElement) => void;
   onClarificationSubmitted?: (partId: string, answer: string) => void;
   onClarificationContinue?: (answer: string) => void;
   onClarificationDraftChange?: (
@@ -42,6 +45,8 @@ export function ChatTurnList({
   scrollRootRef,
   bottomRef,
   thinkingGapMinMs,
+  onActivityCollapseChange,
+  onDisclosureIntent,
   onClarificationSubmitted,
   onClarificationContinue,
   onClarificationDraftChange,
@@ -53,6 +58,39 @@ export function ChatTurnList({
   const turns = useMemo(() => groupMessagesIntoTurns(messages), [messages]);
   const turnIds = useMemo(() => turns.map((turn) => turn.id), [turns]);
   const activeTurnId = useActiveTurn(turnIds, scrollRootRef);
+  const latestExecutingMessageId = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      if (
+        message?.role === "assistant" &&
+        isTurnActive(resolveTurnDisplayState(message))
+      ) {
+        return message.id;
+      }
+    }
+    return null;
+  }, [messages]);
+
+  useEffect(() => {
+    const root = scrollRootRef.current;
+    if (!root || !activeTurnId) return;
+    const section = Array.from(root.querySelectorAll<HTMLElement>("[data-turn-id]")).find(
+      (element) => element.dataset.turnId === activeTurnId,
+    );
+    if (!section) return;
+    const userPanel = section.querySelector<HTMLElement>(".chat-turn-user-panel");
+    const update = () => {
+      section.style.setProperty(
+        "--chat-active-user-sticky-height",
+        `${userPanel?.getBoundingClientRect().height ?? 0}px`,
+      );
+    };
+    update();
+    if (!userPanel) return;
+    const observer = new ResizeObserver(update);
+    observer.observe(userPanel);
+    return () => observer.disconnect();
+  }, [activeTurnId, scrollRootRef]);
 
   return (
     <div className="chat-scroll-content mx-auto w-full max-w-[var(--chat-message-max)]">
@@ -81,6 +119,9 @@ export function ChatTurnList({
                         message={msg}
                         sessionId={sessionId}
                         thinkingGapMinMs={thinkingGapMinMs}
+                        isLatestExecutingMessage={latestExecutingMessageId === msg.id}
+                        onActivityCollapseChange={onActivityCollapseChange}
+                        onDisclosureIntent={onDisclosureIntent}
                         onClarificationSubmitted={onClarificationSubmitted}
                         onClarificationContinue={onClarificationContinue}
                         onClarificationDraftChange={

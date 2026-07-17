@@ -1191,10 +1191,15 @@ export function applyPartsStateToMessage<
       ? textPart.markdown
       : msg.content
   );
+  const userCollapse =
+    msg.activityCollapse === "user_expanded" ||
+    msg.activityCollapse === "user_collapsed"
+      ? msg.activityCollapse
+      : null;
   const next = {
     ...msg,
     parts: state.parts,
-    activityCollapse: state.activityCollapse,
+    activityCollapse: userCollapse ?? state.activityCollapse,
     runId: state.runId,
     runStartedAt: state.runStartedAt,
   };

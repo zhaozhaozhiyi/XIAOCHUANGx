@@ -96,6 +96,9 @@ jobs:
           echo "release=${release}" >> "${GITHUB_OUTPUT}"
           echo "release=${release}"
 
+      - name: Verify release version consistency
+        run: pnpm release:version:verify
+
       - name: Install Playwright ffmpeg
         if: steps.mode.outputs.release == 'true'
         run: pnpm --filter web exec playwright install ffmpeg

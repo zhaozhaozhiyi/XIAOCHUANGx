@@ -25,6 +25,7 @@ import { useChatScrollPin } from "./useChatScrollPin";
 import { useChatSend } from "./useChatSend";
 import { useSettings } from "@/components/settings/SettingsContext";
 import { consumePendingSession } from "@/lib/chat";
+import type { ActivityCollapse } from "@/lib/chat-parts";
 import {
   applyRunRecordToMessage,
   loadSessionMessagesHybrid,
@@ -1171,13 +1172,27 @@ export function ChatThread({
     () => buildChatScrollContentKey(messages),
     [messages],
   );
-  const { showJumpToBottom, scrollToBottom, markPinned } = useChatScrollPin(
-    scrollRootRef,
-    {
-      messageCount: messages.length,
-      isReplying,
-      contentKey: scrollContentKey,
+  const {
+    showJumpToBottom,
+    scrollToBottom,
+    beginUserDisclosure,
+    markPinned,
+  } = useChatScrollPin(scrollRootRef, {
+    active: hydrated,
+    resetKey: id,
+    messageCount: messages.length,
+    isReplying,
+    contentKey: scrollContentKey,
+  });
+  const handleActivityCollapseChange = useCallback(
+    (messageId: string, collapse: ActivityCollapse) => {
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === messageId ? { ...message, activityCollapse: collapse } : message,
+        ),
+      );
     },
+    [setMessages],
   );
 
   const [sessionProjectId, setSessionProjectIdLocal] = useState(() =>
@@ -1946,6 +1961,8 @@ export function ChatThread({
               scrollRootRef={scrollRootRef}
               bottomRef={bottomRef}
               thinkingGapMinMs={lastMode === "deep" ? 3_000 : 8_000}
+              onActivityCollapseChange={handleActivityCollapseChange}
+              onDisclosureIntent={beginUserDisclosure}
               onClarificationSubmitted={handleClarificationSubmitted}
               onClarificationContinue={handleClarificationContinue}
               onClarificationDraftChange={handleClarificationDraftChange}

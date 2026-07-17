@@ -25,6 +25,7 @@ export function TimelineCollapsible({
   streamingLabel = "思考中…",
   completeLabel,
   className = "",
+  onDisclosureIntent,
 }: {
   text: string;
   streaming?: boolean;
@@ -32,6 +33,7 @@ export function TimelineCollapsible({
   /** 设置后始终全文展示，完成后显示该文案（如「结束」），不再展开/收起 */
   completeLabel?: string;
   className?: string;
+  onDisclosureIntent?: (trigger: HTMLElement) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const preRef = useRef<HTMLPreElement | null>(null);
@@ -91,7 +93,10 @@ export function TimelineCollapsible({
         <button
           type="button"
           className="mt-1.5 text-xs text-[var(--fg-tertiary)] transition-colors hover:text-[var(--fg-secondary)]"
-          onClick={() => setExpanded((value) => !value)}
+          onClick={(event) => {
+            onDisclosureIntent?.(event.currentTarget);
+            setExpanded((value) => !value);
+          }}
         >
           {expanded ? "收起" : "展开"}
         </button>

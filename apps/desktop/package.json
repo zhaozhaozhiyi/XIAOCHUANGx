@@ -1,7 +1,7 @@
 {
   "name": "@jlc/desktop",
   "productName": "小窗",
-  "version": "0.1.5",
+  "version": "0.1.6-rc.1",
   "private": true,
   "description": "小窗 — Electron 桌面壳（Desktop Alpha §5.3.7）",
   "main": "dist/main/index.js",

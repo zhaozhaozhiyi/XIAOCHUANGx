@@ -1,13 +1,16 @@
 "use client";
 
 import type { ChatMessage } from "@/lib/chat";
-import type { OutlineCommitPayload } from "@/lib/chat-parts";
+import type { ActivityCollapse, OutlineCommitPayload } from "@/lib/chat-parts";
+import { isTurnActive, resolveTurnDisplayState } from "@/lib/chat-turn-display-state";
 import { AssistantMessageBubble } from "@/components/chat/parts/AssistantMessageBubble";
 import { UserMessageBubble } from "@/components/chat/UserMessageBubble";
 
 type Props = {
   messages: ChatMessage[];
   bottomRef?: React.RefObject<HTMLDivElement | null>;
+  onActivityCollapseChange?: (messageId: string, collapse: ActivityCollapse) => void;
+  onDisclosureIntent?: (trigger: HTMLElement) => void;
   onClarificationSubmitted?: (partId: string, answer: string) => void;
   onClarificationContinue?: (answer: string) => void;
   onClarificationDraftChange?: (
@@ -32,6 +35,8 @@ type Props = {
 export function ChatMessageList({
   messages,
   bottomRef,
+  onActivityCollapseChange,
+  onDisclosureIntent,
   onClarificationSubmitted,
   onClarificationContinue,
   onClarificationDraftChange,
@@ -40,6 +45,19 @@ export function ChatMessageList({
   onRequirementsDraftChange,
   onOutlineCommitted,
 }: Props) {
+  const latestExecutingMessageId = (() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      if (
+        message?.role === "assistant" &&
+        isTurnActive(resolveTurnDisplayState(message))
+      ) {
+        return message.id;
+      }
+    }
+    return null;
+  })();
+
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       {messages.map((msg) => (
@@ -52,6 +70,9 @@ export function ChatMessageList({
           ) : (
             <AssistantMessageBubble
               message={msg}
+              isLatestExecutingMessage={latestExecutingMessageId === msg.id}
+              onActivityCollapseChange={onActivityCollapseChange}
+              onDisclosureIntent={onDisclosureIntent}
               onClarificationSubmitted={onClarificationSubmitted}
               onClarificationContinue={onClarificationContinue}
               onClarificationDraftChange={onClarificationDraftChange}

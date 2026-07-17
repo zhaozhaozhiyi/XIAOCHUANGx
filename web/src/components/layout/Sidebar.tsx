@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { CSSProperties } from "react";
 import { PanelLeft, PanelLeftClose, Plus } from "lucide-react";
 import { UserSettingsTrigger } from "@/components/settings/UserSettingsMenu";
 import { ChatHistorySidebar } from "@/components/chat/ChatHistorySidebar";
@@ -41,6 +42,16 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
     pathname.startsWith("/video/") ||
     pathname === "/simulation" ||
     pathname.startsWith("/simulation/");
+  const collapsedNavItemStyle: CSSProperties | undefined = collapsed
+    ? {
+        width: "2.25rem",
+        height: "2.25rem",
+        justifyContent: "center",
+        gap: 0,
+        borderRadius: "var(--radius-lg)",
+        padding: 0,
+      }
+    : undefined;
 
   return (
     <aside
@@ -86,9 +97,8 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
                 <Link
                   href={mod.subNav[0]?.href ?? mod.href}
                   title={collapsed ? mod.label : undefined}
-                  className={`nav-item text-[14px] font-semibold leading-[18px] ${active ? "nav-item-active" : ""} ${
-                    collapsed ? "justify-center px-2" : ""
-                  }`}
+                  className={`nav-item text-[14px] font-semibold leading-[18px] ${active ? "nav-item-active" : ""}`}
+                  style={collapsedNavItemStyle}
                 >
                   <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.75} />
                   {!collapsed && (
@@ -140,7 +150,7 @@ function SidebarHeader({
 }) {
   return (
     <div
-      className={`relative flex h-14 items-center gap-2 px-3 ${collapsed ? "sidebar-collapsed-header justify-center px-2" : ""}`}
+      className={`relative flex h-14 items-center gap-2 px-2 ${collapsed ? "sidebar-collapsed-header justify-center" : ""}`}
     >
       {!collapsed ? (
         <>

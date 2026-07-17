@@ -13,9 +13,11 @@ import { useState } from "react";
 export function ToolBatchCard({
   part,
   presentation = "default",
+  onDisclosureIntent,
 }: {
   part: ToolBatchPart;
   presentation?: PartPresentation;
+  onDisclosureIntent?: (trigger: HTMLElement) => void;
 }) {
   const [open, setOpen] = useState(!!part.streaming);
   const displayOpen = part.streaming || open;
@@ -26,8 +28,9 @@ export function ToolBatchCard({
         <button
           type="button"
           className={`w-full text-left ${part.streaming ? "cursor-default" : "cursor-pointer"}`}
-          onClick={() => {
+          onClick={(event) => {
             if (part.streaming) return;
+            onDisclosureIntent?.(event.currentTarget);
             setOpen((v) => !v);
           }}
           aria-expanded={displayOpen}
@@ -62,8 +65,9 @@ export function ToolBatchCard({
       <button
         type="button"
         className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-[var(--fg-secondary)] transition-colors hover:bg-[var(--sidebar-hover)] ${part.streaming ? "cursor-default" : ""}`}
-        onClick={() => {
+        onClick={(event) => {
           if (part.streaming) return;
+          onDisclosureIntent?.(event.currentTarget);
           setOpen((v) => !v);
         }}
         aria-expanded={displayOpen}

@@ -98,7 +98,19 @@ export async function runAgent(
     textEmitted: false,
     threadId: undefined as string | undefined,
   };
+  let closeStdinAfterTurnEnd: (() => void) | null = null;
+  let awaitingClaudeToolResult = false;
   const wrap = (ev: Parameters<NonNullable<typeof adapter.onEvent>>[0]) => {
+    if (ev.type === "user_input_request") {
+      awaitingClaudeToolResult = true;
+    }
+    if (
+      ev.type === "status" &&
+      ev.label === "turn_end" &&
+      !awaitingClaudeToolResult
+    ) {
+      closeStdinAfterTurnEnd?.();
+    }
     adapter.onEvent?.(ev, state, callbacks);
   };
 
@@ -127,7 +139,14 @@ export async function runAgent(
     const writeClaudeToolResult = (
       response: RunAgentUserInputResponse,
     ): boolean => {
-      if (!child.stdin || child.stdin.destroyed || child.killed) return false;
+      if (
+        !child.stdin ||
+        child.stdin.destroyed ||
+        child.stdin.writableEnded ||
+        child.killed
+      ) {
+        return false;
+      }
       const line = JSON.stringify({
         type: "user",
         message: {
@@ -142,11 +161,28 @@ export async function runAgent(
           ],
         },
       });
-      return child.stdin.write(`${line}\n`, "utf8");
+      try {
+        child.stdin.write(`${line}\n`, "utf8");
+        awaitingClaudeToolResult = false;
+        return true;
+      } catch {
+        return false;
+      }
     };
 
     if (spec.stdinAsClaudeUserMessage) {
       options?.onUserInputHandlerReady?.(writeClaudeToolResult);
+    }
+    if (spec.stdinAsClaudeUserMessage && !spec.closeStdinAfterPrompt) {
+      closeStdinAfterTurnEnd = () => {
+        if (
+          child.stdin &&
+          !child.stdin.destroyed &&
+          !child.stdin.writableEnded
+        ) {
+          child.stdin.end?.();
+        }
+      };
     }
 
     let stderrTail = "";
@@ -209,6 +245,7 @@ export async function runAgent(
       settled = true;
       if (timer) clearTimeout(timer);
       clearIdleTimer();
+      closeStdinAfterTurnEnd = null;
       options?.signal?.removeEventListener("abort", onAbort);
       parser.flush();
       const baseResult = {

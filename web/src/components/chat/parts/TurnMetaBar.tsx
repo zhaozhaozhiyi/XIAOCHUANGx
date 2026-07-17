@@ -7,7 +7,13 @@ import { useSettings } from "@/components/settings/SettingsContext";
 import { formatDurationMs } from "@/lib/chat-parts-normalize";
 import { localizeAgentMentions } from "@/lib/settings";
 
-export function TurnMetaBar({ part }: { part: TurnMetaPart }) {
+export function TurnMetaBar({
+  part,
+  onDisclosureIntent,
+}: {
+  part: TurnMetaPart;
+  onDisclosureIntent?: (trigger: HTMLElement) => void;
+}) {
   const { settings } = useSettings();
   const [open, setOpen] = useState(false);
   const label =
@@ -41,7 +47,10 @@ export function TurnMetaBar({ part }: { part: TurnMetaPart }) {
       <button
         type="button"
         className="inline-flex items-center gap-1 rounded-md px-1 py-0.5 hover:bg-[var(--sidebar-hover)]"
-        onClick={() => setOpen((v) => !v)}
+        onClick={(event) => {
+          onDisclosureIntent?.(event.currentTarget);
+          setOpen((value) => !value);
+        }}
         aria-expanded={open}
       >
         {open ? (

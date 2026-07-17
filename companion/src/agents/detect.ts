@@ -7,6 +7,10 @@ import {
   getAgentRegistryEntry,
   resolveWindowsCommand,
 } from "@jlc/runtime-core";
+import {
+  ensureCliSearchPath,
+  resolveExecutableFromCliPath,
+} from "./cli-paths.js";
 import { AGENT_FALLBACK_MODELS } from "./catalog.js";
 import type {
   AgentId,
@@ -26,6 +30,8 @@ const AGENT_BINS: Record<AgentId, string> = Object.fromEntries(
 ) as Record<AgentId, string>;
 
 async function which(bin: string, signal?: AbortSignal): Promise<string | null> {
+  ensureCliSearchPath();
+
   if (process.platform === "win32") {
     try {
       const { stdout } = await execFileAsync("where.exe", [bin], {
@@ -45,6 +51,9 @@ async function which(bin: string, signal?: AbortSignal): Promise<string | null> 
       return null;
     }
   }
+
+  const resolved = await resolveExecutableFromCliPath(bin, signal);
+  if (resolved) return resolved;
 
   try {
     const { stdout } = await execFileAsync("which", [bin], {
@@ -195,6 +204,7 @@ export async function detectAgent(
   agentId: AgentId,
   signal?: AbortSignal,
 ): Promise<CompanionAgentState> {
+  ensureCliSearchPath();
   const spec = getAgentRegistryEntry(agentId);
   const bin = AGENT_BINS[agentId];
   let path: string | null = null;

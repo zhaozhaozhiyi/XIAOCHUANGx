@@ -23,6 +23,7 @@ import { TimelineCollapsible } from "@/components/chat/parts/TimelineCollapsible
 import { useSettings } from "@/components/settings/SettingsContext";
 import { localizeAgentMentions } from "@/lib/settings";
 import { useMemo, useState } from "react";
+import { formatSanitizedActivityDetail } from "@/lib/activity-detail-sanitize";
 
 type ToolLikePart =
   | Extract<ChatPart, { kind: "tool" }>
@@ -66,13 +67,11 @@ function previewText(part: ToolLikePart): string | undefined {
 }
 
 function formatPayload(value: unknown): string {
-  if (value == null || value === "") return "";
-  if (typeof value === "string") return value;
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
+  return formatSanitizedActivityDetail(value);
+}
+
+function hasPayload(value: unknown): boolean {
+  return value != null && value !== "";
 }
 
 function DetailBlock({ label, value }: { label: string; value: unknown }) {
@@ -93,9 +92,11 @@ function DetailBlock({ label, value }: { label: string; value: unknown }) {
 export function ToolCardRow({
   part,
   presentation = "default",
+  onDisclosureIntent,
 }: {
   part: ToolLikePart;
   presentation?: PartPresentation;
+  onDisclosureIntent?: (trigger: HTMLElement) => void;
 }) {
   const { settings } = useSettings();
   const toolKey = part.kind === "command" ? "Bash" : part.tool;
@@ -110,8 +111,8 @@ export function ToolCardRow({
   const output = part.kind === "tool" ? part.output : undefined;
   const hasDetails =
     part.kind === "command" ||
-    formatPayload(input).length > 0 ||
-    formatPayload(output).length > 0;
+    hasPayload(input) ||
+    hasPayload(output);
   const [open, setOpen] = useState(false);
   const displayOpen = running || open;
   const commandPayload = useMemo(
@@ -140,12 +141,16 @@ export function ToolCardRow({
           streaming={running}
           streamingLabel="运行中…"
           completeLabel="结束"
+          onDisclosureIntent={onDisclosureIntent}
         />
         {hasDetails && !running ? (
           <button
             type="button"
             className="mt-1.5 text-xs text-[var(--fg-tertiary)] transition-colors hover:text-[var(--fg-secondary)]"
-            onClick={() => setOpen((value) => !value)}
+            onClick={(event) => {
+              onDisclosureIntent?.(event.currentTarget);
+              setOpen((value) => !value);
+            }}
             aria-expanded={open}
           >
             {open ? "收起详情" : "查看详情"}
@@ -176,8 +181,9 @@ export function ToolCardRow({
       <button
         type="button"
         className="flex w-full min-w-0 items-start gap-2.5 px-3 py-2.5 text-left"
-        onClick={() => {
+        onClick={(event) => {
           if (!hasDetails || running) return;
+          onDisclosureIntent?.(event.currentTarget);
           setOpen((value) => !value);
         }}
         aria-expanded={displayOpen}

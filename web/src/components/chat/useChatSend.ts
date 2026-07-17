@@ -303,16 +303,22 @@ export function useChatSend(
         context.attachments?.[0]?.name.slice(0, 48) ||
         "附件";
 
-      const agentError =
-        context.executionSource === "api"
-          ? null
-          : agentsRuntime.execution === "companion"
-            ? assertAgentAvailableRuntime(
-                agentsRuntime,
-                context.agentId,
-                settings.agentAliases,
-              )
-            : assertAgentAvailable(context.agentId);
+      let agentError: string | null = null;
+      if (
+        context.executionSource !== "api" &&
+        agentsRuntime.loaded &&
+        !agentsRuntime.loading
+      ) {
+        if (agentsRuntime.execution === "companion") {
+          agentError = assertAgentAvailableRuntime(
+            agentsRuntime,
+            context.agentId,
+            settings.agentAliases,
+          );
+        } else if (agentsRuntime.execution === "hermes") {
+          agentError = assertAgentAvailable(context.agentId);
+        }
+      }
       if (agentError) {
         markSessionStarted(sessionId);
         upsertChatSession({

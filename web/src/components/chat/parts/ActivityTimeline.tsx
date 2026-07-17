@@ -75,6 +75,7 @@ function ActivityTimelineStep({
   onRequirementsContinue,
   onRequirementsDraftChange,
   onOutlineCommitted,
+  onDisclosureIntent,
 }: {
   part: ChatPart;
   isLastEpisode: boolean;
@@ -100,6 +101,7 @@ function ActivityTimelineStep({
     },
   ) => void;
   onOutlineCommitted?: (partId: string, patch: OutlineCommitPayload) => void;
+  onDisclosureIntent?: (trigger: HTMLElement) => void;
 }) {
   const meta = activityStepMeta(part);
   const canCollapse = meta.episodeLabel === "思考过程";
@@ -134,7 +136,10 @@ function ActivityTimelineStep({
             <button
               type="button"
               className="chat-activity-step__collapse"
-              onClick={() => setCollapsed((value) => !value)}
+              onClick={(event) => {
+                onDisclosureIntent?.(event.currentTarget);
+                setCollapsed((value) => !value);
+              }}
               aria-expanded={!collapsed}
               aria-label={collapsed ? "展开思考过程" : "收起思考过程"}
               title={collapsed ? "展开思考过程" : "收起思考过程"}
@@ -165,6 +170,7 @@ function ActivityTimelineStep({
             onRequirementsContinue={onRequirementsContinue}
             onRequirementsDraftChange={onRequirementsDraftChange}
             onOutlineCommitted={onOutlineCommitted}
+            onDisclosureIntent={onDisclosureIntent}
           />
         </div>
       ) : null}
@@ -184,6 +190,7 @@ export function ActivityProcessList({
   onRequirementsContinue,
   onRequirementsDraftChange,
   onOutlineCommitted,
+  onDisclosureIntent,
 }: {
   parts: ChatPart[];
   gapBefore: Map<string | null, string>;
@@ -208,8 +215,17 @@ export function ActivityProcessList({
     },
   ) => void;
   onOutlineCommitted?: (partId: string, patch: OutlineCommitPayload) => void;
+  onDisclosureIntent?: (trigger: HTMLElement) => void;
 }) {
   if (parts.length === 0) return null;
+
+  let lastEpisodeIndex = -1;
+  for (let index = parts.length - 1; index >= 0; index -= 1) {
+    if (isTimelineEpisode(parts[index]!)) {
+      lastEpisodeIndex = index;
+      break;
+    }
+  }
 
   return (
     <div className="chat-activity-timeline">
@@ -235,22 +251,19 @@ export function ActivityProcessList({
                   onRequirementsContinue={onRequirementsContinue}
                   onRequirementsDraftChange={onRequirementsDraftChange}
                   onOutlineCommitted={onOutlineCommitted}
+                  onDisclosureIntent={onDisclosureIntent}
                 />
               </div>
             </Fragment>
           );
         }
 
-        const isLastEpisode = !parts
-          .slice(index + 1)
-          .some((candidate) => isTimelineEpisode(candidate));
-
         return (
           <Fragment key={part.id}>
             {gap}
             <ActivityTimelineStep
               part={part}
-              isLastEpisode={isLastEpisode}
+              isLastEpisode={index === lastEpisodeIndex}
               presentation="timeline"
               sessionId={sessionId}
               runId={runId}
@@ -261,6 +274,7 @@ export function ActivityProcessList({
               onRequirementsContinue={onRequirementsContinue}
               onRequirementsDraftChange={onRequirementsDraftChange}
               onOutlineCommitted={onOutlineCommitted}
+              onDisclosureIntent={onDisclosureIntent}
             />
           </Fragment>
         );

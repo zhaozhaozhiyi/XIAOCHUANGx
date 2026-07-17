@@ -226,6 +226,7 @@ export function SimulationScenarioCard({
       const canFallback =
         result.error === "clarification_not_pending" ||
         result.error === "run_not_resumable" ||
+        result.error === "resume_write_failed" ||
         result.error === "tool_use_mismatch";
       if (!canFallback) {
         setActionError(result.message);

@@ -1,6 +1,6 @@
 # 文档中心
 
-> 当前平台发布版本为 **`0.1.5`（Desktop Alpha 工作区媒体与对话过程体验补强版）**。产品边界以 [平台与工作区边界定义](./product/platform-workspace-boundary.md) 为准：**Desktop = 本地文件夹工作区**；**Web 在线沙箱工作区 = 下一大版本目标**。需求、技术、计划、归档文档统一收纳在本目录下；运行时资产文档（如 `skills/*/SKILL.md`、`prompts/*`）仍保留在对应资产目录。
+> 当前平台候选版本为 **`0.1.6-rc.1`（Desktop Alpha 对话结果与过程体验收口候选版）**，最近正式基线为 `0.1.5`。产品边界以 [平台与工作区边界定义](./product/platform-workspace-boundary.md) 为准：**Desktop = 本地文件夹工作区**；**Web 在线沙箱工作区 = 下一大版本目标**。需求、技术、计划、归档文档统一收纳在本目录下；运行时资产文档（如 `skills/*/SKILL.md`、`prompts/*`）仍保留在对应资产目录。
 
 ## 目录约定
 
@@ -26,6 +26,10 @@
 | [release-notes-0.1.3-alpha.md](./product/release-notes-0.1.3-alpha.md) | `0.1.3-alpha` 版本升级说明 |
 | [requirements-0.1.4-alpha.md](./product/requirements-0.1.4-alpha.md) | `0.1.4-alpha` 推演画布交互闭环补丁内容梳理 |
 | [release-notes-0.1.4-alpha.md](./product/release-notes-0.1.4-alpha.md) | `0.1.4-alpha` 版本升级说明 |
+| [requirements-0.1.6.md](./product/requirements-0.1.6.md) | `0.1.6` 对话结果与过程体验收口版本边界 |
+| [release-notes-0.1.6.md](./release-notes/0.1.6.md) | `0.1.6` 对话结果与过程体验收口更新说明 |
+| [requirements-0.1.7.md](./product/requirements-0.1.7.md) | `0.1.7` 过程旁白与业务过程可见性纠偏版本边界 |
+| [release-notes-0.1.7.md](./release-notes/0.1.7.md) | `0.1.7` 过程旁白可见性更新说明（预发） |
 | [platform-workspace-boundary.md](./product/platform-workspace-boundary.md) | Web / Desktop / Sandbox / Companion 边界定义 |
 | [功能清单.md](./product/功能清单.md) | 当前模块与功能清单 |
 | [需求整理.md](./product/需求整理.md) | 需求整理来源文档 |
@@ -56,6 +60,8 @@
 | [product-roadmap-v4.md](./plans/product-roadmap-v4.md) | 产品路线图（v4） |
 | [platform-implementation-plan-v4.1.md](./plans/platform-implementation-plan-v4.1.md) | 六模块导航与主线实现方案 |
 | [chat-execution-roadmap.md](./plans/chat-execution-roadmap.md) | Desktop Alpha 执行闭环清单 |
+| [chat-process-collapse-implementation-plan.md](./plans/chat-process-collapse-implementation-plan.md) | `0.1.6` 对话过程收束实施方案 |
+| [chat-process-narration-visibility-plan.md](./plans/chat-process-narration-visibility-plan.md) | `0.1.7` 过程旁白可见性实施方案 |
 | [p0-three-module-acceptance.md](./plans/p0-three-module-acceptance.md) | 主线模块 P0 收口与六模块入口回归矩阵（文件名保留历史） |
 | [three-module-quality-review.md](./plans/three-module-quality-review.md) | 六模块导航与主线模块稳定性 / 架构 / 交互评审清单（文件名保留历史） |
 | [mvp-closure-checklist.md](./plans/mvp-closure-checklist.md) | `0.1.0-alpha` 收口验收清单 |

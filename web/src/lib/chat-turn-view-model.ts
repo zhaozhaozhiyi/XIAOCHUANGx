@@ -1,157 +1,317 @@
 import type { ChatMessage } from "@/lib/chat";
 import type { ChatPart } from "@/lib/chat-parts";
+import { stripInjectedActivityContext } from "@/lib/activity-log";
+import { buildActivityViewModel, type ActivityViewModel } from "@/lib/chat-activity-view-model";
 import { normalizeMarkdown } from "@/lib/chat-parts-utils";
+import { selectAssistantDeliverablesPart } from "@/lib/chat-message-selectors";
 import {
-  selectAssistantDeliverablesPart,
-  selectAssistantSummaryPart,
-} from "@/lib/chat-message-selectors";
-import { isWaitingUserSignal } from "@/lib/chat-history";
-import { interleavedTimelineParts } from "@/lib/chat-timeline";
+  resolveTurnDisplayState,
+  waitingUserMessage,
+  type TurnDisplayState,
+} from "@/lib/chat-turn-display-state";
 
-export type TurnViewModel = {
-  summaryPart:
-    | Extract<ChatPart, { kind: "summary" }>
-    | Extract<ChatPart, { kind: "clarification" }>
-    | Extract<
-        ChatPart,
-        {
-          kind:
-            | "writing_requirements"
-            | "ppt_requirements"
-            | "3d_requirements"
-            | "video_requirements";
-        }
-      >
-    | null;
-  deliverablesPart: Extract<ChatPart, { kind: "deliverables" }> | null;
-  waitingMessage: string | null;
-  statusPart: Extract<ChatPart, { kind: "turn_meta" | "status" }> | null;
-  processParts: ChatPart[];
-  /** 所有 part 按 streamSeq 严格时序交错，包含 text/summary 在内 */
-  contentParts: ChatPart[];
-  debugParts: ChatPart[];
+export type AnswerPhase = "provisional" | "final";
+
+export type AnswerResultItem = {
+  type: "answer";
+  id: string;
+  streamSeq: number;
+  markdown: string;
+  phase: AnswerPhase;
+  streaming: boolean;
 };
 
+export type StructuredResultItem = {
+  type: "part";
+  id: string;
+  streamSeq: number;
+  part: ChatPart;
+};
+
+export type ResultItem = AnswerResultItem | StructuredResultItem;
+
+export type TurnOutcome =
+  | {
+      kind: "waiting_user";
+      title: string;
+      message: string;
+      partial: false;
+    }
+  | {
+      kind: "error" | "cancelled";
+      title: string;
+      message: string;
+      partial: boolean;
+    }
+  | {
+      kind: "complete_empty";
+      title: string;
+      message: string;
+      partial: false;
+    };
+
+export type TurnViewModel = {
+  state: TurnDisplayState;
+  answerPhase: AnswerPhase;
+  resultItems: ResultItem[];
+  deliverableParts: ChatPart[];
+  activity: ActivityViewModel;
+  activityParts: ChatPart[];
+  waitingMessage: string | null;
+  outcome: TurnOutcome | null;
+  hasResult: boolean;
+};
+
+type OrderedPart = { part: ChatPart; seq: number; index: number };
+
+const PROMPT_KINDS = new Set<ChatPart["kind"]>([
+  "clarification",
+  "writing_requirements",
+  "ppt_requirements",
+  "3d_requirements",
+  "video_requirements",
+  "simulation_requirements",
+]);
+
+const LEGACY_STRUCTURED_RESULT_KINDS = new Set<ChatPart["kind"]>([
+  ...PROMPT_KINDS,
+  "writing_requirement_summary",
+  "writing_outline",
+  "ppt_requirement_summary",
+  "ppt_outline",
+  "3d_requirement_summary",
+  "3d_outline",
+  "video_requirement_summary",
+  "video_outline",
+  "simulation_requirement_summary",
+  "simulation_scenario",
+  "simulation_summary",
+  "simulation_next_action",
+  "simulation_suggestion",
+  "image",
+  "chart",
+  "citation",
+  "json",
+  "research_map",
+]);
+
+function orderedParts(parts: ChatPart[] | undefined): OrderedPart[] {
+  return (parts ?? [])
+    .map((part, index) => ({ part, seq: part.streamSeq ?? index, index }))
+    .sort((left, right) => left.seq - right.seq || left.index - right.index);
+}
+
+function normalizedAnswer(value: string): string {
+  return stripInjectedActivityContext(normalizeMarkdown(value));
+}
+
 function textKey(value: string): string {
-  return normalizeMarkdown(value)
-    .replace(/\s+/g, " ")
-    .trim();
+  return normalizedAnswer(value).replace(/\s+/g, " ").trim();
 }
 
-function partText(part: ChatPart): string {
-  if (part.kind === "summary" || part.kind === "text") return part.markdown;
-  if (part.kind === "narration" || part.kind === "reasoning") return part.markdown;
-  if (part.kind === "error") return part.message;
-  return "";
+function mergeAnswerParts(parts: OrderedPart[]): string {
+  const values: string[] = [];
+  const seen = new Set<string>();
+  for (const { part } of parts) {
+    if (part.kind !== "summary" && part.kind !== "text") continue;
+    const markdown = normalizedAnswer(part.markdown);
+    const key = textKey(markdown);
+    if (!key || seen.has(key)) continue;
+
+    const containedIndex = values.findIndex((value) => {
+      const existing = textKey(value);
+      if (existing.length <= 40 || key.length <= 40) return false;
+      return existing.includes(key) || key.includes(existing);
+    });
+    if (containedIndex >= 0) {
+      if (key.length > textKey(values[containedIndex] ?? "").length) {
+        values[containedIndex] = markdown;
+      }
+      seen.add(key);
+      continue;
+    }
+    seen.add(key);
+    values.push(markdown);
+  }
+  return values.join("\n\n").trim();
 }
 
-function sameOrContained(a: string, b: string): boolean {
-  const left = textKey(a);
-  const right = textKey(b);
-  if (!left || !right) return false;
-  if (left === right) return true;
-  const shorter = left.length < right.length ? left : right;
-  const longer = left.length < right.length ? right : left;
-  return shorter.length > 40 && longer.includes(shorter);
+function isPromptPart(part: ChatPart): boolean {
+  return PROMPT_KINDS.has(part.kind);
 }
 
-function isDebugPart(part: ChatPart): boolean {
-  return (
-    part.kind === "skill" ||
-    part.kind === "status_chip"
-  );
+function selectedAnswer(
+  message: ChatMessage,
+  state: TurnDisplayState,
+  parts: OrderedPart[],
+): { markdown: string; phase: AnswerPhase; streaming: boolean } {
+  const active = state === "preparing" || state === "running" || state === "restoring";
+  const phase: AnswerPhase = active ? "provisional" : "final";
+  const fromParts = mergeAnswerParts(parts);
+  const canonical = normalizedAnswer(message.canonicalOutput?.finalAnswer.markdown ?? "");
+  const hasPrompt = parts.some(({ part }) => isPromptPart(part));
+
+  if (active) {
+    const markdown = fromParts || normalizedAnswer(message.content) || canonical;
+    return { markdown, phase, streaming: true };
+  }
+  if (canonical) return { markdown: canonical, phase, streaming: false };
+  if (fromParts) return { markdown: fromParts, phase, streaming: false };
+  return {
+    markdown: hasPrompt ? "" : normalizedAnswer(message.content),
+    phase,
+    streaming: false,
+  };
+}
+function isDeliverablePart(part: ChatPart): boolean {
+  return part.kind === "artifact" || part.kind === "deliverables";
 }
 
-function isSummaryKind(part: ChatPart): boolean {
-  return (
+function isResultPart(part: ChatPart): boolean {
+  const zone = (part as { zone?: ChatPart["zone"] }).zone;
+  if (zone === "activity") return false;
+  if (
     part.kind === "summary" ||
     part.kind === "text" ||
-    part.kind === "deliverables" ||
-    part.kind === "clarification" ||
-    part.kind === "error"
-  );
+    part.kind === "status_chip" ||
+    isDeliverablePart(part)
+  ) {
+    return false;
+  }
+  if (zone === "summary") return true;
+  return zone == null && LEGACY_STRUCTURED_RESULT_KINDS.has(part.kind);
 }
 
-function isWaitingPart(part: ChatPart): boolean {
-  return part.kind === "status" && isWaitingUserSignal(part.label, part.phase);
+function resultItems(
+  message: ChatMessage,
+  state: TurnDisplayState,
+  parts: OrderedPart[],
+): { items: ResultItem[]; answerPhase: AnswerPhase } {
+  const answer = selectedAnswer(message, state, parts);
+  const firstText = parts.find(
+    ({ part }) => part.kind === "summary" || part.kind === "text",
+  );
+  const structured = parts.filter(({ part }) => isResultPart(part));
+  const items: ResultItem[] = structured.map(({ part, seq }) => ({
+    type: "part",
+    id: part.id,
+    streamSeq: seq,
+    part,
+  }));
+
+  if (answer.markdown) {
+    const fallbackSeq = structured.length > 0
+      ? Math.min(...structured.map(({ seq }) => seq)) - 0.5
+      : 0;
+    items.push({
+      type: "answer",
+      id: `${message.id}-answer`,
+      streamSeq: firstText?.seq ?? fallbackSeq,
+      markdown: answer.markdown,
+      phase: answer.phase,
+      streaming: answer.streaming,
+    });
+  }
+
+  items.sort((left, right) => left.streamSeq - right.streamSeq);
+  return { items, answerPhase: answer.phase };
 }
 
-function isConnectStatusPart(part: ChatPart): boolean {
-  return (
-    part.kind === "status" &&
-    (part.phase === "connect" || part.label.includes("连接"))
-  );
+function normalizePath(value: string): string {
+  return value.trim().replace(/\\/g, "/").replace(/\/{2,}/g, "/");
+}
+
+function deliverableParts(message: ChatMessage, parts: OrderedPart[]): ChatPart[] {
+  const selectedDeliverables = selectAssistantDeliverablesPart(message);
+  const output: ChatPart[] = [];
+  const covered = new Set<string>();
+  if (selectedDeliverables) {
+    output.push(selectedDeliverables);
+    selectedDeliverables.items.forEach((item) => covered.add(normalizePath(item.path)));
+  }
+
+  for (const { part } of parts) {
+    if (part.kind !== "artifact") continue;
+    const key = normalizePath(part.path);
+    if (covered.has(key)) continue;
+    covered.add(key);
+    output.push(part);
+  }
+  return output;
+}
+
+function latestError(parts: OrderedPart[]): string | null {
+  for (let index = parts.length - 1; index >= 0; index -= 1) {
+    const part = parts[index]?.part;
+    if (part?.kind === "error" && part.message.trim()) return part.message.trim();
+  }
+  return null;
+}
+
+function turnOutcome(
+  message: ChatMessage,
+  state: TurnDisplayState,
+  hasPartialResult: boolean,
+  parts: OrderedPart[],
+): TurnOutcome | null {
+  const waiting = waitingUserMessage(message);
+  if (state === "waiting_user") {
+    return {
+      kind: "waiting_user",
+      title: "需要你继续",
+      message: waiting || "请补充或确认后继续",
+      partial: false,
+    };
+  }
+  if (state === "error") {
+    return {
+      kind: "error",
+      title: "处理失败",
+      message:
+        message.canonicalOutput?.outcome.message ||
+        latestError(parts) ||
+        "任务未能完成，请检查运行时状态后重试。",
+      partial: hasPartialResult,
+    };
+  }
+  if (state === "cancelled") {
+    return {
+      kind: "cancelled",
+      title: "已中断",
+      message: hasPartialResult
+        ? "以下保留中断前已经生成的部分结果。"
+        : "任务已中断，没有生成可显示的结果。",
+      partial: hasPartialResult,
+    };
+  }
+  if (state === "complete_empty") {
+    return {
+      kind: "complete_empty",
+      title: "任务已结束",
+      message: "没有生成可显示的结果，你可以补充要求后重试。",
+      partial: false,
+    };
+  }
+  return null;
 }
 
 export function buildTurnViewModel(message: ChatMessage): TurnViewModel {
-  const summaryPart = selectAssistantSummaryPart(message);
-  const deliverablesPart = selectAssistantDeliverablesPart(message);
-  const timeline = interleavedTimelineParts(message.parts);
-  const waitingPart = timeline.find(isWaitingPart);
-  const statusPart =
-    [...timeline]
-      .reverse()
-      .find(
-        (part): part is Extract<ChatPart, { kind: "turn_meta" | "status" }> =>
-          part.kind === "turn_meta" ||
-          (part.kind === "status" &&
-            !isWaitingPart(part) &&
-            !isConnectStatusPart(part)),
-      ) ?? null;
-  const finalText = summaryPart?.kind === "summary" ? summaryPart.markdown : "";
-  const seen = new Set<string>();
-  const processParts = timeline.filter((part) => {
-    if (isDebugPart(part)) return false;
-    if (isSummaryKind(part)) return false;
-    if (isWaitingPart(part)) return false;
-    if (isConnectStatusPart(part)) return false;
-    if (part.kind === "turn_meta") return false;
-    if (part.kind === "status") return false;
-
-    const text = partText(part);
-    if (text && sameOrContained(text, finalText)) return false;
-    const key = textKey(text);
-    if (key) {
-      const dedupeKey = `${part.kind}:${key}`;
-      if (seen.has(dedupeKey)) return false;
-      seen.add(dedupeKey);
-    }
-    return true;
-  });
-  const debugParts = timeline.filter(isDebugPart);
-
-  // contentParts = 完整时序交错（含 text/summary），跨 kind 按文字内容去重
-  const contentSeenTexts = new Set<string>();
-  let contentParts = timeline.filter((part) => {
-    if (isDebugPart(part)) return false;
-    if (isWaitingPart(part)) return false;
-    if (isConnectStatusPart(part)) return false;
-    if (part.kind === "turn_meta") return false;
-    if (part.kind === "status") return false;
-    if (part.kind === "deliverables") return false;
-    // 跨 kind 按纯文本内容去重，解决 companion 将同一段文字通过 delta + interim 重复发送的问题
-    const key = textKey(partText(part));
-    if (key) {
-      if (contentSeenTexts.has(key)) return false;
-      contentSeenTexts.add(key);
-    }
-    return true;
-  });
-  if (contentParts.length === 0 && summaryPart?.kind === "summary") {
-    contentParts = [summaryPart];
-  }
+  const state = resolveTurnDisplayState(message);
+  const parts = orderedParts(message.parts);
+  const result = resultItems(message, state, parts);
+  const deliverables = deliverableParts(message, parts);
+  const activity = buildActivityViewModel(message, { state });
+  const hasResult = result.items.length > 0 || deliverables.length > 0;
 
   return {
-    summaryPart,
-    deliverablesPart,
-    statusPart,
-    waitingMessage:
-      (waitingPart && waitingPart.kind === "status" ? waitingPart.label : null) ??
-      (message.canonicalOutput?.nextAction?.type === "ask_user"
-        ? message.canonicalOutput.nextAction.message ?? null
-        : null),
-    processParts,
-    contentParts,
-    debugParts,
+    state,
+    answerPhase: result.answerPhase,
+    resultItems: result.items,
+    deliverableParts: deliverables,
+    activity,
+    activityParts: activity.activityParts,
+    waitingMessage: waitingUserMessage(message),
+    outcome: turnOutcome(message, state, hasResult, parts),
+    hasResult,
   };
 }

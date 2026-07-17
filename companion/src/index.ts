@@ -1,8 +1,10 @@
 import { config, PACKAGE_VERSION } from "./config.js";
 import { startServer } from "./server.js";
 import { ensureDefaultSandbox } from "./projects/store.js";
+import { ensureCliSearchPath } from "./agents/cli-paths.js";
 
 async function main() {
+  ensureCliSearchPath();
   await ensureDefaultSandbox();
   const app = await startServer();
   console.log(

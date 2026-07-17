@@ -138,10 +138,10 @@ function buildClaudeArgs(ctx: BuildArgsContext): AgentLaunchSpec {
     bin: registry.execution.bin,
     args,
     streamFormat: registry.execution.streamFormat,
-    // Close stdin after the initial user message. Keeping Claude's stream-json
-    // stdin open makes completed turns wait forever for more input, which
-    // prevents run.finished/canonical.output and deliverables from being emitted.
-    closeStdinAfterPrompt: true,
+    // Keep stdin open for stream-json tool_result messages. runAgent closes it
+    // after Claude emits a terminal turn_end/result event so normal runs still
+    // finish cleanly.
+    closeStdinAfterPrompt: false,
     stdinAsClaudeUserMessage: true,
     stdinPayload: "composed",
   };

@@ -46,16 +46,11 @@ export function selectSimulationTopicAnalysisActivity(
   if (!message) return null;
 
   const viewModel = buildTurnViewModel(message);
-  const activityParts = viewModel.contentParts.filter(
+  const activityParts = viewModel.activityParts.filter(
     (part) => !isExcludedActivityPart(part),
   );
-  const fallbackProcessParts = viewModel.processParts.filter(
-    (part) => !isExcludedActivityPart(part),
-  );
-  const resolvedParts =
-    activityParts.length > 0 ? activityParts : fallbackProcessParts;
 
-  if (resolvedParts.length === 0 && !viewModel.statusPart) {
+  if (activityParts.length === 0 && !viewModel.activity.statusPart) {
     return null;
   }
 
@@ -68,10 +63,10 @@ export function selectSimulationTopicAnalysisActivity(
   }
 
   return {
-    activityParts: resolvedParts,
+    activityParts,
     gapBefore,
     runId: message.runId,
-    statusPart: viewModel.statusPart,
+    statusPart: viewModel.activity.statusPart,
     isStreaming: message.status === "loading" || message.status === "streaming",
   };
 }
