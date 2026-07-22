@@ -579,16 +579,30 @@ export function buildDeliverablesFromDiff(
   for (const p of extraPaths) {
     const norm = p.replace(/\\/g, "/").replace(/^\.\//, "");
     if (!norm) continue;
-    if (norm === "presentation/package.json") {
+    const presentationDir =
+      norm === "presentation" || norm.endsWith("/presentation")
+        ? norm
+        : null;
+    const existingPath =
+      findEquivalentDeliverablePath(after.keys(), norm) ??
+      (presentationDir
+        ? findEquivalentDeliverablePath(
+            after.keys(),
+            `${presentationDir}/package.json`,
+          )
+        : undefined);
+    if (!existingPath) continue;
+    const artifactPath = presentationDir ? presentationDir : existingPath;
+    if (artifactPath === "presentation/package.json") {
       changed.add("presentation");
-    } else if (norm.endsWith("/presentation/package.json")) {
-      changed.add(norm.replace(/\/package\.json$/, ""));
+    } else if (artifactPath.endsWith("/presentation/package.json")) {
+      changed.add(artifactPath.replace(/\/package\.json$/, ""));
     } else if (
-      norm === "presentation" ||
-      norm.endsWith("/presentation") ||
-      isDeliverablePath(norm)
+      artifactPath === "presentation" ||
+      artifactPath.endsWith("/presentation") ||
+      isDeliverablePath(artifactPath)
     ) {
-      changed.add(norm);
+      changed.add(artifactPath);
     }
   }
 
@@ -663,12 +677,8 @@ export function extractPathFromToolMessage(
   if (
     !t.includes("write") &&
     !t.includes("edit") &&
-    !t.includes("bash") &&
-    !t.includes("shell") &&
-    !t.includes("terminal") &&
     t !== "write_file" &&
-    t !== "apply_patch" &&
-    t !== "run_terminal"
+    t !== "apply_patch"
   ) {
     return null;
   }

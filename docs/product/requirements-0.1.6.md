@@ -498,15 +498,16 @@
 - Codex 未标注 phase 的 `agent_message` 改为 `pending`，在后续动作或 Turn 终态原位提交为 `process` / `final`，不再把过程说明误判为最终回答。
 - Desktop 内嵌 Web 固定使用 `127.0.0.1:51247`，新 Origin 首次启动从 Companion 恢复最近 24 小时、最多 50 个会话入口。
 - Companion 晚于 Web 就绪时自动重试 Agent 探测；Hermes 终端失败在 Web reducer 中保持幂等，只形成一个失败节点。
+- 默认工作文件夹中的只读终端命令不再把被读取或不存在的路径误判为交付物，也不会因没有生成文件而把成功任务改判为失败。
 
 ### 16.2 验证结果
 
-- 73 个纯函数/parser fixture 与 23 条 Chat Playwright 全部通过。
+- 75 个纯函数/parser fixture 与 23 条 Chat Playwright 全部通过。
 - Codex 0.144.3 安装版四步只读任务按“过程说明 → 动作 → 结果 → 下一步说明 → 最终回答”原序输出，最终回答开始后自动收起为 4 条命令、1 项失败。
 - Claude Code 2.1.161 四步只读真流通过；四个过程段分别在对应工具动作前占据原始时间位置，最后一段单独提交为 final。
 - Hermes Agent 0.18.2 已通过 GitHub Copilot Provider 完成 Gateway 成功态和四工具真实任务；工具生命周期完整，SSE 与 Run Events 顺序一致，Session 正文与 canonical final 一致。Hermes 0.18.2 Gateway 不提供工具 input/output，界面不得从 label 或最终回答伪造载荷。
 - macOS arm64 安装版正常退出并重启后，Web 仍绑定固定端口 `51247`，Companion 为 `0.1.6-rc.3`，近期任务入口和 Codex 已完成任务均恢复。
-- 73 个 fixture、23 条 Chat Playwright、Web/Companion/Desktop TypeScript、Web ESLint、production build、版本一致性和 Desktop Web bundle smoke 已通过。
+- 75 个 fixture、23 条 Chat Playwright、Web/Companion/Desktop TypeScript、Web ESLint、production build、版本一致性和 Desktop Web bundle smoke 已通过。
 
 ### 16.3 当前结论
 

@@ -10,6 +10,10 @@ import { createCodexJsonParser } from "../packages/runtime-core/src/parsers/code
 import { createHermesPlainParser } from "../packages/runtime-core/src/parsers/hermes-plain";
 import { runHermesGateway } from "../packages/runtime-core/src/run-hermes-gateway";
 import { buildLaunchSpec } from "../packages/runtime-core/src/agents/build-args";
+import {
+  buildDeliverablesFromDiff,
+  extractPathFromToolMessage,
+} from "../packages/runtime-core/src/run-deliverables";
 import type { AgentStreamEvent } from "../packages/runtime-core/src/types";
 import type { RunEvent, RunRecord } from "../packages/contracts/src/runtime";
 import { parseMessages } from "../companion/src/routes/sessions";
@@ -1365,6 +1369,33 @@ const tests: Array<[string, () => void | Promise<void>]> = [
       1,
     );
     assert.equal(second.activityCollapse, "expanded");
+  }],
+  ["F74 missing touched paths do not become deliverables", () => {
+    const before = new Map<string, number>();
+    const after = new Map<string, number>();
+    assert.equal(
+      buildDeliverablesFromDiff(before, after, ["package.json"]),
+      null,
+    );
+
+    const existing = new Map<string, number>([["output/report.md", 1]]);
+    const deliverables = buildDeliverablesFromDiff(before, existing, [
+      "/tmp/workspace/output/report.md",
+    ]);
+    assert.deepEqual(
+      deliverables?.items.map((item) => item.path),
+      ["output/report.md"],
+    );
+  }],
+  ["F75 read-only terminal commands do not claim artifacts", () => {
+    assert.equal(
+      extractPathFromToolMessage("terminal", "wc -l package.json"),
+      null,
+    );
+    assert.equal(
+      extractPathFromToolMessage("write_file", "Wrote output/report.md"),
+      "output/report.md",
+    );
   }],
 ];
 
