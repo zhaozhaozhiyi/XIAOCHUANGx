@@ -1,12 +1,14 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { access } from "node:fs/promises";
-import { connect, createServer } from "node:net";
+import { connect } from "node:net";
 import { dirname, join } from "node:path";
 import { app } from "electron";
 import { resolveElectronNodeRuntime } from "./electron-node-runtime.js";
 
 let child: ChildProcess | null = null;
 let startedUrl: string | null = null;
+
+export const DEFAULT_EMBEDDED_WEB_PORT = 51247;
 
 function standaloneResourceRoot(): string {
   if (app.isPackaged) {
@@ -36,26 +38,34 @@ async function resolveStandaloneServerJs(): Promise<string | null> {
   return null;
 }
 
-async function findFreePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const server = createServer();
-    server.listen(0, "127.0.0.1", () => {
-      const addr = server.address();
-      const port =
-        typeof addr === "object" && addr !== null ? addr.port : 0;
-      server.close((err) => (err ? reject(err) : resolve(port)));
-    });
-    server.on("error", reject);
-  });
+export function resolveEmbeddedWebPort(
+  value = process.env.JLC_DESKTOP_WEB_PORT,
+): number {
+  const parsed = Number.parseInt(value?.trim() ?? "", 10);
+  return Number.isInteger(parsed) && parsed >= 1024 && parsed <= 65535
+    ? parsed
+    : DEFAULT_EMBEDDED_WEB_PORT;
 }
 
-async function waitForTcpReady(
-  hostname: string,
-  port: number,
+async function isEmbeddedWebReady(url: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${url}/api/app/identity`, {
+      signal: AbortSignal.timeout(750),
+    });
+    if (!response.ok) return false;
+    const body = (await response.json()) as { appId?: unknown };
+    return body.appId === "xiaochuang";
+  } catch {
+    return false;
+  }
+}
+
+async function waitForEmbeddedWebReady(
+  url: string,
   attempts = 120,
 ): Promise<boolean> {
   for (let i = 0; i < attempts; i += 1) {
-    if (await probeTcpReady(hostname, port)) {
+    if (await isEmbeddedWebReady(url)) {
       return true;
     }
     await new Promise((r) => setTimeout(r, 250));
@@ -105,11 +115,21 @@ export async function startEmbeddedWebServer(): Promise<string | null> {
     return null;
   }
 
-  const port = await findFreePort();
+  const port = resolveEmbeddedWebPort();
   const cwd = dirname(serverJs);
   const hostname = "127.0.0.1";
   const url = `http://${hostname}:${port}`;
   const nodeRuntime = resolveElectronNodeRuntime();
+
+  if (await probeTcpReady(hostname, port)) {
+    if (await isEmbeddedWebReady(url)) {
+      console.info("[desktop] reusing embedded web", { url });
+      startedUrl = url;
+      return url;
+    }
+    console.error("[desktop] embedded web port is occupied", { url });
+    return null;
+  }
 
   console.info("[desktop] starting embedded web", {
     serverJs,
@@ -146,7 +166,7 @@ export async function startEmbeddedWebServer(): Promise<string | null> {
     startedUrl = null;
   });
 
-  const ready = await waitForTcpReady(hostname, port);
+  const ready = await waitForEmbeddedWebReady(url);
   if (!ready) {
     console.error("[desktop] embedded web did not become ready", { url });
     stopEmbeddedWebServer();

@@ -198,6 +198,16 @@ export type CompanionSessionRunsResponse = {
   count: number;
 };
 
+export type CompanionSessionSummary = {
+  sessionId: string;
+  title: string;
+  projectId?: string | null;
+  surfaceModuleId?: ModuleId;
+  createdAt: string;
+  updatedAt: string;
+  runStatus: "idle" | "running" | "waiting_user";
+};
+
 export type CompanionQueuedRun = {
   id: string;
   runId: string;

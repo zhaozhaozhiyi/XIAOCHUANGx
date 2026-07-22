@@ -8,8 +8,10 @@ import { fileURLToPath } from "node:url";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const webDir = join(repoRoot, "web");
-const standaloneSrc = join(webDir, ".next", "standalone");
-const staticSrc = join(webDir, ".next", "static");
+const nextDistDir = process.env.NEXT_DIST_DIR?.trim() || ".next";
+const nextOutputDir = join(webDir, nextDistDir);
+const standaloneSrc = join(nextOutputDir, "standalone");
+const staticSrc = join(nextOutputDir, "static");
 const publicSrc = join(webDir, "public");
 const dest = join(repoRoot, "apps", "desktop", "resources", "web-standalone");
 
@@ -107,7 +109,7 @@ async function materializePnpmStore(sourceNodeModules, targetNodeModules) {
 async function main() {
   if (!(await exists(standaloneSrc))) {
     console.error(
-      "缺少 web/.next/standalone，请先执行: pnpm --filter web build",
+      `缺少 ${standaloneSrc}，请先执行: pnpm --filter web build`,
     );
     process.exit(1);
   }
@@ -130,7 +132,7 @@ async function main() {
   }
 
   if (await exists(staticSrc)) {
-    const staticDest = join(appRoot, ".next", "static");
+    const staticDest = join(appRoot, nextDistDir, "static");
     await mkdir(dirname(staticDest), { recursive: true });
     await cp(staticSrc, staticDest, { recursive: true, verbatimSymlinks: true });
   }

@@ -1,6 +1,6 @@
 # 文档中心
 
-> 当前平台候选版本为 **`0.1.6-rc.1`（Desktop Alpha 对话结果与过程体验收口候选版）**，最近正式基线为 `0.1.5`。产品边界以 [平台与工作区边界定义](./product/platform-workspace-boundary.md) 为准：**Desktop = 本地文件夹工作区**；**Web 在线沙箱工作区 = 下一大版本目标**。需求、技术、计划、归档文档统一收纳在本目录下；运行时资产文档（如 `skills/*/SKILL.md`、`prompts/*`）仍保留在对应资产目录。
+> 当前平台候选版本为 **`0.1.6-rc.2`（Desktop Alpha 对话结果与业务过程体验收口候选版）**，最近正式基线为 `0.1.5`。产品边界以 [平台与工作区边界定义](./product/platform-workspace-boundary.md) 为准：**Desktop = 本地文件夹工作区**；**Web 在线沙箱工作区 = 下一大版本目标**。需求、技术、计划、归档文档统一收纳在本目录下；运行时资产文档（如 `skills/*/SKILL.md`、`prompts/*`）仍保留在对应资产目录。
 
 ## 目录约定
 
@@ -28,8 +28,8 @@
 | [release-notes-0.1.4-alpha.md](./product/release-notes-0.1.4-alpha.md) | `0.1.4-alpha` 版本升级说明 |
 | [requirements-0.1.6.md](./product/requirements-0.1.6.md) | `0.1.6` 对话结果与过程体验收口版本边界 |
 | [release-notes-0.1.6.md](./release-notes/0.1.6.md) | `0.1.6` 对话结果与过程体验收口更新说明 |
-| [requirements-0.1.7.md](./product/requirements-0.1.7.md) | `0.1.7` 过程旁白与业务过程可见性纠偏版本边界 |
-| [release-notes-0.1.7.md](./release-notes/0.1.7.md) | `0.1.7` 过程旁白可见性更新说明（预发） |
+| [requirements-0.1.7.md](./product/requirements-0.1.7.md) | 历史提案；旁白可见性范围已并入 `0.1.6-rc.2` |
+| [release-notes-0.1.7.md](./release-notes/0.1.7.md) | 已并入 `0.1.6-rc.2` 的历史预发说明 |
 | [platform-workspace-boundary.md](./product/platform-workspace-boundary.md) | Web / Desktop / Sandbox / Companion 边界定义 |
 | [功能清单.md](./product/功能清单.md) | 当前模块与功能清单 |
 | [需求整理.md](./product/需求整理.md) | 需求整理来源文档 |
@@ -47,7 +47,8 @@
 | [desktop-shell.md](./technical/desktop-shell.md) | Electron 壳技术摘要（MVP 已交付基线） |
 | [chat-core-architecture.md](./technical/chat-core-architecture.md) | 对话混合编排（F-RT-008） |
 | [chat-message-parts.md](./technical/chat-message-parts.md) | 消息分块与 SSE |
-| [chat-output-protocol.md](./technical/chat-output-protocol.md) | 对话输出协议 |
+| [chat-output-protocol.md](./technical/chat-output-protocol.md) | 对话输出协议（历史草案；以时间线标准为准） |
+| [chat-timeline-contract-v1.md](./technical/chat-timeline-contract-v1.md) | **0.1.6 唯一基准**：会话业务时间线标准与 canonical 事件协议 |
 | [chat-skill-orchestration-analysis.md](./technical/chat-skill-orchestration-analysis.md) | Skill 编排分析 |
 | [agent-cli-activity-mapping.md](./technical/agent-cli-activity-mapping.md) | **Agent CLI stdout → `tool.progress` → Activity UI**（F-QA-007 / F-RT-005） |
 | [agent-loop-strategy-analysis.md](./technical/agent-loop-strategy-analysis.md) | **Agent Loop 策略分析**（CLI 委托 vs 自研、断开成因、OpenCode 对比） |
@@ -61,7 +62,7 @@
 | [platform-implementation-plan-v4.1.md](./plans/platform-implementation-plan-v4.1.md) | 六模块导航与主线实现方案 |
 | [chat-execution-roadmap.md](./plans/chat-execution-roadmap.md) | Desktop Alpha 执行闭环清单 |
 | [chat-process-collapse-implementation-plan.md](./plans/chat-process-collapse-implementation-plan.md) | `0.1.6` 对话过程收束实施方案 |
-| [chat-process-narration-visibility-plan.md](./plans/chat-process-narration-visibility-plan.md) | `0.1.7` 过程旁白可见性实施方案 |
+| [chat-process-narration-visibility-plan.md](./plans/chat-process-narration-visibility-plan.md) | 历史专项方案；实现已合并到 `0.1.6` 主计划 v1.6 |
 | [p0-three-module-acceptance.md](./plans/p0-three-module-acceptance.md) | 主线模块 P0 收口与六模块入口回归矩阵（文件名保留历史） |
 | [three-module-quality-review.md](./plans/three-module-quality-review.md) | 六模块导航与主线模块稳定性 / 架构 / 交互评审清单（文件名保留历史） |
 | [mvp-closure-checklist.md](./plans/mvp-closure-checklist.md) | `0.1.0-alpha` 收口验收清单 |

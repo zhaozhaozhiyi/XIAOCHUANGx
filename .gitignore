@@ -12,6 +12,7 @@ __pycache__/
 # build outputs
 dist/
 .next/
+.next-*/
 out/
 build/
 !apps/desktop/build/
@@ -40,6 +41,18 @@ $TMPDIR/
 docs/
 !docs/
 docs/*
+!docs/design/
+docs/design/*
+!docs/design/chat-process-display-spec.md
+!docs/qa/
+docs/qa/*
+!docs/qa/0.1.6-internal-user-validation.md
+!docs/technical/
+docs/technical/*
+!docs/technical/chat-message-parts.md
+!docs/technical/agent-cli-activity-mapping.md
+!docs/technical/companion-api.md
+!docs/technical/chat-timeline-contract-v1.md
 !docs/release-notes/
 docs/release-notes/*
 !docs/release-notes/0.1.5.md
@@ -50,6 +63,7 @@ docs/product/*
 !docs/plans/
 docs/plans/*
 !docs/plans/chat-process-collapse-implementation-plan.md
+!docs/plans/chat-process-narration-visibility-plan.md
 参考项目/
 
 # OS & IDE

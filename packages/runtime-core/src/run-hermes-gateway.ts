@@ -54,6 +54,45 @@ export async function runHermesGateway(
 
   let textEmitted = false;
   const labelByCallId = new Map<string, string>();
+  let segmentSeq = 0;
+  let pendingSegmentId: string | null = null;
+  let pendingSegmentText = "";
+
+  const emitSegment = (payload: {
+    segmentId: string;
+    operation: "delta" | "commit";
+    role: "pending" | "process" | "final";
+    text?: string;
+  }) => {
+    if (callbacks.onAssistantSegment) {
+      callbacks.onAssistantSegment(payload);
+      return;
+    }
+    if (payload.operation === "commit" && payload.role === "final") {
+      if (pendingSegmentText) callbacks.onText(pendingSegmentText);
+      return;
+    }
+    if (payload.operation === "commit" && payload.role === "process") {
+      if (pendingSegmentText) callbacks.onNarration?.(pendingSegmentText);
+      return;
+    }
+    if (payload.operation === "delta" && payload.role === "final" && payload.text) {
+      textEmitted = true;
+      callbacks.onText(payload.text);
+    }
+  };
+
+  const commitPendingSegment = (role: "process" | "final") => {
+    if (!pendingSegmentId) return;
+    if (role === "final" && pendingSegmentText) textEmitted = true;
+    emitSegment({
+      segmentId: pendingSegmentId,
+      operation: "commit",
+      role,
+    });
+    pendingSegmentId = null;
+    pendingSegmentText = "";
+  };
 
   let res: Response;
   try {
@@ -138,6 +177,7 @@ export async function runHermesGateway(
 
         const data = line.slice(5).trim();
         if (data === "[DONE]") {
+          commitPendingSegment("final");
           return {
             exitCode: 0,
             signal: null,
@@ -151,6 +191,7 @@ export async function runHermesGateway(
             const json = JSON.parse(data) as unknown;
             const progress = hermesGatewayEventToProgress(json, labelByCallId);
             if (progress) {
+              commitPendingSegment("process");
               callbacks.onToolProgress?.(progress);
             }
           } catch {
@@ -162,13 +203,20 @@ export async function runHermesGateway(
 
         const content = parseOpenAiDelta(data);
         if (content) {
-          textEmitted = true;
-          callbacks.onText(content);
+          pendingSegmentId ??= `hermes-message-${segmentSeq++}`;
+          pendingSegmentText += content;
+          emitSegment({
+            segmentId: pendingSegmentId,
+            operation: "delta",
+            role: "pending",
+            text: content,
+          });
         }
         eventName = "message";
       }
     }
 
+    commitPendingSegment("final");
     return {
       exitCode: 0,
       signal: null,

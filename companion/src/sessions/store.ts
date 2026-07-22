@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { config } from "../config.js";
 
@@ -11,6 +11,7 @@ export type StoredChatMessage = {
   status?: "complete" | "loading" | "streaming" | "error" | "cancelled";
   parts?: unknown[];
   activityCollapse?: string;
+  finalCollapseRevision?: number;
   runId?: string;
   runStartedAt?: number;
   canonicalOutput?: unknown;
@@ -50,6 +51,31 @@ export async function loadSessionMessages(
   } catch {
     return null;
   }
+}
+
+export async function listSessionMessages(): Promise<SessionMessagesRecord[]> {
+  await ensureSessionsDir();
+  const entries = await readdir(sessionsDir(), { withFileTypes: true });
+  const records = await Promise.all(
+    entries
+      .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+      .map(async (entry) => {
+        try {
+          const raw = await readFile(join(sessionsDir(), entry.name), "utf8");
+          const parsed = JSON.parse(raw) as SessionMessagesRecord;
+          return typeof parsed.sessionId === "string" &&
+            Array.isArray(parsed.messages) &&
+            typeof parsed.updatedAt === "string"
+            ? parsed
+            : null;
+        } catch {
+          return null;
+        }
+      }),
+  );
+  return records
+    .filter((record): record is SessionMessagesRecord => record !== null)
+    .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
 }
 
 export async function saveSessionMessages(

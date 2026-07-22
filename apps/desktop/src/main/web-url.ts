@@ -15,7 +15,7 @@ export async function resolveWebAppUrl(): Promise<string> {
     const embedded = await startEmbeddedWebServer();
     if (embedded) return embedded;
     throw new Error(
-      "打包应用未找到内嵌 Web 资源，请重新执行 desktop:pack 或设置 JLC_WEB_URL",
+      "打包应用的内嵌 Web 未能启动，请检查 JLC_DESKTOP_WEB_PORT、重新执行 desktop:pack 或设置 JLC_WEB_URL",
     );
   }
 

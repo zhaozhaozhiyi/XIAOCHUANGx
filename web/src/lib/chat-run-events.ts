@@ -3,6 +3,7 @@ import {
   applyPartsStateToMessage,
   initAssistantPartsState,
   reduceAppendPart,
+  reduceAssistantSegment,
   reduceClarificationRequired,
   reduceInterimAssistant,
   reducePartPatch,
@@ -55,6 +56,14 @@ function applyRunEvent(
         text: event.text,
         alreadyStreamed: event.alreadyStreamed,
       });
+    case "assistant.segment":
+      return reduceAssistantSegment(state, {
+        segmentId: event.segmentId,
+        operation: event.operation,
+        role: event.role,
+        text: event.text,
+        streamSeq: event.streamSeq,
+      });
     case "tool.progress":
       return reduceToolProgress(state, {
         tool: event.tool,
@@ -65,7 +74,10 @@ function applyRunEvent(
               ? "error"
               : event.status,
         message: event.message,
-        callId: event.toolCallId,
+        callId: event.callId ?? event.toolCallId,
+        streamSeq: event.streamSeq,
+        input: event.input,
+        output: event.output,
       });
     case "todo.update":
       return reduceTodoItems(

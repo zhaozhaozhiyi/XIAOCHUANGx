@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { SidebarLayoutProvider } from "./SidebarLayoutContext";
 import { WorkspacePanel } from "@/components/workspace/WorkspacePanel";
@@ -35,7 +35,7 @@ function AppShellFrame({
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => onSidebarCollapsedChange(!sidebarCollapsed)}
       />
-      <main className="relative flex min-h-0 min-w-[480px] flex-1 flex-col overflow-hidden">
+      <main className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <SidebarLayoutProvider collapsed={sidebarCollapsed}>
           {children}
         </SidebarLayoutProvider>
@@ -54,6 +54,14 @@ function AppShellFrame({
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 768px)");
+    const syncSidebar = () => setSidebarCollapsed(media.matches);
+    syncSidebar();
+    media.addEventListener("change", syncSidebar);
+    return () => media.removeEventListener("change", syncSidebar);
+  }, []);
 
   return (
     <SettingsProvider>

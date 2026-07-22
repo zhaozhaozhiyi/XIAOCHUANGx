@@ -6,6 +6,10 @@ import {
 import type { CanonicalTurnOutput } from "@jlc/contracts";
 import type { CreateRunRequest } from "../types.js";
 import type { RunEventWriter } from "./sse.js";
+import {
+  appendFinalSegment,
+  createFinalSegmentAccumulator,
+} from "./assistant-segments.js";
 
 type BackgroundRunState = {
   userMessageId: string;
@@ -166,6 +170,7 @@ export function createPersistedRunWriter(
 ): RunEventWriter {
   let statePromise = primeSessionForRun(req, runId);
   let flushChain: Promise<void> = Promise.resolve();
+  const assistantSegments = createFinalSegmentAccumulator();
 
   const schedule = (
     task: (state: BackgroundRunState) => Promise<void>,
@@ -184,6 +189,7 @@ export function createPersistedRunWriter(
           : null;
 
       if (event === "message.delta") {
+        if (payload?.compatibility === "assistant.segment") return;
         const chunk =
           typeof payload?.content === "string"
             ? payload.content
@@ -192,6 +198,24 @@ export function createPersistedRunWriter(
               : typeof payload?.text === "string"
                 ? payload.text
                 : "";
+        if (chunk) {
+          schedule((state) => appendAssistantDelta(req, runId, state, chunk));
+        }
+        return;
+      }
+
+      if (event === "assistant.segment") {
+        const segmentId =
+          typeof payload?.segmentId === "string" ? payload.segmentId : "";
+        const role = payload?.role;
+        if (!segmentId || (role !== "pending" && role !== "process" && role !== "final")) {
+          return;
+        }
+        const chunk = appendFinalSegment(assistantSegments, {
+          segmentId,
+          role,
+          text: typeof payload?.text === "string" ? payload.text : undefined,
+        });
         if (chunk) {
           schedule((state) => appendAssistantDelta(req, runId, state, chunk));
         }

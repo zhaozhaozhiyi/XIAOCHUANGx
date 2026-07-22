@@ -16,7 +16,6 @@ import {
 } from "@/lib/agents-runtime";
 import type { AgentId } from "@/lib/settings";
 import {
-  DEFAULT_SETTINGS,
   loadSettings,
   saveSettings,
   type AgentSettingsTab,
@@ -36,6 +35,8 @@ type AgentTestState = {
   status: "idle" | "running" | "ok" | "error";
   message?: string;
 };
+
+const STARTUP_AGENT_RETRY_DELAYS_MS = [1_000, 2_000, 4_000, 8_000] as const;
 
 type SettingsContextValue = {
   settings: UserSettings;
@@ -105,6 +106,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     status: "idle",
   });
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSettings(loadSettings()), 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   const refreshAgents = useCallback(async (options?: { detect?: boolean }) => {
     setAgentsRuntime((prev) => ({ ...prev, loading: true, error: null }));
     try {
@@ -164,10 +170,33 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void refreshAgents();
+    let cancelled = false;
+    let timer: number | undefined;
+    let retryIndex = 0;
+
+    const loadAgents = async () => {
+      const result = await refreshAgents();
+      if (
+        cancelled ||
+        result.available > 0 ||
+        retryIndex >= STARTUP_AGENT_RETRY_DELAYS_MS.length
+      ) {
+        return;
+      }
+      const delay = STARTUP_AGENT_RETRY_DELAYS_MS[retryIndex];
+      retryIndex += 1;
+      timer = window.setTimeout(() => {
+        void loadAgents();
+      }, delay);
+    };
+
+    timer = window.setTimeout(() => {
+      void loadAgents();
     }, 0);
-    return () => window.clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
   }, [refreshAgents]);
 
   useEffect(() => {

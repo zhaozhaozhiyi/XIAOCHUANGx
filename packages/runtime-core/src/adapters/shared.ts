@@ -22,7 +22,10 @@ export function defaultOnEvent(
   callbacks: RunAgentCallbacks,
 ): void {
   if (ev.type === "text_delta") {
-    if (ev.delta) state.textEmitted = true;
+    if (ev.delta) {
+      state.textEmitted = true;
+      state.hasFinalText = true;
+    }
     callbacks.onText(ev.delta);
     return;
   }
@@ -48,6 +51,43 @@ export function defaultOnEvent(
   }
   if (ev.type === "narration") {
     callbacks.onNarration?.(ev.text);
+    return;
+  }
+  if (ev.type === "assistant_segment") {
+    const hadFinalText = state.hasFinalText;
+    const segment = state.assistantSegments.get(ev.segmentId) ?? {
+      text: "",
+      forwardedFinalLength: 0,
+      forwardedProcessLength: 0,
+    };
+    if (ev.text) segment.text += ev.text;
+    state.assistantSegments.set(ev.segmentId, segment);
+    if (ev.role === "final" && segment.text) state.textEmitted = true;
+
+    if (callbacks.onAssistantSegment) {
+      if (ev.role === "final" && segment.text) state.hasFinalText = true;
+      callbacks.onAssistantSegment(ev);
+      return;
+    }
+    if (ev.role === "final") {
+      const unforwarded = segment.text.slice(segment.forwardedFinalLength);
+      if (unforwarded) {
+        const startsNewSegment = segment.forwardedFinalLength === 0;
+        callbacks.onText(
+          `${startsNewSegment && hadFinalText ? "\n\n" : ""}${unforwarded}`,
+        );
+        segment.forwardedFinalLength = segment.text.length;
+        state.hasFinalText = true;
+      }
+      return;
+    }
+    if (ev.role === "process") {
+      const unforwarded = segment.text.slice(segment.forwardedProcessLength);
+      if (unforwarded) {
+        callbacks.onNarration?.(unforwarded);
+        segment.forwardedProcessLength = segment.text.length;
+      }
+    }
     return;
   }
   if (ev.type === "thread_started") {

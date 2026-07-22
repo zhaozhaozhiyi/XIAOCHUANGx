@@ -1,5 +1,6 @@
 import type { ChatMessage } from "@/lib/chat";
 import { chatExecutionMode, companionConfig } from "@/lib/companion/config";
+import type { CompanionSessionSummary } from "@/lib/companion/types";
 
 export type SessionMessagesResponse = {
   sessionId: string;
@@ -8,6 +9,22 @@ export type SessionMessagesResponse = {
   projectId?: string | null;
   source?: string;
 };
+
+export async function fetchCompanionSessions(): Promise<
+  CompanionSessionSummary[] | null
+> {
+  if (chatExecutionMode() !== "companion" || companionConfig.useMock) {
+    return null;
+  }
+  try {
+    const res = await fetch("/api/sessions", { cache: "no-store" });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { items?: CompanionSessionSummary[] };
+    return Array.isArray(body.items) ? body.items : null;
+  } catch {
+    return null;
+  }
+}
 
 export async function fetchCompanionSessionMessages(
   sessionId: string,

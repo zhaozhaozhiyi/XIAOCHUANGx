@@ -23,6 +23,7 @@ const webServerEnv = Object.fromEntries(
     CHAT_EXECUTION: "companion",
     COMPANION_USE_MOCK: "true",
     HERMES_USE_MOCK: "true",
+    NEXT_DIST_DIR: process.env.NEXT_DIST_DIR ?? ".next-playwright",
     NEXT_PUBLIC_OPENSCAD_WASM_PREVIEW: "1",
     FORCE_COLOR: "0",
   }).filter((entry): entry is [string, string] => typeof entry[1] === "string"),

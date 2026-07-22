@@ -2,8 +2,8 @@
  * TrayManager — V1.1 D1.2（desktop-v1.1-roadmap.md §4）
  *
  * 职责：
- *  1. 创建系统托盘图标（复用 build/icon.png 缩 16/32；TODO: 后续给 mac
- *     补一张 *Template.png 单色模板图，目前先用彩色）
+ *  1. 创建系统托盘图标（macOS 使用单色 Template image；Win/Linux
+ *     复用 build/icon.png）
  *  2. 右键菜单（§4.3）：
  *       打开主窗口
  *       Companion: 已连接（绿）/ 重启中（黄）/ 未连接（红）
@@ -45,26 +45,25 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // -----------------------------------------------------------------------------
 
 /**
- * 找一张 1024×1024 源 png 缩到托盘尺寸。
- * - mac/Linux：建议 16×16
- * - Win：16×16（多显示器下系统会按 DPI 自动选）
- *
- * 后续 D1.2+：mac 走 Template image（黑/透明 + setTemplateImage(true)），
- * 现阶段先用彩色 png 把功能跑通。
+ * macOS 使用 18pt 单色圆环 Template image，由系统根据菜单栏明暗自动着色。
+ * Win/Linux 保留彩色品牌图标并缩到 16px。
  */
 function resolveTrayIcon(): NativeImage | null {
+  const fileName = process.platform === "darwin" ? "trayTemplate.png" : "icon.png";
   const candidates = [
-    join(__dirname, "../../build/icon.png"),
-    join(app.getAppPath(), "build/icon.png"),
-    join(process.resourcesPath ?? "", "icon.png"),
+    join(__dirname, `../../build/${fileName}`),
+    join(app.getAppPath(), `build/${fileName}`),
+    join(process.resourcesPath ?? "", fileName),
   ];
   for (const p of candidates) {
     if (!p || !existsSync(p)) continue;
     const raw = nativeImage.createFromPath(p);
     if (raw.isEmpty()) continue;
-    // mac 系统托盘高度 22pt → 16px logical；Win/Linux 16px 起步
-    const size = process.platform === "darwin" ? 16 : 16;
-    const resized = raw.resize({ width: size, height: size, quality: "best" });
+    if (process.platform === "darwin") {
+      raw.setTemplateImage(true);
+      return raw;
+    }
+    const resized = raw.resize({ width: 16, height: 16, quality: "best" });
     return resized.isEmpty() ? raw : resized;
   }
   return null;

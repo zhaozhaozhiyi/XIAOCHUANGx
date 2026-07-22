@@ -58,6 +58,7 @@ import {
 import { buildCanvasDigest } from "../simulation/digest.js";
 import type { AgentId, CreateRunRequest } from "../types.js";
 import {
+  type AssistantSegmentPayload,
   type ChatPart,
   type CanonicalArtifact,
   type CanonicalCitation,
@@ -108,9 +109,13 @@ import {
   ensureIndustrialDrawingPreviewFallback,
 } from "./industrial-drawing-fallback.js";
 import { buildSimulatedReply } from "./reply.js";
-import { emitMessageInterim, emitRunStatus } from "./runtime-events.js";
+import { emitRunStatus } from "./runtime-events.js";
 import { createRuntimeStoreWriter } from "./runtime-store-writer.js";
 import { createPersistedRunWriter } from "./session-persistence.js";
+import {
+  appendFinalSegment,
+  createFinalSegmentAccumulator,
+} from "./assistant-segments.js";
 import { streamSimulatedActivity } from "./simulated-activity.js";
 import {
   createNoopWriter,
@@ -832,6 +837,8 @@ async function executeRunLifecycle(
   let canonicalWorkspaceChanges: CanonicalWorkspaceChange[] = [];
   let latestStatusLabel: string | undefined;
   let waitingUserQuestion: string | undefined;
+  const assistantSegments = createFinalSegmentAccumulator();
+  let processSegmentSeq = 0;
   let requirementsCardEmitted = false;
   let requirementSummaryEmitted = false;
   let outlinePartEmitted = false;
@@ -849,6 +856,30 @@ async function executeRunLifecycle(
 
   const pushCanonicalEvent = (event: CanonicalEvent): void => {
     canonicalEvents.push(event);
+  };
+
+  const appendFinalAnswerText = (text: string): void => {
+    if (!text) return;
+    assistantText += text;
+    writer.send("message.delta", {
+      content: text,
+      compatibility: "assistant.segment",
+    });
+    emitCanonicalAssistantDelta(writer, { runId, text });
+    pushCanonicalEvent({
+      type: "assistant_delta",
+      runId,
+      timestamp: Date.now(),
+      text,
+    });
+  };
+
+  const emitAssistantSegment = (payload: AssistantSegmentPayload): void => {
+    writer.send("assistant.segment", payload);
+    const unforwarded = appendFinalSegment(assistantSegments, payload);
+    if (unforwarded) {
+      appendFinalAnswerText(unforwarded);
+    }
   };
 
   const appendPartOnce = (part: { kind?: unknown }): boolean => {
@@ -2237,28 +2268,25 @@ async function executeRunLifecycle(
       const runCallbacks = {
         onText: (chunk: string) => {
           if (!chunk) return;
-          assistantText += chunk;
-          writer.send("message.delta", { content: chunk });
-          emitCanonicalAssistantDelta(writer, { runId, text: chunk });
-          pushCanonicalEvent({
-            type: "assistant_delta",
-            runId,
-            timestamp: Date.now(),
+          emitAssistantSegment({
+            segmentId: `${runId}:legacy-final`,
+            operation: "delta",
+            role: "final",
             text: chunk,
           });
         },
         onNarration: (text: string) => {
           const trimmed = text.trim();
           if (!trimmed) return;
-          writer.send("interim_assistant", {
+          emitAssistantSegment({
+            segmentId: `${runId}:process:${processSegmentSeq++}`,
+            operation: "commit",
+            role: "process",
             text: trimmed,
-            already_streamed: false,
           });
-          emitMessageInterim(writer, {
-            runId,
-            text: trimmed,
-            alreadyStreamed: false,
-          });
+        },
+        onAssistantSegment: (payload: AssistantSegmentPayload) => {
+          emitAssistantSegment(payload);
         },
         onUserInputRequest: (payload: {
           toolUseId: string;

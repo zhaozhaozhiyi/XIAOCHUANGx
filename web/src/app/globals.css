@@ -2469,11 +2469,16 @@ body {
   min-width: 0;
 }
 
-/* 0.1.7: process summary sticks; evidence stays in document flow. */
+/* 0.1.6: process summary sticks; evidence stays in document flow. */
 .chat-activity-section {
   position: relative;
   min-width: 0;
   color: var(--fg-secondary);
+}
+
+/* Let the live sticky bar use the whole assistant response as its scroll boundary. */
+.chat-activity-section[data-sticky="true"] {
+  display: contents;
 }
 
 .chat-activity-section__bar,
@@ -2517,34 +2522,6 @@ body {
   line-clamp: 2;
 }
 
-.chat-activity-thinking {
-  margin-top: 0.35rem;
-  padding-top: 0.2rem;
-  border-top: 1px solid color-mix(in srgb, var(--border) 58%, transparent);
-}
-
-.chat-activity-thinking__toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  border: 0;
-  background: transparent;
-  padding: 0.2rem 0;
-  font-size: 12px;
-  color: var(--fg-tertiary);
-  cursor: pointer;
-}
-
-.chat-activity-thinking__toggle:hover {
-  color: var(--fg-secondary);
-}
-
-.chat-activity-thinking__body {
-  margin-top: 0.35rem;
-  display: grid;
-  gap: 0.4rem;
-}
-
 .chat-activity-summary {
   display: flex;
   width: 100%;
@@ -2576,7 +2553,7 @@ body {
 
 .chat-activity-summary:focus-visible,
 .chat-activity-technical__toggle:focus-visible,
-.chat-activity-thinking__toggle:focus-visible,
+.chat-activity-action__badge:focus-visible,
 .chat-activity-evidence__more:focus-visible,
 .chat-activity-evidence__earlier:focus-visible,
 .chat-activity-evidence__narration-more:focus-visible {
@@ -2635,12 +2612,17 @@ body {
   gap: 0.55rem;
 }
 
-/* 0.1.7: narration-led episode block, Trae-style document flow (no rail). */
+/* 0.1.6: narration-led episode block in document flow. */
 .chat-activity-evidence__episode {
   display: flex;
   min-width: 0;
   flex-direction: column;
   gap: 0.3rem;
+}
+
+.chat-activity-evidence__checkpoint {
+  min-width: 0;
+  padding-block: 0.15rem;
 }
 
 .chat-activity-evidence__stage {
@@ -2656,6 +2638,15 @@ body {
   color: var(--fg);
   font-size: 14px;
   line-height: 1.6;
+}
+
+.chat-activity-evidence__reasoning-loading {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 12px;
+  color: var(--activity-running-fg);
 }
 
 .chat-activity-evidence__narration-more {
@@ -2688,6 +2679,7 @@ body {
 
 .chat-activity-action__badge {
   display: inline-flex;
+  min-height: 24px;
   align-items: center;
   gap: 0.3rem;
   border: 0;
@@ -2753,8 +2745,7 @@ body {
 
 .chat-activity-evidence__more,
 .chat-activity-evidence__earlier,
-.chat-activity-technical__toggle,
-.chat-activity-thinking__toggle {
+.chat-activity-technical__toggle {
   display: inline-flex;
   width: fit-content;
   align-items: center;
@@ -2769,8 +2760,7 @@ body {
 
 .chat-activity-evidence__more:hover,
 .chat-activity-evidence__earlier:hover,
-.chat-activity-technical__toggle:hover,
-.chat-activity-thinking__toggle:hover {
+.chat-activity-technical__toggle:hover {
   color: var(--fg-secondary);
 }
 

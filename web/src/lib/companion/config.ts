@@ -134,6 +134,10 @@ export function companionSessionMessagesUrl(sessionId: string): string {
   );
 }
 
+export function companionSessionsUrl(): string {
+  return companionUrl("/v1/sessions");
+}
+
 export function companionSessionRunsUrl(sessionId: string): string {
   return companionUrl(`/v1/sessions/${encodeURIComponent(sessionId)}/runs`);
 }

@@ -17,6 +17,10 @@ extraResources:
       - "**/*"
   - from: build/icon.png
     to: icon.png
+  - from: build/trayTemplate.png
+    to: trayTemplate.png
+  - from: build/trayTemplate@2x.png
+    to: trayTemplate@2x.png
   # D1.4（desktop-v1.1-roadmap.md §6）：Companion 捆绑 sidecar bundle
   # 由 scripts/prepare-companion-bundle.mjs 在 pack 前生成；运行时由
   # apps/desktop/src/main/companion-supervisor.ts 通过

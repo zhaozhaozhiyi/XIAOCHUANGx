@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
 const svgPath = join(root, "apps/desktop/build/icon.svg");
+const traySvgPath = join(root, "apps/desktop/build/trayTemplate.svg");
 const buildDir = join(root, "apps/desktop/build");
 const webAppDir = join(root, "web/src/app");
 const webPublicDir = join(root, "web/public");
@@ -27,8 +28,8 @@ function hasCommand(cmd) {
   return check.status === 0;
 }
 
-function rsvg(size, out) {
-  run("rsvg-convert", ["-w", String(size), "-h", String(size), svgPath, "-o", out]);
+function rsvg(size, out, source = svgPath) {
+  run("rsvg-convert", ["-w", String(size), "-h", String(size), source, "-o", out]);
 }
 
 function normalizePng(path) {
@@ -38,6 +39,11 @@ function normalizePng(path) {
 
 if (!existsSync(svgPath)) {
   console.error("Missing source SVG:", svgPath);
+  process.exit(1);
+}
+
+if (!existsSync(traySvgPath)) {
+  console.error("Missing tray source SVG:", traySvgPath);
   process.exit(1);
 }
 
@@ -52,6 +58,8 @@ const generatedAssets = [
   join(webAppDir, "apple-icon.png"),
   join(buildDir, "icon@32.png"),
   join(buildDir, "icon@16.png"),
+  join(buildDir, "trayTemplate.png"),
+  join(buildDir, "trayTemplate@2x.png"),
   join(webAppDir, "icon.svg"),
   join(webPublicDir, "icon.svg"),
 ];
@@ -79,6 +87,8 @@ rsvg(256, join(buildDir, "icon@256.png"));
 rsvg(180, join(webAppDir, "apple-icon.png"));
 rsvg(32, join(buildDir, "icon@32.png"));
 rsvg(16, join(buildDir, "icon@16.png"));
+rsvg(18, join(buildDir, "trayTemplate.png"), traySvgPath);
+rsvg(36, join(buildDir, "trayTemplate@2x.png"), traySvgPath);
 
 normalizePng(join(buildDir, "icon.png"));
 normalizePng(join(buildDir, "icon@512.png"));
@@ -86,6 +96,8 @@ normalizePng(join(buildDir, "icon@256.png"));
 normalizePng(join(webAppDir, "apple-icon.png"));
 normalizePng(join(buildDir, "icon@32.png"));
 normalizePng(join(buildDir, "icon@16.png"));
+normalizePng(join(buildDir, "trayTemplate.png"));
+normalizePng(join(buildDir, "trayTemplate@2x.png"));
 
 copyFileSync(svgPath, join(webAppDir, "icon.svg"));
 copyFileSync(svgPath, join(webPublicDir, "icon.svg"));
@@ -125,4 +137,6 @@ if (process.platform === "darwin") {
   }
 }
 
-console.log("Brand icons generated (Web uses src/app/icon.svg; Windows pack uses build/icon.png).");
+console.log(
+  "Brand icons generated (Web uses src/app/icon.svg; macOS tray uses build/trayTemplate.png; Windows pack uses build/icon.png).",
+);

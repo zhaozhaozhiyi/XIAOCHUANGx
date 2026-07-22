@@ -24,6 +24,15 @@ export type AgentAdapterContext = {
 
 export type AgentAdapterRuntimeState = {
   textEmitted: boolean;
+  hasFinalText: boolean;
+  assistantSegments: Map<
+    string,
+    {
+      text: string;
+      forwardedFinalLength: number;
+      forwardedProcessLength: number;
+    }
+  >;
   threadId?: string;
 };
 

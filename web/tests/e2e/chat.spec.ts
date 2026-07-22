@@ -1,7 +1,15 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { seedAuthenticatedSession } from "./helpers";
 
 const SCROLL_SESSION_ID = "scroll-check";
+
+async function getVisibleHomeComposer(page: Page) {
+  const composer = page.locator(
+    "main .chat-composer:visible textarea.chat-composer__textarea:visible",
+  );
+  await expect(composer).toHaveCount(1);
+  return composer;
+}
 
 function buildLongSessionMessages(turnCount = 18) {
   return Array.from({ length: turnCount }, (_, index) => {
@@ -55,10 +63,10 @@ function buildActivitySessionMessages() {
             };
     return [
       {
-        id: `activity-stage-${step}`,
+        id: `activity-narration-${step}`,
         zone: "activity",
-        kind: "status",
-        label: `阶段 ${String(step).padStart(2, "0")}：${family === 0 ? "读取" : family === 1 ? "编辑" : "验证"}`,
+        kind: "narration",
+        markdown: `步骤 ${String(step).padStart(2, "0")}：${family === 0 ? "读取实现上下文" : family === 1 ? "修改对应实现" : "运行验证命令"}。`,
         streamSeq: step * 3,
       },
       action,
@@ -77,14 +85,15 @@ function buildActivitySessionMessages() {
       role: "assistant",
       content: "## 最终结果\n\n修改和验证已经完成。",
       status: "complete",
-      activityCollapse: "user_collapsed",
+      activityCollapse: "collapsed",
       parts: [
         ...activityParts,
         {
-          id: "activity-narration",
-          zone: "activity",
-          kind: "narration",
-          markdown: "我已经完成读取与验证，准备给出结论。",
+          id: "activity-checkpoint",
+          zone: "summary",
+          kind: "writing_requirement_summary",
+          title: "验收结论",
+          markdown: "读取、修改与验证均已完成，可以输出最终结论。",
           streamSeq: 99,
         },
         {
@@ -99,7 +108,17 @@ function buildActivitySessionMessages() {
           zone: "summary",
           kind: "summary",
           markdown: "## 最终结果\n\n修改和验证已经完成。",
+          segmentId: "activity-final",
+          presentationRole: "result",
           streamSeq: 101,
+        },
+        {
+          id: "activity-artifact",
+          zone: "summary",
+          kind: "artifact",
+          path: "output/verification-report.md",
+          label: "验证报告",
+          streamSeq: 102,
         },
         {
           id: "activity-meta",
@@ -108,7 +127,7 @@ function buildActivitySessionMessages() {
           label: "已完成",
           durationMs: 42_000,
           runStatus: "complete",
-          streamSeq: 102,
+          streamSeq: 103,
         },
       ],
     },
@@ -199,7 +218,7 @@ function buildMobileErrorMessages() {
       role: "assistant",
       content: "## 部分结果\n\n已完成读取和第一轮修改。",
       status: "error",
-      activityCollapse: "user_collapsed",
+      activityCollapse: "collapsed",
       parts: [
         {
           id: "mobile-error-stage",
@@ -245,6 +264,8 @@ function buildMobileErrorMessages() {
           zone: "summary",
           kind: "summary",
           markdown: "## 部分结果\n\n已完成读取和第一轮修改。",
+          segmentId: "mobile-error-final",
+          presentationRole: "result",
           streamSeq: 6,
         },
         {
@@ -254,6 +275,102 @@ function buildMobileErrorMessages() {
           durationMs: 42_000,
           runStatus: "error",
           streamSeq: 7,
+        },
+      ],
+    },
+  ];
+}
+
+function buildWaitingMessages() {
+  return [
+    {
+      id: "waiting-user",
+      role: "user",
+      content: "请检查实现，并在需要时向我确认范围",
+      status: "complete",
+    },
+    {
+      id: "waiting-assistant",
+      role: "assistant",
+      content: "",
+      status: "complete",
+      activityCollapse: "collapsed",
+      parts: [
+        {
+          id: "waiting-narration",
+          zone: "activity",
+          kind: "narration",
+          markdown: "已经完成初步检查，需要确认验证范围。",
+          streamSeq: 1,
+        },
+        {
+          id: "waiting-read",
+          zone: "activity",
+          kind: "file_read",
+          path: "src/waiting.ts",
+          status: "success",
+          streamSeq: 2,
+        },
+        {
+          id: "waiting-clarification",
+          zone: "summary",
+          kind: "clarification",
+          runId: "waiting-run",
+          clarificationId: "waiting-scope",
+          toolUseId: "waiting-scope",
+          question: "请选择验证范围",
+          questions: [
+            {
+              id: "scope",
+              question: "请选择验证范围",
+              options: [{ label: "仅当前模块" }, { label: "全部模块" }],
+            },
+          ],
+          streamSeq: 3,
+        },
+      ],
+    },
+  ];
+}
+
+function buildCancelledMessages() {
+  return [
+    {
+      id: "cancelled-user",
+      role: "user",
+      content: "请运行验证并输出结果",
+      status: "complete",
+    },
+    {
+      id: "cancelled-assistant",
+      role: "assistant",
+      content: "## 部分结果\n\n已完成读取，验证命令在中断前尚未结束。",
+      status: "cancelled",
+      activityCollapse: "collapsed",
+      parts: [
+        {
+          id: "cancelled-narration",
+          zone: "activity",
+          kind: "narration",
+          markdown: "开始运行验证命令。",
+          streamSeq: 1,
+        },
+        {
+          id: "cancelled-command",
+          zone: "activity",
+          kind: "command",
+          command: "pnpm test --filter cancelled",
+          status: "cancelled",
+          streamSeq: 2,
+        },
+        {
+          id: "cancelled-result",
+          zone: "summary",
+          kind: "summary",
+          markdown: "## 部分结果\n\n已完成读取，验证命令在中断前尚未结束。",
+          segmentId: "cancelled-final",
+          presentationRole: "result",
+          streamSeq: 3,
         },
       ],
     },
@@ -275,7 +392,7 @@ test.describe("MVP chat", () => {
     page,
   }) => {
     const question = "请总结一下当前 MVP 的测试目标";
-    await page.getByPlaceholder(/可向助手询问任何事/).fill(question);
+    await (await getVisibleHomeComposer(page)).fill(question);
     await page.getByRole("button", { name: "发送" }).click();
 
     await page.waitForURL(/\/chat\/\d+/);
@@ -286,14 +403,200 @@ test.describe("MVP chat", () => {
     await expect(page.getByLabel("执行中")).toHaveCount(0);
   });
 
+  test("recovers recent Companion sessions once on a new origin", async ({
+    page,
+  }) => {
+    const recentSessionId = `recovered-${Date.now()}`;
+    const recentTitle = "恢复的最近任务";
+    const oldTitle = "不应自动恢复的旧任务";
+    await page.route("**/api/sessions", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          source: "companion",
+          count: 2,
+          items: [
+            {
+              sessionId: recentSessionId,
+              title: recentTitle,
+              projectId: "none",
+              surfaceModuleId: "chat",
+              createdAt: new Date(Date.now() - 10_000).toISOString(),
+              updatedAt: new Date().toISOString(),
+              runStatus: "idle",
+            },
+            {
+              sessionId: "recovered-too-old",
+              title: oldTitle,
+              projectId: "none",
+              surfaceModuleId: "chat",
+              createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+              updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+              runStatus: "idle",
+            },
+          ],
+        }),
+      });
+    });
+    await page.evaluate(() => {
+      window.localStorage.removeItem("jlc-chat-history-companion-import-v1");
+    });
+    await page.reload();
+
+    await expect(
+      page.getByRole("link", { name: new RegExp(recentTitle) }),
+    ).toBeVisible();
+    await expect(page.getByText(oldTitle)).toHaveCount(0);
+    const recovered = await page.evaluate((sessionId) => {
+      const raw = window.localStorage.getItem("jlc-chat-history-index");
+      const items = raw ? (JSON.parse(raw) as Array<{ id?: string }>) : [];
+      return {
+        inIndex: items.some((item) => item.id === sessionId),
+        started:
+          window.localStorage.getItem(`jlc-chat-started-${sessionId}`) === "1",
+        imported:
+          window.localStorage.getItem(
+            "jlc-chat-history-companion-import-v1",
+          ) === "1",
+      };
+    }, recentSessionId);
+    expect(recovered).toEqual({ inIndex: true, started: true, imported: true });
+  });
+
+  test("renders one terminal error when the stream also returns not ok", async ({
+    page,
+  }) => {
+    const providerError =
+      "API call failed after 3 retries: HTTP 404: Internal server error";
+    await page.route("**/api/chat", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "text/event-stream",
+        headers: {
+          "X-JLC-Execution": "companion",
+          "X-JLC-Run-Id": "single-terminal-error-run",
+        },
+        body: [
+          `event: run.started\ndata: ${JSON.stringify({
+            runId: "single-terminal-error-run",
+            cwd: "/tmp/project",
+            agentId: "hermes",
+          })}`,
+          `event: run.error\ndata: ${JSON.stringify({
+            code: "hermes_cli_error",
+            message: providerError,
+          })}`,
+          "",
+        ].join("\n\n"),
+      });
+    });
+
+    await (await getVisibleHomeComposer(page)).fill("验证错误去重");
+    await page.getByRole("button", { name: "发送" }).click();
+    const process = page.getByTestId("activity-section");
+    await expect(process).toHaveAttribute("data-state", "error");
+    await expect(process.locator(".chat-activity-summary")).toContainText(
+      "1 项失败",
+    );
+    await expect(process.locator(".chat-activity-summary")).not.toContainText(
+      "2 项失败",
+    );
+  });
+
+  test("renders assistant segments once when the companion also sends a compatibility delta", async ({
+    page,
+  }) => {
+    const finalText = "兼容结果只显示一次";
+    await page.route("**/api/chat", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "text/event-stream",
+        headers: {
+          "X-JLC-Execution": "companion",
+          "X-JLC-Run-Id": "segment-compatibility-run",
+        },
+        body: [
+          `event: run.started\ndata: ${JSON.stringify({
+            runId: "segment-compatibility-run",
+            cwd: "/tmp/project",
+            agentId: "codex",
+          })}`,
+          `event: assistant.segment\ndata: ${JSON.stringify({
+            segmentId: "segment-compatibility-final",
+            operation: "delta",
+            role: "final",
+            text: finalText,
+          })}`,
+          `event: message.delta\ndata: ${JSON.stringify({
+            content: finalText,
+            compatibility: "assistant.segment",
+          })}`,
+          `event: run.finished\ndata: ${JSON.stringify({
+            runId: "segment-compatibility-run",
+          })}`,
+          "",
+        ].join("\n\n"),
+      });
+    });
+
+    await (await getVisibleHomeComposer(page)).fill("验证新版兼容事件");
+    await page.getByRole("button", { name: "发送" }).click();
+
+    await page.waitForURL(/\/chat\/\d+/);
+    const result = page.getByTestId("result-sequence");
+    await expect(result.getByText(finalText, { exact: true })).toHaveCount(1);
+    await expect(result).toHaveText(finalText);
+  });
+
+  test("continues to render a plain legacy companion message delta", async ({
+    page,
+  }) => {
+    const finalText = "旧版增量仍然正常显示";
+    await page.route("**/api/chat", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "text/event-stream",
+        headers: {
+          "X-JLC-Execution": "companion",
+          "X-JLC-Run-Id": "legacy-delta-run",
+        },
+        body: [
+          `event: run.started\ndata: ${JSON.stringify({
+            runId: "legacy-delta-run",
+            cwd: "/tmp/project",
+            agentId: "codex",
+          })}`,
+          `event: message.delta\ndata: ${JSON.stringify({ content: finalText })}`,
+          `event: run.finished\ndata: ${JSON.stringify({
+            runId: "legacy-delta-run",
+          })}`,
+          "",
+        ].join("\n\n"),
+      });
+    });
+
+    await (await getVisibleHomeComposer(page)).fill("验证旧版增量事件");
+    await page.getByRole("button", { name: "发送" }).click();
+
+    await page.waitForURL(/\/chat\/\d+/);
+    await expect(
+      page.getByTestId("result-sequence").getByText(finalText, { exact: true }),
+    ).toHaveCount(1);
+  });
+
   test("does not apply mock agent status while runtime detection is pending", async ({
     page,
   }) => {
+    let requestedAgentId: string | null = null;
     await page.route("**/api/agents", async (route) => {
       await new Promise((resolve) => setTimeout(resolve, 5_000));
       await route.continue();
     });
     await page.route("**/api/chat", async (route) => {
+      const payload = route.request().postDataJSON() as { agentId?: unknown };
+      requestedAgentId =
+        typeof payload.agentId === "string" ? payload.agentId : null;
       await route.fulfill({
         status: 200,
         contentType: "text/event-stream",
@@ -318,18 +621,47 @@ test.describe("MVP chat", () => {
     });
 
     await page.reload();
-    await expect(
-      page.getByRole("button", { name: /选择执行源与模型/ }),
-    ).toHaveAttribute("title", /Claude Code/);
-
-    await page
+    const composer = page.locator(".chat-composer:visible").first();
+    await composer
       .getByPlaceholder(/可向助手询问任何事/)
       .fill("在运行时探测完成前发送");
-    await page.getByRole("button", { name: "发送" }).click();
+    await composer.getByRole("button", { name: "发送" }).click();
 
     await page.waitForURL(/\/chat\/\d+/);
+    await expect.poll(() => requestedAgentId).toBe("claude");
     await expect(page.getByText("Claude 请求已进入服务端")).toBeVisible();
     await expect(page.getByText(/Claude Code 需要先完成登录/)).toHaveCount(0);
+  });
+
+  test("retries agent detection when Companion starts after the web app", async ({
+    page,
+  }) => {
+    let attempts = 0;
+    await page.route("**/api/agents", async (route) => {
+      attempts += 1;
+      if (attempts === 1) {
+        await route.fulfill({
+          status: 503,
+          contentType: "application/json",
+          body: JSON.stringify({
+            execution: "companion",
+            ok: false,
+            mode: "unreachable",
+            error: "companion_unreachable",
+            agents: [],
+            inferenceChannel: "api_fallback",
+          }),
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    await page.reload();
+    await expect.poll(() => attempts).toBeGreaterThan(1);
+    await expect(
+      page.getByRole("button", { name: "选择执行源与模型" }),
+    ).toBeEnabled();
   });
 
   test("opens the attachment file picker from the composer menu", async ({
@@ -349,15 +681,31 @@ test.describe("MVP chat", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 480, height: 320 });
+    await expect(
+      page.getByRole("button", { name: "展开侧栏", exact: true }),
+    ).toBeVisible();
+    await expect
+      .poll(() =>
+        page
+          .locator(".sidebar-shell")
+          .evaluate((element) => Math.round(element.getBoundingClientRect().width)),
+      )
+      .toBe(56);
     const composer = page.locator(".chat-composer:visible").first();
     const textarea = composer.locator(".chat-composer__textarea");
     const body = composer.locator(".chat-composer__body");
 
-    await textarea.fill(`${"速度".repeat(11)}d f`);
+    await textarea.fill(`${"速度".repeat(9)}d f`);
     await expect(body).toHaveClass(/chat-composer__body--stacked/);
 
     const samples: Array<{ mode: string; height: number }> = [];
     const sample = async () => {
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) => {
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+          }),
+      );
       samples.push(
         await composer.evaluate((node) => {
           const body = node.querySelector(".chat-composer__body");
@@ -485,7 +833,7 @@ test.describe("MVP chat", () => {
       },
     ]);
 
-    await page.getByPlaceholder(/可向助手询问任何事/).fill("请分析附件");
+    await (await getVisibleHomeComposer(page)).fill("请分析附件");
     await page.getByRole("button", { name: "发送" }).click();
 
     await page.waitForURL(/\/chat\/\d+/);
@@ -542,7 +890,7 @@ test.describe("MVP chat", () => {
       },
     ]);
 
-    await page.getByPlaceholder(/可向助手询问任何事/).fill("请分析附件");
+    await (await getVisibleHomeComposer(page)).fill("请分析附件");
     const sendButton = page.getByRole("button", { name: "发送" });
     await sendButton.click();
     await uploadStarted;
@@ -571,6 +919,9 @@ test.describe("MVP chat", () => {
       }),
     ).toBeVisible();
     await expect(page.getByText("据已接入数据源，上周螺纹钢社会库存环比下降 2.3%。")).toBeVisible();
+    if (process.env.CHAT_ACTIVITY_V2_ENABLED === "false") {
+      await expect(page.locator('[data-renderer="legacy"]')).toBeVisible();
+    }
   });
 
   test("keeps structured assistant sections and stable long-session scrolling", async ({
@@ -644,7 +995,286 @@ test.describe("MVP chat", () => {
     await expect(page.locator(".bubble-user").filter({ hasText: "第 1 轮问题" })).toBeVisible();
   });
 
-  test("separates process from result and preserves disclosure scroll position", async ({
+  test("keeps live work expanded and collapses once the final answer starts", async ({
+    page,
+  }) => {
+    const sessionId = `activity-live-${Date.now()}`;
+    const runId = "activity-live-run";
+    const now = new Date().toISOString();
+    let completeRun = false;
+    const events = () => [
+      {
+        type: "run.started",
+        runId,
+        cwd: "/tmp/project",
+        agentId: "codex",
+      },
+      {
+        type: "assistant.segment",
+        runId,
+        segmentId: "live-process-1",
+        operation: "commit",
+        role: "process",
+        text: "我先读取设计约束，再运行现有验证。",
+      },
+      {
+        type: "part.append",
+        runId,
+        part: {
+          id: "live-read",
+          zone: "activity",
+          kind: "file_read",
+          path: "docs/conversation-ux.md",
+        },
+      },
+      {
+        type: "part.append",
+        runId,
+        part: {
+          id: "live-command",
+          zone: "activity",
+          kind: "command",
+          command: "pnpm test --filter conversation-ux",
+        },
+      },
+      {
+        type: "tool.progress",
+        runId,
+        tool: "reasoning",
+        status: "running",
+        message: "思考中",
+      },
+      {
+        type: "tool.progress",
+        runId,
+        tool: "reasoning",
+        status: "running",
+        message: "验证结果表明动作证据需要保留在对应说明之后。",
+      },
+      {
+        type: "tool.progress",
+        runId,
+        tool: "reasoning",
+        status: "success",
+        message: "思考中",
+      },
+      {
+        type: "part.append",
+        runId,
+        part: {
+          id: "live-checkpoint",
+          zone: "summary",
+          kind: "writing_requirement_summary",
+          title: "验收要点",
+          markdown: "运行时展开动作证据，最终回答开始后自动收起一次。",
+        },
+      },
+      {
+        type: "assistant.segment",
+        runId,
+        segmentId: "live-process-2",
+        operation: "commit",
+        role: "process",
+        text: "验收口径已经确认，现在修改会话呈现。",
+      },
+      {
+        type: "tool.progress",
+        runId,
+        tool: "reasoning",
+        status: "running",
+        message: "思考中",
+      },
+      {
+        type: "tool.progress",
+        runId,
+        tool: "reasoning",
+        status: "running",
+        message: "修改前先锁定第二段说明的时间位置。",
+      },
+      {
+        type: "tool.progress",
+        runId,
+        tool: "reasoning",
+        status: "success",
+        message: "思考中",
+      },
+      {
+        type: "part.append",
+        runId,
+        part: {
+          id: "live-edit",
+          zone: "activity",
+          kind: "file_edit",
+          path: "web/src/components/chat/parts/ActivitySection.tsx",
+        },
+      },
+      ...(completeRun
+        ? [
+            {
+              type: "assistant.segment",
+              runId,
+              segmentId: "live-final",
+              operation: "delta",
+              role: "pending",
+              text: "## 最终回答\n\n会话过程已经按业务时间顺序完成。",
+            },
+            {
+              type: "assistant.segment",
+              runId,
+              segmentId: "live-final",
+              operation: "commit",
+              role: "final",
+            },
+            {
+              type: "part.append",
+              runId,
+              part: {
+                id: "live-artifact",
+                zone: "summary",
+                kind: "artifact",
+                path: "output/conversation-ux-report.md",
+                label: "会话体验报告",
+              },
+            },
+            { type: "run.finished", runId },
+          ]
+        : []),
+    ];
+
+    await page.route(new RegExp(`/api/runs/${runId}$`), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          runId,
+          tenantId: "test",
+          projectId: "test",
+          workspaceId: "test",
+          sessionId,
+          turnId: "activity-live-assistant",
+          agentId: "codex",
+          agentModel: "mock",
+          status: completeRun ? "completed" : "running",
+          queuePolicy: "interrupt",
+          createdAt: now,
+          startedAt: now,
+          ...(completeRun ? { finishedAt: now } : {}),
+        }),
+      });
+    });
+    await page.route(
+      new RegExp(`/api/runs/${runId}/events$`),
+      async (route) => {
+        const items = events();
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ runId, items, count: items.length }),
+        });
+      },
+    );
+    await page.addInitScript(
+      ([seedSessionId, seedRunId]) => {
+        window.localStorage.setItem(
+          `jlc-chat-messages-${seedSessionId}`,
+          JSON.stringify([
+            {
+              id: "activity-live-user",
+              role: "user",
+              content: "请实现完整的会话过程呈现",
+              status: "complete",
+            },
+            {
+              id: "activity-live-assistant",
+              role: "assistant",
+              content: "",
+              status: "streaming",
+              runId: seedRunId,
+              parts: [],
+              activityCollapse: "expanded",
+            },
+          ]),
+        );
+        window.localStorage.setItem(`jlc-chat-started-${seedSessionId}`, "1");
+      },
+      [sessionId, runId],
+    );
+
+    await page.setViewportSize({ width: 980, height: 720 });
+    await page.goto(`/chat/${sessionId}`);
+    const process = page.getByTestId("activity-section");
+    const summary = process.locator(".chat-activity-summary");
+    await expect(process).toHaveAttribute("data-state", "running");
+    await expect(process).toHaveAttribute("data-expanded", "true");
+    await expect(summary).toHaveAccessibleName(/收起处理过程/);
+    await expect(process.getByRole("button", { name: "读取 conversation-ux.md" }))
+      .toHaveAttribute("title", "docs/conversation-ux.md");
+    await expect(
+      process.getByText("pnpm test --filter conversation-ux"),
+    ).toBeVisible();
+    await expect(process.getByRole("button", { name: "编辑 ActivitySection.tsx" }))
+      .toHaveAttribute(
+        "title",
+        "web/src/components/chat/parts/ActivitySection.tsx",
+      );
+    await expect(process.getByText("验收要点")).toBeVisible();
+    await expect(page.getByTestId("result-sequence")).toHaveCount(0);
+
+    const liveNodes = await process
+      .locator("[data-testid='activity-evidence-list'] > [data-node-kind]")
+      .evaluateAll((nodes) =>
+        nodes.map((node) => ({
+          kind: node.getAttribute("data-node-kind"),
+          text: node.textContent?.replace(/\s+/g, " ").trim() ?? "",
+        })),
+      );
+    expect(liveNodes.map((node) => node.kind)).toEqual([
+      "narration",
+      "actions",
+      "reasoning",
+      "checkpoint",
+      "narration",
+      "reasoning",
+      "actions",
+    ]);
+    expect(liveNodes[0]?.text).toContain("先读取设计约束");
+    expect(liveNodes[1]?.text).toContain("已读取 1 个文件 · 已运行 1 条命令");
+    expect(liveNodes[2]?.text).toContain("动作证据需要保留在对应说明之后");
+    expect(liveNodes[3]?.text).toContain("验收要点");
+    expect(liveNodes[4]?.text).toContain("现在修改会话呈现");
+    expect(liveNodes[5]?.text).toContain("第二段说明的时间位置");
+    expect(liveNodes[6]?.text).toContain("已编辑 1 个文件");
+
+    completeRun = true;
+    await expect(process).toHaveAttribute("data-state", "complete", {
+      timeout: 15_000,
+    });
+    await expect(process).toHaveAttribute("data-expanded", "false");
+    await expect(summary).toContainText("已处理");
+    await expect(summary).toHaveAccessibleName(/展开处理过程/);
+    const answer = page.locator(
+      '[data-answer-id="activity-live-assistant-answer"]',
+    );
+    await expect(answer).toHaveAttribute("data-answer-phase", "final");
+    await expect(answer).toContainText("会话过程已经按业务时间顺序完成");
+    await expect(page.getByTestId("deliverables-section")).toContainText(
+      "会话体验报告",
+    );
+
+    const outputOrder = await page.evaluate(() => {
+      const answerElement = document.querySelector('[data-testid="result-sequence"]');
+      const deliverablesElement = document.querySelector(
+        '[data-testid="deliverables-section"]',
+      );
+      if (!(answerElement instanceof HTMLElement) || !(deliverablesElement instanceof HTMLElement)) {
+        return false;
+      }
+      return Boolean(answerElement.compareDocumentPosition(deliverablesElement) & 4);
+    });
+    expect(outputOrder).toBe(true);
+  });
+
+  test("reviews completed work in order and preserves disclosure scroll position", async ({
     page,
   }) => {
     const sessionId = `activity-layout-${Date.now()}`;
@@ -671,10 +1301,10 @@ test.describe("MVP chat", () => {
     const result = page.getByTestId("result-sequence");
     await expect(summary).toBeVisible();
     await expect(summary).toHaveAccessibleName(/展开处理过程/);
+    await expect(summary).toContainText("已处理");
+    await expect(summary).toContainText("42 秒");
     await expect(process.getByTestId("activity-evidence-list")).toHaveCount(0);
-    await expect(process.getByTestId("activity-narration-preview")).toContainText(
-      "准备给出结论",
-    );
+    await expect(process.getByTestId("activity-narration-preview")).toHaveCount(0);
     await expect(page.getByText("只应在思考过程中出现的推理载荷")).toHaveCount(0);
 
     const order = await page.evaluate(() => {
@@ -700,7 +1330,8 @@ test.describe("MVP chat", () => {
     await summary.click();
     await expect(process.getByTestId("activity-evidence-list")).toBeVisible();
     await expect(process.getByTestId("activity-narration-preview")).toHaveCount(0);
-    await expect(process.getByText("我已经完成读取与验证，准备给出结论。")).toBeVisible();
+    await expect(process.getByText("步骤 01：读取实现上下文。")).toBeVisible();
+    await expect(process.locator(".chat-activity-action__detail")).toHaveCount(0);
     await page.waitForTimeout(100);
     const topAfter = await summary.evaluate((element) => {
       const rootElement = element.closest(".chat-scroll-root");
@@ -712,16 +1343,27 @@ test.describe("MVP chat", () => {
     expect(Math.abs((topAfter ?? 0) - (topBefore ?? 0))).toBeLessThanOrEqual(2);
     await expect(page.getByRole("button", { name: "回到底部" })).toBeVisible();
 
-    await process.getByRole("button", { name: /更早 6 个步骤/ }).click();
-    const labels = await process
-      .locator(".chat-activity-evidence__stage")
-      .allTextContents();
-    expect(labels[0]).toContain("阶段 01：读取");
-    expect(labels[1]).toContain("阶段 02：编辑");
-    expect(labels[2]).toContain("阶段 03：验证");
+    const reviewNodes = await process
+      .locator("[data-testid='activity-evidence-list'] > [data-node-kind]")
+      .evaluateAll((nodes) => nodes.slice(0, 6).map((node) => node.getAttribute("data-node-kind")));
+    expect(reviewNodes).toEqual([
+      "narration",
+      "actions",
+      "narration",
+      "actions",
+      "narration",
+      "actions",
+    ]);
+    const firstAction = process
+      .locator(".chat-activity-action__badge")
+      .first();
+    await expect(firstAction).toHaveAccessibleName("已读取 1 个文件");
+    await firstAction.click();
+    await expect(process.getByRole("button", { name: "读取 feature-1.ts" }))
+      .toHaveAttribute("title", "src/feature-1.ts");
 
-    await process.getByTestId("activity-thinking-toggle").click();
     await expect(page.getByText("只应在思考过程中出现的推理载荷")).toBeVisible();
+    await expect(process.getByTestId("activity-thinking-toggle")).toHaveCount(0);
     await process.getByRole("button", { name: "技术详情" }).click();
     await expect(page.getByText("只应在思考过程中出现的推理载荷")).toHaveCount(1);
     await expect
@@ -739,7 +1381,9 @@ test.describe("MVP chat", () => {
 
     await page.reload();
     await expect(page.getByTestId("activity-evidence-list")).toBeVisible();
+    await expect(page.locator(".chat-activity-action__detail")).toHaveCount(0);
     await expect(result).toContainText("最终结果");
+    await expect(page.getByTestId("deliverables-section")).toContainText("验证报告");
     await summary.focus();
     await summary.press("Enter");
     await expect(summary).toHaveAttribute("aria-expanded", "false");
@@ -1019,6 +1663,9 @@ test.describe("MVP chat", () => {
     const process = page.getByTestId("activity-section");
     const summary = process.locator(".chat-activity-summary");
     await expect(process).toHaveAttribute("data-state", "error");
+    await expect(process).toHaveAttribute("data-expanded", "true");
+    await expect(summary).toContainText("处理过程");
+    await expect(summary).not.toContainText("已处理");
     await expect(summary).toContainText("验证失败");
     await expect(summary).toContainText("失败");
     const summaryLayout = await summary.evaluate((element) => ({
@@ -1032,21 +1679,96 @@ test.describe("MVP chat", () => {
     expect(summaryLayout.height).toBeLessThanOrEqual(40);
     expect(summaryLayout.scrollWidth).toBeLessThanOrEqual(summaryLayout.width + 1);
     expect(summaryLayout.visibleSegments).toBeLessThanOrEqual(2);
+    const scrollOverflow = await page.locator(".chat-scroll-root").evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    }));
+    expect(scrollOverflow.scrollWidth).toBeLessThanOrEqual(scrollOverflow.clientWidth + 1);
 
     const outcome = page.locator('.chat-outcome-callout[data-kind="error"]');
     await expect(outcome).toContainText("测试命令返回非零退出码");
     await expect(outcome).toContainText("以下为已生成的部分结果");
-    const outcomeBeforeResult = await page.evaluate(() => {
+    const outputOrder = await page.evaluate(() => {
+      const processElement = document.querySelector(
+        '[data-testid="activity-section"]',
+      );
       const outcomeElement = document.querySelector(
         '.chat-outcome-callout[data-kind="error"]',
       );
       const resultElement = document.querySelector('[data-testid="result-sequence"]');
-      if (!(outcomeElement instanceof HTMLElement) || !(resultElement instanceof HTMLElement)) {
-        return false;
+      if (
+        !(processElement instanceof HTMLElement) ||
+        !(outcomeElement instanceof HTMLElement) ||
+        !(resultElement instanceof HTMLElement)
+      ) {
+        return { processBeforeOutcome: false, outcomeBeforeResult: false };
       }
-      return Boolean(outcomeElement.compareDocumentPosition(resultElement) & 4);
+      return {
+        processBeforeOutcome: Boolean(
+          processElement.compareDocumentPosition(outcomeElement) & 4,
+        ),
+        outcomeBeforeResult: Boolean(
+          outcomeElement.compareDocumentPosition(resultElement) & 4,
+        ),
+      };
     });
-    expect(outcomeBeforeResult).toBe(true);
+    expect(outputOrder).toEqual({
+      processBeforeOutcome: true,
+      outcomeBeforeResult: true,
+    });
+  });
+
+  test("keeps waiting and cancelled business timelines expanded", async ({
+    page,
+  }) => {
+    const waitingSessionId = `waiting-state-${Date.now()}`;
+    const cancelledSessionId = `cancelled-state-${Date.now()}`;
+    await page.evaluate(
+      ([waitingId, waitingMessages, cancelledId, cancelledMessages]) => {
+        window.localStorage.setItem(
+          `jlc-chat-messages-${waitingId}`,
+          JSON.stringify(waitingMessages),
+        );
+        window.localStorage.setItem(`jlc-chat-started-${waitingId}`, "1");
+        window.localStorage.setItem(
+          `jlc-chat-messages-${cancelledId}`,
+          JSON.stringify(cancelledMessages),
+        );
+        window.localStorage.setItem(`jlc-chat-started-${cancelledId}`, "1");
+      },
+      [
+        waitingSessionId,
+        buildWaitingMessages(),
+        cancelledSessionId,
+        buildCancelledMessages(),
+      ],
+    );
+
+    await page.goto(`/chat/${waitingSessionId}`);
+    let process = page.getByTestId("activity-section");
+    await expect(process).toHaveAttribute("data-state", "waiting_user");
+    await expect(process).toHaveAttribute("data-expanded", "true");
+    await expect(process.getByText("已经完成初步检查，需要确认验证范围。"))
+      .toBeVisible();
+    await expect(process.getByRole("button", { name: "读取 waiting.ts" }))
+      .toHaveAttribute("title", "src/waiting.ts");
+    await expect(
+      process
+        .getByTestId("activity-evidence-list")
+        .getByText("请选择验证范围", { exact: true }),
+    ).toBeVisible();
+
+    await page.goto(`/chat/${cancelledSessionId}`);
+    process = page.getByTestId("activity-section");
+    await expect(process).toHaveAttribute("data-state", "cancelled");
+    await expect(process).toHaveAttribute("data-expanded", "true");
+    await expect(process.getByText("pnpm test --filter cancelled"))
+      .toBeVisible();
+    const cancelledOutcome = page.locator(
+      '.chat-outcome-callout[data-kind="cancelled"]',
+    );
+    await expect(cancelledOutcome).toContainText("以下保留中断前已经生成的部分结果");
+    await expect(page.getByTestId("result-sequence")).toContainText("部分结果");
   });
 
   test("persists committed outline edits after refresh", async ({ page }) => {
@@ -1070,7 +1792,9 @@ test.describe("MVP chat", () => {
           parts: [
             {
               id: "outline-part",
+              zone: "summary",
               kind: "writing_outline",
+              presentationRole: "checkpoint",
               title: "写作大纲",
               markdown:
                 "## 原始大纲\n\n1. 市场回顾\n- 需求恢复\n\n2. 风险研判\n- 价格波动",
@@ -1100,6 +1824,11 @@ test.describe("MVP chat", () => {
     }, [sessionId, storageKey]);
 
     await page.goto(`/chat/${sessionId}`);
+    const process = page.getByTestId("activity-section");
+    await expect(process.locator(".chat-activity-summary")).toHaveAccessibleName(
+      /展开处理过程/,
+    );
+    await process.locator(".chat-activity-summary").click();
     await expect(page.getByText("写作大纲")).toBeVisible();
 
     await page
@@ -1146,6 +1875,7 @@ test.describe("MVP chat", () => {
       });
 
     await page.reload();
+    await expect(process).toHaveAttribute("data-expanded", "true");
     await expect(page.getByText("已确认")).toBeVisible();
     await expect(page.getByText("用户确认版行业深度报告大纲")).toBeVisible();
     await expect(page.getByText("上半年市场复盘")).toBeVisible();

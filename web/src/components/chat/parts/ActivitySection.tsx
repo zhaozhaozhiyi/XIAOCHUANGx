@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useId,
+  useMemo,
+  useState,
+  type ComponentProps,
+} from "react";
 import {
   AlertCircle,
   CheckCircle2,
@@ -19,9 +24,27 @@ import { ActivityEvidenceList } from "@/components/chat/parts/ActivityEvidenceLi
 import { ActivityProcessList } from "@/components/chat/parts/ActivityTimeline";
 import { PartRenderer } from "@/components/chat/parts/PartRenderer";
 
+type ForwardedRendererProps = Omit<
+  ComponentProps<typeof PartRenderer>,
+  "part" | "presentation" | "onDisclosureIntent"
+>;
+
 function SummaryIcon({ model }: { model: ActivityViewModel }) {
+  if (
+    model.finalAnswerStarted &&
+    model.state !== "waiting_user" &&
+    model.state !== "error" &&
+    model.state !== "cancelled"
+  ) {
+    return null;
+  }
   if (isTurnActive(model.state)) {
-    return <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />;
+    return (
+      <Loader2
+        className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none"
+        aria-hidden
+      />
+    );
   }
   if (model.state === "error") {
     return <AlertCircle className="h-3.5 w-3.5 text-[var(--danger)]" aria-hidden />;
@@ -61,6 +84,7 @@ export function ActivitySection({
   sticky = false,
   onCollapseChange,
   onDisclosureIntent,
+  rendererProps,
 }: {
   model: ActivityViewModel;
   collapse?: ActivityCollapse;
@@ -70,32 +94,47 @@ export function ActivitySection({
   sticky?: boolean;
   onCollapseChange?: (collapse: ActivityCollapse) => void;
   onDisclosureIntent?: (trigger: HTMLElement) => void;
+  rendererProps?: ForwardedRendererProps;
 }) {
-  const [localCollapse, setLocalCollapse] = useState<ActivityCollapse | undefined>(
-    collapse,
+  const [localCollapseOverride, setLocalCollapseOverride] =
+    useState<ActivityCollapse>();
+  const effectiveCollapse = onCollapseChange
+    ? collapse
+    : localCollapseOverride ?? collapse;
+  const expanded = resolveActivityProcessExpanded(
+    effectiveCollapse,
+    model.state,
+    model.finalAnswerStarted,
   );
-  const effectiveCollapse = onCollapseChange ? collapse : localCollapse;
-  const expanded = resolveActivityProcessExpanded(effectiveCollapse, model.state);
-  const [thinkingOpen, setThinkingOpen] = useState(false);
   const [technicalOpen, setTechnicalOpen] = useState(false);
+  const technicalDetailsId = useId();
   const { selected, mobileKeys, hiddenCount } = useMemo(
     () => selectedSegments(model),
     [model],
   );
-  const detailsId = `activity-details-${model.activityParts[0]?.id ?? "turn"}`;
-  const showPreview = !expanded && Boolean(model.latestNarrationPreview);
-  const hasThinking = model.reasoningParts.length > 0;
+  const detailsId = `activity-details-${
+    model.activityParts[0]?.id ?? model.timelineNodes[0]?.nodeId ?? "turn"
+  }`;
+  const showFinalSummary =
+    model.finalAnswerStarted &&
+    model.state !== "waiting_user" &&
+    model.state !== "error" &&
+    model.state !== "cancelled";
+  const visibleSegments = showFinalSummary
+    ? selected.filter((segment) => segment.kind === "duration")
+    : selected;
+  const visibleHiddenCount = showFinalSummary ? 0 : hiddenCount;
+  const showPreview =
+    !expanded &&
+    !showFinalSummary &&
+    Boolean(model.latestNarrationPreview);
   const hasTechnical = model.technicalParts.length > 0;
-
-  useEffect(() => {
-    if (!onCollapseChange) setLocalCollapse(collapse);
-  }, [collapse, onCollapseChange]);
 
   const toggle = (trigger: HTMLElement) => {
     onDisclosureIntent?.(trigger);
     const next: ActivityCollapse = expanded ? "user_collapsed" : "user_expanded";
     if (onCollapseChange) onCollapseChange(next);
-    else setLocalCollapse(next);
+    else setLocalCollapseOverride(next);
   };
 
   return (
@@ -103,6 +142,7 @@ export function ActivitySection({
       className="chat-activity-section"
       data-state={model.state}
       data-expanded={expanded ? "true" : "false"}
+      data-sticky={sticky ? "true" : undefined}
       data-testid="activity-section"
     >
       <div
@@ -118,12 +158,16 @@ export function ActivitySection({
           aria-controls={detailsId}
           aria-label={`${expanded ? "收起" : "展开"}处理过程：${model.summaryLabel}`}
         >
-          <span className="chat-activity-summary__status">
-            <SummaryIcon model={model} />
+          {!showFinalSummary ? (
+            <span className="chat-activity-summary__status">
+              <SummaryIcon model={model} />
+            </span>
+          ) : null}
+          <span className="chat-activity-summary__prefix">
+            {showFinalSummary ? "已处理" : "处理过程"}
           </span>
-          <span className="chat-activity-summary__prefix">处理过程</span>
           <span className="chat-activity-summary__segments">
-            {selected.map((segment, index) => {
+            {visibleSegments.map((segment, index) => {
               const key = `${segment.kind}:${segment.fullText}`;
               return (
               <span
@@ -133,13 +177,15 @@ export function ActivitySection({
                 data-priority={segment.priority}
               >
                 {index > 0 ? <span aria-hidden> · </span> : null}
-                <span className="chat-activity-summary__segment-full">{segment.fullText}</span>
+                <span className="chat-activity-summary__segment-full">
+                  {showFinalSummary ? segment.compactText : segment.fullText}
+                </span>
                 <span className="chat-activity-summary__segment-compact">{segment.compactText}</span>
               </span>
               );
             })}
-            {hiddenCount > 0 ? (
-              <span className="chat-activity-summary__overflow"> · 另 {hiddenCount} 项</span>
+            {visibleHiddenCount > 0 ? (
+              <span className="chat-activity-summary__overflow"> · 另 {visibleHiddenCount} 项</span>
             ) : null}
           </span>
           {expanded ? (
@@ -165,43 +211,15 @@ export function ActivitySection({
       {expanded ? (
         <div id={detailsId} className="chat-activity-details">
           <ActivityEvidenceList
-            episodes={model.episodes}
+            nodes={model.timelineNodes}
+            detailsExpanded={model.detailsExpanded}
+            rendererProps={{
+              ...rendererProps,
+              sessionId,
+              runId,
+            }}
             onDisclosureIntent={onDisclosureIntent}
           />
-
-          {hasThinking ? (
-            <div className="chat-activity-thinking">
-              <button
-                type="button"
-                className="chat-activity-thinking__toggle"
-                onClick={(event) => {
-                  onDisclosureIntent?.(event.currentTarget);
-                  setThinkingOpen((value) => !value);
-                }}
-                aria-expanded={thinkingOpen}
-                data-testid="activity-thinking-toggle"
-              >
-                {thinkingOpen ? (
-                  <ChevronDown className="h-3.5 w-3.5" aria-hidden />
-                ) : (
-                  <ChevronRight className="h-3.5 w-3.5" aria-hidden />
-                )}
-                思考过程
-              </button>
-              {thinkingOpen ? (
-                <div className="chat-activity-thinking__body">
-                  {model.reasoningParts.map((part) => (
-                    <PartRenderer
-                      key={part.id}
-                      part={part}
-                      presentation="timeline"
-                      onDisclosureIntent={onDisclosureIntent}
-                    />
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
 
           {hasTechnical ? (
             <div className="chat-activity-technical">
@@ -213,6 +231,7 @@ export function ActivitySection({
                   setTechnicalOpen((value) => !value);
                 }}
                 aria-expanded={technicalOpen}
+                aria-controls={technicalDetailsId}
               >
                 {technicalOpen ? (
                   <ChevronDown className="h-3.5 w-3.5" aria-hidden />
@@ -222,7 +241,7 @@ export function ActivitySection({
                 技术详情
               </button>
               {technicalOpen ? (
-                <div className="chat-activity-technical__body">
+                <div id={technicalDetailsId} className="chat-activity-technical__body">
                   <ActivityProcessList
                     parts={model.technicalParts}
                     gapBefore={gapBefore}

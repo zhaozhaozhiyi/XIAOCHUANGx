@@ -1,5 +1,6 @@
 import type {
   ActivityCollapse,
+  AssistantSegmentPayload,
   ChatPart,
   CommandPart,
   SkillPart,
@@ -36,7 +37,33 @@ export type AssistantPartsState = {
   nextStreamSeq: number;
   /** tool / 进度文案之后，下一段 token 必须新开 text part（Hermes _freshSegment） */
   pendingNewTextSegment: boolean;
+  /** A committed/deterministic final-answer segment has started. */
+  finalAnswerStarted: boolean;
+  /** One-shot system collapse revision; user choices after it remain authoritative. */
+  finalCollapseRevision: number;
 };
+
+function isValidStreamSeq(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    Number.isFinite(value) &&
+    value >= 0
+  );
+}
+
+function reserveStreamSeq(
+  state: AssistantPartsState,
+  preferred?: number,
+): { seq: number; nextStreamSeq: number } {
+  if (isValidStreamSeq(preferred)) {
+    return {
+      seq: preferred,
+      nextStreamSeq: Math.max(state.nextStreamSeq, preferred + 1),
+    };
+  }
+  return bumpStreamSeq(state);
+}
 
 export function initAssistantPartsState(): AssistantPartsState {
   return {
@@ -44,6 +71,8 @@ export function initAssistantPartsState(): AssistantPartsState {
     activityCollapse: "expanded",
     nextStreamSeq: 0,
     pendingNewTextSegment: false,
+    finalAnswerStarted: false,
+    finalCollapseRevision: 0,
   };
 }
 
@@ -351,6 +380,7 @@ export function reduceRunStarted(
     runStartedAt,
     activityCollapse: "expanded",
     pendingNewTextSegment: false,
+    finalAnswerStarted: false,
     parts,
     nextStreamSeq,
   };
@@ -360,7 +390,7 @@ export function reduceAppendPart(
   state: AssistantPartsState,
   part: ChatPart,
 ): AssistantPartsState {
-  const { seq, nextStreamSeq } = bumpStreamSeq(state);
+  const { seq, nextStreamSeq } = reserveStreamSeq(state, part.streamSeq);
   const sealedParts = sealStreamingTail(state.parts);
   const incoming = withStreamSeq(
     part.kind === "simulation_scenario"
@@ -402,11 +432,118 @@ export function reduceAppendPart(
   };
 }
 
+function beginFinalAnswer(state: AssistantPartsState): Pick<
+  AssistantPartsState,
+  "activityCollapse" | "finalAnswerStarted" | "finalCollapseRevision"
+> {
+  if (state.finalAnswerStarted) {
+    return {
+      activityCollapse: state.activityCollapse,
+      finalAnswerStarted: true,
+      finalCollapseRevision: state.finalCollapseRevision,
+    };
+  }
+  return {
+    activityCollapse: "collapsed",
+    finalAnswerStarted: true,
+    finalCollapseRevision: state.finalCollapseRevision + 1,
+  };
+}
+
+function partMarkdown(part: ChatPart): string {
+  if (
+    part.kind === "narration" ||
+    part.kind === "text" ||
+    part.kind === "summary"
+  ) {
+    return part.markdown;
+  }
+  return "";
+}
+
+export function reduceAssistantSegment(
+  state: AssistantPartsState,
+  payload: AssistantSegmentPayload,
+): AssistantPartsState {
+  const existingIndex = state.parts.findIndex(
+    (part) => part.segmentId === payload.segmentId,
+  );
+  const existing = existingIndex >= 0 ? state.parts[existingIndex] : null;
+  const text = payload.text ?? "";
+  const markdown = `${existing ? partMarkdown(existing) : ""}${text}`;
+
+  if (payload.role !== "final") {
+    if (!existing && !markdown) return state;
+    const streaming = payload.operation !== "commit";
+    const nextPart: ChatPart = {
+      id: existing?.id ?? `assistant-segment-${payload.segmentId}`,
+      zone: "activity",
+      kind: "narration",
+      segmentId: payload.segmentId,
+      presentationRole: "process",
+      markdown: existing ? markdown : normalizeMarkdown(markdown),
+      streaming,
+      completedAt: streaming ? undefined : Date.now(),
+      streamSeq: existing?.streamSeq,
+    };
+    if (existing) {
+      const parts = [...state.parts];
+      parts[existingIndex] = nextPart;
+      return { ...state, parts, pendingNewTextSegment: true };
+    }
+    const { seq, nextStreamSeq } = reserveStreamSeq(state, payload.streamSeq);
+    return {
+      ...state,
+      parts: [...sealStreamingTail(state.parts), withStreamSeq(nextPart, seq)],
+      nextStreamSeq,
+      pendingNewTextSegment: true,
+    };
+  }
+
+  const finalState = beginFinalAnswer(state);
+  if (!existing && !markdown) return { ...state, ...finalState };
+  const streaming = payload.operation !== "commit";
+  const nextPart: ChatPart = {
+    id: existing?.id ?? `assistant-segment-${payload.segmentId}`,
+    zone: "summary",
+    kind: "text",
+    segmentId: payload.segmentId,
+    presentationRole: "result",
+    markdown: existing ? markdown : normalizeMarkdown(markdown),
+    streaming,
+    completedAt: streaming ? undefined : Date.now(),
+    streamSeq: existing?.streamSeq,
+  };
+  if (existing) {
+    const parts = [...state.parts];
+    parts[existingIndex] = nextPart;
+    return {
+      ...state,
+      ...finalState,
+      parts,
+      pendingNewTextSegment: false,
+    };
+  }
+  const sealedParts = sealStreamingTail(state.parts);
+  const { seq, nextStreamSeq } = reserveStreamSeq(
+    { ...state, parts: sealedParts },
+    payload.streamSeq,
+  );
+  return {
+    ...state,
+    ...finalState,
+    parts: [...sealedParts, withStreamSeq(nextPart, seq)],
+    nextStreamSeq,
+    pendingNewTextSegment: false,
+  };
+}
+
 export function reduceTextDelta(
   state: AssistantPartsState,
   delta: string,
 ): AssistantPartsState {
   if (!delta) return state;
+  const finalState = beginFinalAnswer(state);
   let parts = [...state.parts];
   const last = parts[parts.length - 1];
   const mustNewSegment =
@@ -422,10 +559,16 @@ export function reduceTextDelta(
       ...last,
       kind: "text",
       zone: "summary",
+      presentationRole: "result",
       markdown: !last.markdown ? normalizeMarkdown(merged) : merged,
       streaming: true,
     };
-    return { ...state, parts, pendingNewTextSegment: false };
+    return {
+      ...state,
+      ...finalState,
+      parts,
+      pendingNewTextSegment: false,
+    };
   }
 
   parts = sealStreamingTail(parts);
@@ -436,6 +579,7 @@ export function reduceTextDelta(
         id: newPartId("text"),
         zone: "summary",
         kind: "text",
+        presentationRole: "result",
         markdown: normalizeMarkdown(delta),
         streaming: true,
       },
@@ -444,6 +588,7 @@ export function reduceTextDelta(
   );
   return {
     ...state,
+    ...finalState,
     parts,
     nextStreamSeq,
     pendingNewTextSegment: false,
@@ -536,24 +681,69 @@ function addNarration(
 function addFileRead(
   state: AssistantPartsState,
   path: string,
+  status: ToolPart["status"],
+  callId?: string,
+  streamSeq?: number,
 ): AssistantPartsState {
-  const next = isDocumentPath(path)
-    ? appendActivityPart(state, {
-        id: newPartId("document_read"),
-        zone: "activity",
-        kind: "document_read",
-        path,
-        docType: detectDocumentType(path),
-        completedAt: Date.now(),
-      })
-    : appendActivityPart(state, {
-        id: newPartId("file_read"),
-        zone: "activity",
-        kind: "file_read",
-        path,
-        completedAt: Date.now(),
-      });
-  return withSegmentBoundary(next);
+  const kind = isDocumentPath(path) ? "document_read" : "file_read";
+  const parts = [...sealStreamingTail(state.parts)];
+  const existingIndex = parts.findLastIndex(
+    (part) =>
+      (part.kind === kind ||
+        (kind === "document_read" && part.kind === "file_read") ||
+        (kind === "file_read" && part.kind === "document_read")) &&
+      ((callId && "callId" in part && part.callId === callId) ||
+        (!callId &&
+          "path" in part &&
+          part.path === path &&
+          part.streaming)),
+  );
+  const running = status === "running" || status === "pending";
+  const existing = existingIndex >= 0 ? parts[existingIndex] : undefined;
+  if (existing && (existing.kind === "file_read" || existing.kind === "document_read")) {
+    parts[existingIndex] = {
+      ...existing,
+      path,
+      ...(callId ? { callId } : {}),
+      status,
+      ...(existing.kind === "document_read" ? { docType: detectDocumentType(path) } : {}),
+      streaming: running,
+      completedAt: running ? undefined : Date.now(),
+    };
+    return { ...state, parts };
+  }
+  const { seq, nextStreamSeq } = reserveStreamSeq(
+    { ...state, parts },
+    streamSeq,
+  );
+  parts.push(
+    withStreamSeq(
+      isDocumentPath(path)
+        ? {
+            id: newPartId("document_read"),
+            zone: "activity",
+            kind: "document_read",
+            path,
+            callId,
+            status,
+            docType: detectDocumentType(path),
+            streaming: running,
+            completedAt: running ? undefined : Date.now(),
+          }
+        : {
+            id: newPartId("file_read"),
+            zone: "activity",
+            kind: "file_read",
+            path,
+            callId,
+            status,
+            streaming: running,
+            completedAt: running ? undefined : Date.now(),
+          },
+      seq,
+    ),
+  );
+  return withSegmentBoundary({ ...state, parts, nextStreamSeq });
 }
 
 const COMMAND_TOOLS = new Set(["Bash", "bash", "run_terminal", "shell"]);
@@ -566,70 +756,150 @@ function addCommand(
   state: AssistantPartsState,
   command: string,
   status: ToolPart["status"],
+  callId?: string,
+  streamSeq?: number,
 ): AssistantPartsState {
   const parts = [...sealStreamingTail(state.parts)];
   const running = parts.find(
     (p): p is Extract<ChatPart, { kind: "command" }> =>
-      p.kind === "command" && !!p.streaming,
+      p.kind === "command" &&
+      ((callId && p.callId === callId) ||
+        (!callId && !!p.streaming)),
   );
-  if (running && status !== "running") {
+  if (running) {
     const idx = parts.indexOf(running);
     parts[idx] = {
       ...running,
       command,
-      streaming: false,
-      completedAt: Date.now(),
+      ...(callId ? { callId } : {}),
+      status,
+      streaming: status === "running" || status === "pending",
+      completedAt:
+        status === "running" || status === "pending" ? undefined : Date.now(),
     };
     return { ...state, parts };
   }
-  if (!running || status === "running") {
-    return withSegmentBoundary(
-      appendActivityPart(
-        { ...state, parts },
-        {
-          id: newPartId("command"),
-          zone: "activity",
-          kind: "command",
-          command,
-          streaming: status === "running",
-          completedAt: status === "running" ? undefined : Date.now(),
-        },
-      ),
-    );
-  }
-  return { ...state, parts };
+  const { seq, nextStreamSeq } = reserveStreamSeq(
+    { ...state, parts },
+    streamSeq,
+  );
+  parts.push(
+    withStreamSeq(
+      {
+        id: newPartId("command"),
+        zone: "activity",
+        kind: "command",
+        command,
+        callId,
+        status,
+        streaming: status === "running" || status === "pending",
+        completedAt:
+          status === "running" || status === "pending" ? undefined : Date.now(),
+      },
+      seq,
+    ),
+  );
+  return withSegmentBoundary({ ...state, parts, nextStreamSeq });
 }
 
 function addFileEdit(
   state: AssistantPartsState,
   path: string,
   counts?: { additions?: number; deletions?: number },
+  status: ToolPart["status"] = "success",
+  callId?: string,
+  streamSeq?: number,
 ): AssistantPartsState {
-  const next = isDocumentPath(path)
-    ? appendActivityPart(state, {
-        id: newPartId("document_edit"),
-        zone: "activity",
-        kind: "document_edit",
-        path,
-        docType: detectDocumentType(path),
-        additions: counts?.additions,
-        deletions: counts?.deletions,
-        completedAt: Date.now(),
-      })
-    : appendActivityPart(state, {
-        id: newPartId("file_edit"),
-        zone: "activity",
-        kind: "file_edit",
-        path,
-        additions: counts?.additions,
-        deletions: counts?.deletions,
-        completedAt: Date.now(),
-      });
-  return withSegmentBoundary(next);
+  const kind = isDocumentPath(path) ? "document_edit" : "file_edit";
+  const parts = [...sealStreamingTail(state.parts)];
+  const existingIndex = parts.findLastIndex(
+    (part) =>
+      (part.kind === kind ||
+        (kind === "document_edit" && part.kind === "file_edit") ||
+        (kind === "file_edit" && part.kind === "document_edit")) &&
+      ((callId && "callId" in part && part.callId === callId) ||
+        (!callId &&
+          "path" in part &&
+          part.path === path &&
+          part.streaming)),
+  );
+  const running = status === "running" || status === "pending";
+  const existing = existingIndex >= 0 ? parts[existingIndex] : undefined;
+  if (existing && (existing.kind === "file_edit" || existing.kind === "document_edit")) {
+    parts[existingIndex] = {
+      ...existing,
+      path,
+      ...(callId ? { callId } : {}),
+      status,
+      ...(existing.kind === "document_edit" ? { docType: detectDocumentType(path) } : {}),
+      additions: counts?.additions ?? existing.additions,
+      deletions: counts?.deletions ?? existing.deletions,
+      streaming: running,
+      completedAt: running ? undefined : Date.now(),
+    };
+    return { ...state, parts };
+  }
+  const { seq, nextStreamSeq } = reserveStreamSeq(
+    { ...state, parts },
+    streamSeq,
+  );
+  parts.push(
+    withStreamSeq(
+      isDocumentPath(path)
+        ? {
+            id: newPartId("document_edit"),
+            zone: "activity",
+            kind: "document_edit",
+            path,
+            callId,
+            status,
+            docType: detectDocumentType(path),
+            additions: counts?.additions,
+            deletions: counts?.deletions,
+            streaming: running,
+            completedAt: running ? undefined : Date.now(),
+          }
+        : {
+            id: newPartId("file_edit"),
+            zone: "activity",
+            kind: "file_edit",
+            path,
+            callId,
+            status,
+            additions: counts?.additions,
+            deletions: counts?.deletions,
+            streaming: running,
+            completedAt: running ? undefined : Date.now(),
+          },
+      seq,
+    ),
+  );
+  return withSegmentBoundary({ ...state, parts, nextStreamSeq });
 }
 
 function isDocumentPath(path: string): boolean {
   return /\.(pdf|docx|pptx|ppt|html|md|mp4|webm|mov|m4v|og[gv])$/i.test(path);
+}
+
+function toolResourceMessage(input: unknown): string | undefined {
+  if (typeof input === "string" && input.trim()) return input.trim();
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return undefined;
+  }
+  const record = input as Record<string, unknown>;
+  for (const key of [
+    "file_path",
+    "path",
+    "relative_path",
+    "target_file",
+    "notebook_path",
+    "command",
+    "cmd",
+  ]) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return undefined;
 }
 
 function detectDocumentType(path: string): string {
@@ -676,6 +946,7 @@ export function reduceToolProgress(
     status?: string;
     message?: string;
     callId?: string;
+    streamSeq?: number;
     input?: unknown;
     output?: unknown;
   },
@@ -687,15 +958,43 @@ export function reduceToolProgress(
     return reduceStatusLabel(state, payload.message ?? "阶段", payload.status);
   }
   if (payload.tool === "reasoning") {
+    const previousTail = state.parts[state.parts.length - 1];
     const parts = [...sealStreamingTail(state.parts)];
     const last = parts[parts.length - 1];
     const chunk = payload.message ?? "思考中";
     const streaming = payload.status === "running";
+    const startsNewReasoning =
+      streaming &&
+      (!previousTail ||
+        previousTail.kind !== "reasoning" ||
+        !previousTail.streaming);
+
+    if (startsNewReasoning) {
+      const { seq, nextStreamSeq } = reserveStreamSeq(state, payload.streamSeq);
+      parts.push(
+        withStreamSeq(
+          {
+            id: newPartId("reasoning"),
+            zone: "activity",
+            kind: "reasoning",
+            markdown: isReasoningPlaceholderChunk(chunk) ? "" : chunk,
+            streaming: true,
+          },
+          seq,
+        ),
+      );
+      return { ...state, parts, nextStreamSeq };
+    }
 
     if (last?.kind === "reasoning") {
+      const markdown = mergeReasoningMarkdown(last.markdown, chunk);
+      if (!streaming && !markdown.trim()) {
+        parts.pop();
+        return withSegmentBoundary({ ...state, parts });
+      }
       parts[parts.length - 1] = {
         ...last,
-        markdown: mergeReasoningMarkdown(last.markdown, chunk),
+        markdown,
         streaming,
         completedAt: streaming ? undefined : Date.now(),
       };
@@ -706,7 +1005,7 @@ export function reduceToolProgress(
       return state;
     }
 
-    const { seq, nextStreamSeq } = bumpStreamSeq(state);
+    const { seq, nextStreamSeq } = reserveStreamSeq(state, payload.streamSeq);
     parts.push(
       withStreamSeq(
         {
@@ -727,22 +1026,44 @@ export function reduceToolProgress(
     payload.tool === "Read" ||
     payload.tool === "read"
   ) {
-    return addFileRead(state, payload.message ?? "file");
+    const path = toolResourceMessage(payload.input) ?? payload.message ?? "file";
+    return addFileRead(
+      state,
+      path,
+      normalizeToolStatus(payload.status),
+      payload.callId,
+      payload.streamSeq,
+    );
   }
   if (
     payload.tool === "write_file" ||
     payload.tool === "edit_file" ||
     payload.tool === "Write" ||
-    payload.tool === "create_file"
+    payload.tool === "create_file" ||
+    payload.tool === "Edit" ||
+    payload.tool === "MultiEdit"
   ) {
-    const path = payload.message ?? "output.md";
-    return addFileEdit(state, path);
+    const path = toolResourceMessage(payload.input) ?? payload.message ?? "output.md";
+    return addFileEdit(
+      state,
+      path,
+      undefined,
+      normalizeToolStatus(payload.status),
+      payload.callId,
+      payload.streamSeq,
+    );
   }
 
   if (isCommandTool(payload.tool)) {
-    const cmd = payload.message ?? payload.tool;
+    const cmd = toolResourceMessage(payload.input) ?? payload.message ?? payload.tool;
     const status = normalizeToolStatus(payload.status);
-    const withCmd = addCommand(state, cmd, status);
+    const withCmd = addCommand(
+      state,
+      cmd,
+      status,
+      payload.callId,
+      payload.streamSeq,
+    );
     const parts = [...sealStreamingTail(withCmd.parts)];
     const normalizedStatus = status;
     const existingByCallId = payload.callId
@@ -752,7 +1073,9 @@ export function reduceToolProgress(
             p.callId === payload.callId,
         )
       : undefined;
-    const running = existingByCallId ?? findRunningTool(parts, payload.tool);
+    const running =
+      existingByCallId ??
+      (payload.callId ? undefined : findRunningTool(parts, payload.tool));
     if (running && (existingByCallId || normalizedStatus !== "running")) {
       const idx = parts.indexOf(running);
       const streaming = normalizedStatus === "running";
@@ -766,7 +1089,10 @@ export function reduceToolProgress(
         completedAt: streaming ? undefined : Date.now(),
       };
     } else if (!running || normalizedStatus === "running") {
-      const { seq, nextStreamSeq } = bumpStreamSeq(withCmd);
+      const { seq, nextStreamSeq } = reserveStreamSeq(
+        withCmd,
+        payload.streamSeq,
+      );
       parts.push(
         withStreamSeq(
           {
@@ -803,7 +1129,9 @@ export function reduceToolProgress(
           p.callId === payload.callId,
       )
     : undefined;
-  const running = existingByCallId ?? findRunningTool(parts, payload.tool);
+  const running =
+    existingByCallId ??
+    (payload.callId ? undefined : findRunningTool(parts, payload.tool));
 
   if (running && (existingByCallId || normalizedStatus !== "running")) {
     const idx = parts.indexOf(running);
@@ -818,7 +1146,10 @@ export function reduceToolProgress(
       completedAt: streaming ? undefined : Date.now(),
     };
   } else if (!running || normalizedStatus === "running") {
-    const bumped = bumpStreamSeq({ ...state, parts, nextStreamSeq });
+    const bumped = reserveStreamSeq(
+      { ...state, parts, nextStreamSeq },
+      payload.streamSeq,
+    );
     nextStreamSeq = bumped.nextStreamSeq;
     parts.push(
       withStreamSeq(
@@ -856,7 +1187,17 @@ export function reducePartPatch(
   patch: { id: string; merge: Record<string, unknown> },
 ): AssistantPartsState {
   const parts = state.parts.map((p) =>
-    p.id === patch.id ? ({ ...p, ...patch.merge } as ChatPart) : p,
+    p.id === patch.id
+      ? ({
+          ...p,
+          ...patch.merge,
+          streamSeq:
+            p.streamSeq ??
+            (typeof patch.merge.streamSeq === "number"
+              ? patch.merge.streamSeq
+              : undefined),
+        } as ChatPart)
+      : p,
   );
   return { ...state, parts };
 }
@@ -864,7 +1205,12 @@ export function reducePartPatch(
 function normalizeToolStatus(
   status?: string,
 ): ToolPart["status"] {
-  if (status === "pending" || status === "success" || status === "error") {
+  if (
+    status === "pending" ||
+    status === "success" ||
+    status === "error" ||
+    status === "cancelled"
+  ) {
     return status;
   }
   if (status === "completed" || status === "complete") return "success";
@@ -1038,7 +1384,7 @@ export function reduceStreamFinished(
     const completedAt = p.completedAt ?? Date.now();
     if (p.kind === "text") {
       return {
-        id: p.id,
+        ...p,
         zone: "summary",
         kind: "summary",
         markdown: normalizeMarkdown(p.markdown),
@@ -1073,11 +1419,20 @@ export function reduceStreamFinished(
     }
     return { ...p, streaming: false, completedAt };
   });
+  const finalState = parts.some(
+    (part) => part.kind === "summary" || part.kind === "text",
+  )
+    ? beginFinalAnswer(state)
+    : {
+        activityCollapse: "collapsed" as const,
+        finalAnswerStarted: state.finalAnswerStarted,
+        finalCollapseRevision: state.finalCollapseRevision,
+      };
   return {
     parts: finalizeParts(parts, state.runStartedAt),
     runId: state.runId,
     runStartedAt: state.runStartedAt,
-    activityCollapse: "collapsed",
+    ...finalState,
     nextStreamSeq: state.nextStreamSeq,
     pendingNewTextSegment: false,
   };
@@ -1088,6 +1443,15 @@ export function reduceStreamError(
   message: string,
   code?: string,
 ): AssistantPartsState {
+  const duplicate = state.parts.some(
+    (part) =>
+      part.kind === "error" &&
+      part.message === message &&
+      part.code === code,
+  );
+  if (duplicate) {
+    return { ...state, activityCollapse: "expanded" };
+  }
   const parts = finalizeParts(
     [
       ...state.parts.map((p) => ({
@@ -1178,6 +1542,7 @@ export function applyPartsStateToMessage<
     runId?: string;
     content: string;
     status?: string;
+    finalCollapseRevision?: number;
   },
 >(
   msg: T,
@@ -1196,10 +1561,15 @@ export function applyPartsStateToMessage<
     msg.activityCollapse === "user_collapsed"
       ? msg.activityCollapse
       : null;
+  const systemCollapseIsNew =
+    state.finalCollapseRevision > (msg.finalCollapseRevision ?? 0);
   const next = {
     ...msg,
     parts: state.parts,
-    activityCollapse: userCollapse ?? state.activityCollapse,
+    activityCollapse: systemCollapseIsNew
+      ? state.activityCollapse
+      : userCollapse ?? state.activityCollapse,
+    finalCollapseRevision: state.finalCollapseRevision,
     runId: state.runId,
     runStartedAt: state.runStartedAt,
   };

@@ -1,5 +1,7 @@
 import { z } from "zod";
 import {
+  assistantSegmentOperationSchema,
+  assistantSegmentRoleSchema,
   CHAT_OUTPUT_PROTOCOL_VERSION,
   canonicalFinalAnswerSchema,
   canonicalNextActionSchema,
@@ -315,7 +317,7 @@ export const clarificationResponseSchema = z.object({
 });
 export type ClarificationResponse = z.infer<typeof clarificationResponseSchema>;
 
-export const runEventSchema = z.discriminatedUnion("type", [
+const runEventPayloadSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("run.accepted"),
     runId: z.string(),
@@ -379,12 +381,23 @@ export const runEventSchema = z.discriminatedUnion("type", [
     alreadyStreamed: z.boolean().optional(),
   }),
   z.object({
+    type: z.literal("assistant.segment"),
+    runId: z.string(),
+    segmentId: z.string(),
+    operation: assistantSegmentOperationSchema,
+    role: assistantSegmentRoleSchema,
+    text: z.string().optional(),
+  }),
+  z.object({
     type: z.literal("tool.progress"),
     runId: z.string(),
+    callId: z.string().optional(),
     toolCallId: z.string().optional(),
     tool: z.string(),
-    status: z.enum(["running", "done", "failed"]),
+    status: z.enum(["running", "done", "failed", "cancelled"]),
     message: z.string().optional(),
+    input: z.unknown().optional(),
+    output: z.unknown().optional(),
   }),
   z.object({
     type: z.literal("artifact.append"),
@@ -457,4 +470,14 @@ export const runEventSchema = z.discriminatedUnion("type", [
     runId: z.string(),
   }),
 ]);
+
+/**
+ * Events are ordered once at the Runtime/Companion boundary.  Keep the
+ * field optional so old persisted events remain readable.
+ */
+export const runEventSchema = runEventPayloadSchema.and(
+  z.object({
+    streamSeq: z.number().int().nonnegative().optional(),
+  }),
+);
 export type RunEvent = z.infer<typeof runEventSchema>;

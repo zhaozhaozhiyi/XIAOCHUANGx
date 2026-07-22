@@ -1,7 +1,11 @@
 import type { ChatMessage } from "@/lib/chat";
 import type { ChatPart } from "@/lib/chat-parts";
 import { stripInjectedActivityContext } from "@/lib/activity-log";
-import { buildActivityViewModel, type ActivityViewModel } from "@/lib/chat-activity-view-model";
+import {
+  buildActivityViewModel,
+  isProcessCheckpointPart,
+  type ActivityViewModel,
+} from "@/lib/chat-activity-view-model";
 import { normalizeMarkdown } from "@/lib/chat-parts-utils";
 import { selectAssistantDeliverablesPart } from "@/lib/chat-message-selectors";
 import {
@@ -146,14 +150,22 @@ function selectedAnswer(
   parts: OrderedPart[],
 ): { markdown: string; phase: AnswerPhase; streaming: boolean } {
   const active = state === "preparing" || state === "running" || state === "restoring";
-  const phase: AnswerPhase = active ? "provisional" : "final";
+  const answerParts = parts.filter(
+    ({ part }) => part.kind === "summary" || part.kind === "text",
+  );
+  const committedFinal = answerParts.some(
+    ({ part }) =>
+      part.presentationRole === "result" && part.streaming !== true,
+  );
+  const phase: AnswerPhase = active && !committedFinal ? "provisional" : "final";
+  const streaming = answerParts.some(({ part }) => part.streaming === true);
   const fromParts = mergeAnswerParts(parts);
   const canonical = normalizedAnswer(message.canonicalOutput?.finalAnswer.markdown ?? "");
   const hasPrompt = parts.some(({ part }) => isPromptPart(part));
 
   if (active) {
     const markdown = fromParts || normalizedAnswer(message.content) || canonical;
-    return { markdown, phase, streaming: true };
+    return { markdown, phase, streaming: committedFinal ? streaming : true };
   }
   if (canonical) return { markdown: canonical, phase, streaming: false };
   if (fromParts) return { markdown: fromParts, phase, streaming: false };
@@ -168,6 +180,7 @@ function isDeliverablePart(part: ChatPart): boolean {
 }
 
 function isResultPart(part: ChatPart): boolean {
+  if (isProcessCheckpointPart(part)) return false;
   const zone = (part as { zone?: ChatPart["zone"] }).zone;
   if (zone === "activity") return false;
   if (
