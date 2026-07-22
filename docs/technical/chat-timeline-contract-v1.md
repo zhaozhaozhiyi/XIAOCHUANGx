@@ -278,7 +278,7 @@ Hermes Agent 0.18.2 Gateway 的 `hermes.tool.progress` 提供真实的 `tool`、
 | `0.1.6-T06` | Web 展示、折叠、错误和滚动按本标准验收 |
 | `0.1.6-T07` | 用真实 Claude、Codex、Hermes 和历史会话完成候选版回归 |
 
-当前执行进度：`T01` 标准冻结，`T02-T07` 已完成候选实现与可控范围回归。73 个活动时间线 fixture、23 条 Chat Playwright、Codex 0.144.3 与 Claude Code 2.1.161 真实只读工具任务通过；安装版重启后仍使用固定 Origin `127.0.0.1:51247`，近期任务入口和完整过程可恢复，Companion 晚于 Web 就绪时会自动重试 Agent 探测。Hermes Agent 0.18.2 已验证 Gateway 降级、CLI HTTP 404 错误语义和单一终端错误，成功态真流因外部 Gateway/Provider 不可用保留为 RC 残余风险。
+当前执行进度：`T01` 标准冻结，`T02-T07` 已完成候选实现与可控范围回归。75 个活动时间线 fixture、23 条 Chat Playwright、Codex 0.144.3、Claude Code 2.1.161 与 Hermes Agent 0.18.2 真实只读工具任务通过；Hermes 成功态使用 Gateway 0.18.2 与 GitHub Copilot Provider，工具生命周期和最终回答顺序一致。安装版重启后仍使用固定 Origin `127.0.0.1:51247`，近期任务入口和完整过程可恢复，Companion 晚于 Web 就绪时会自动重试 Agent 探测。Hermes Gateway 只提供工具身份、状态和标签，不提供原始 input/output，界面按真实能力降级而不反推载荷。候选提交 `8605cba0` 的 GitHub Actions Run `29918723261` 已完成 macOS DMG 与 Windows NSIS 双平台测试制品构建。
 
 ## 10. 变更控制
 

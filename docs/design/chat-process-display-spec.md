@@ -334,7 +334,7 @@ content-only、旧 Parts 和 `message.delta` 能正常渲染；无需迁移；�
 - Web lint、TypeScript 和 production build 通过。
 - Contracts、Runtime Core、Companion、API、Desktop 和 Video 的类型检查/构建通过。
 - `CHAT_ACTIVITY_V2_ENABLED=false` 的 legacy E2E 通过。
-- Codex、Claude 真实或 soft smoke 有明确结果；Hermes 无环境时记录残余风险。
+- Codex、Claude、Hermes 真实或 soft smoke 均有明确结果；外部 Provider 不可用时记录环境、降级路径和残余风险。
 - 三档视口完成视觉评审；无页面横向溢出。
 - `git diff --check` 与版本一致性检查通过。
 - RC 验收前不创建正式 `v0.1.6` 标签。
