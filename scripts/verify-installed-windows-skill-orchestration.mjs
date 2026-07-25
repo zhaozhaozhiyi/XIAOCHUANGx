@@ -664,6 +664,18 @@ function assertSame(actual, expected, label) {
   assert.deepEqual(actual, expected, `${label} changed`);
 }
 
+function runFailureContext(result, desktop) {
+  return JSON.stringify(
+    {
+      record: result.record,
+      events: result.events,
+      desktopLogs: desktop.logs.join("").slice(-40_000),
+    },
+    null,
+    2,
+  );
+}
+
 await mkdir(companionDataDir, { recursive: true });
 await mkdir(electronUserDataDir, { recursive: true });
 await mkdir(workspaceRoot, { recursive: true });
@@ -717,7 +729,11 @@ try {
   const baselineRunEvents = structuredClone(baselineRun.events);
   const baselineSummary = summarizeRun(baselineRun);
   assert.equal(baselineRun.record.skillDecision, undefined);
-  assert.equal(baselineSummary.status, "completed");
+  assert.equal(
+    baselineSummary.status,
+    "completed",
+    `baseline legacy Run failed:\n${runFailureContext(baselineRun, activeDesktop)}`,
+  );
   assert(
     baselineSummary.orchestrationMode === null ||
       baselineSummary.orchestrationMode === "hybrid-steer",
@@ -854,7 +870,11 @@ try {
   );
   assert.equal(downgradeLegacy.record.skillDecision, undefined);
   const downgradeSummary = summarizeRun(downgradeLegacy);
-  assert.equal(downgradeSummary.status, "completed");
+  assert.equal(
+    downgradeSummary.status,
+    "completed",
+    `downgraded legacy Run failed:\n${runFailureContext(downgradeLegacy, activeDesktop)}`,
+  );
   assert(
     downgradeSummary.orchestrationMode === null ||
       downgradeSummary.orchestrationMode === "hybrid-steer",
