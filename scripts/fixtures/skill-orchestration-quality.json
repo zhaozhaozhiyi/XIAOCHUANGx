@@ -1,0 +1,197 @@
+{
+  "fixtureVersion": 1,
+  "scope": "skill-orchestration-0.1.7-normal-chat-quality",
+  "baselineVersion": "0.1.6",
+  "candidateVersion": "0.1.7",
+  "rubric": {
+    "scale": 5,
+    "dimensions": [
+      "correctness",
+      "relevance",
+      "instruction_following",
+      "clarification_quality",
+      "honesty"
+    ],
+    "p0Errors": [
+      "incorrect_business_skill_selection",
+      "fabricated_tool_or_file_result",
+      "unsafe_or_materially_incorrect_answer",
+      "failure_to_answer_a_sufficiently_specified_request"
+    ],
+    "thresholds": {
+      "p0ErrorCount": 0,
+      "maximumMeanRegression": 0.25,
+      "maximumOnePointRegressionRatio": 0.1
+    }
+  },
+  "fixtures": [
+    {
+      "id": "Q01",
+      "category": "greeting",
+      "userText": "你好",
+      "expectedDecisionOutcome": "none",
+      "expectedResponseMode": "answer"
+    },
+    {
+      "id": "Q02",
+      "category": "greeting",
+      "userText": "早上好，今天状态怎么样？",
+      "expectedDecisionOutcome": "none",
+      "expectedResponseMode": "answer"
+    },
+    {
+      "id": "Q03",
+      "category": "greeting",
+      "userText": "谢谢你的帮助",
+      "expectedDecisionOutcome": "none",
+      "expectedResponseMode": "answer"
+    },
+    {
+      "id": "Q04",
+      "category": "greeting",
+      "userText": "简单介绍一下你能做什么",
+      "expectedDecisionOutcome": "none",
+      "expectedResponseMode": "answer"
+    },
+    {
+      "id": "Q05",
+      "category": "fact",
+      "userText": "1 + 1 等于几？",
+      "expectedDecisionOutcome": "none",
+      "expectedResponseMode": "answer"
+    },
+    {
+      "id": "Q06",
+      "category": "fact",
+      "userText": "中国的首都是哪里？",
+      "expectedDecisionOutcome": "none",
+      "expectedResponseMode": "answer"
+    },
+    {
+      "id": "Q07",
+      "category": "concept",
+      "userText": "HTTP 404 和 500 的区别是什么？",
+      "expectedDecisionOutcome": "none",
+      "expectedResponseMode": "answer"
+    },
+    {
+      "id": "Q08",
+      "category": "concept",
+      "userText": "用两句话解释什么是幂等性",
+      "expectedDecisionOutcome": "none",
+      "expectedResponseMode": "answer"
+    },
+    {
+      "id": "Q09",
+      "category": "code_error",
+      "userText": "TypeError: Cannot read properties of undefined 一般怎么排查？",
+      "expectedDecisionOutcome": "none",
+      "expectedResponseMode": "answer"
+    },
+    {
+      "id": "Q10",
+      "category": "code_error",
+      "userText": "解释这段代码：\n```ts\nconst total = items.reduce((sum, item) => sum + item.price, 0);\n```",
+      "expectedDecisionOutcome": "none",
+      "expectedResponseMode": "answer"
+    },
+    {
+      "id": "Q11",
+      "category": "code_error",
+      "userText": "这个 JSON 为什么解析失败：{\"name\": \"小窗\",}",
+      "expectedDecisionOutcome": "none",
+      "expectedResponseMode": "answer"
+    },
+    {
+      "id": "Q12",
+      "category": "code_error",
+      "userText": "JavaScript 里的 let 和 const 应该怎么选？",
+      "expectedDecisionOutcome": "none",
+      "expectedResponseMode": "answer"
+    },
+    {
+      "id": "Q13",
+      "category": "short_transform",
+      "userText": "把这句话压缩到 20 个字以内：我们希望通过更清晰的流程减少重复沟通。",
+      "expectedDecisionOutcome": "none",
+      "expectedResponseMode": "answer"
+    },
+    {
+      "id": "Q14",
+      "category": "short_transform",
+      "userText": "把苹果、香蕉、梨整理成 Markdown 列表",
+      "expectedDecisionOutcome": "none",
+      "expectedResponseMode": "answer"
+    },
+    {
+      "id": "Q15",
+      "category": "short_transform",
+      "userText": "给“周会讨论记录”起三个更简洁的标题",
+      "expectedDecisionOutcome": "none",
+      "expectedResponseMode": "answer"
+    },
+    {
+      "id": "Q16",
+      "category": "short_transform",
+      "userText": "把单词 resilience 翻译成中文并解释语境差异",
+      "expectedDecisionOutcome": "none",
+      "expectedResponseMode": "answer"
+    },
+    {
+      "id": "Q17",
+      "category": "ambiguous",
+      "userText": "帮我处理一下",
+      "expectedDecisionOutcome": "none",
+      "expectedResponseMode": "clarify"
+    },
+    {
+      "id": "Q18",
+      "category": "ambiguous",
+      "userText": "你先看看这个",
+      "expectedDecisionOutcome": "none",
+      "expectedResponseMode": "clarify"
+    },
+    {
+      "id": "Q19",
+      "category": "ambiguous",
+      "userText": "继续",
+      "expectedDecisionOutcome": "none",
+      "expectedResponseMode": "clarify"
+    },
+    {
+      "id": "Q20",
+      "category": "ambiguous",
+      "userText": "给我做份东西，尽快",
+      "expectedDecisionOutcome": "none",
+      "expectedResponseMode": "clarify"
+    },
+    {
+      "id": "Q21",
+      "category": "skill_negative",
+      "userText": "skill-wr-industry 是做什么的？",
+      "expectedDecisionOutcome": "none",
+      "expectedResponseMode": "answer"
+    },
+    {
+      "id": "Q22",
+      "category": "skill_negative",
+      "userText": "解释代码 `使用 skill-wr-industry` 的含义",
+      "expectedDecisionOutcome": "none",
+      "expectedResponseMode": "answer"
+    },
+    {
+      "id": "Q23",
+      "category": "skill_negative",
+      "userText": "ERROR: use skill-wr-industry failed\n请解释这条日志",
+      "expectedDecisionOutcome": "none",
+      "expectedResponseMode": "answer"
+    },
+    {
+      "id": "Q24",
+      "category": "skill_negative",
+      "userText": "不要使用 skill-wr-industry，只回答行业和赛道有什么区别",
+      "expectedDecisionOutcome": "none",
+      "expectedResponseMode": "answer"
+    }
+  ]
+}

@@ -1,9 +1,15 @@
 ---
 slug: skill-mm-summary
+version: "0.1"
+kind: workflow
+scope: ["chat","meeting","writing"]
+summary: "会议 · 通用纪要（默认）"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
 module: meeting
 task: summary
 templateId: default
-version: "0.1"
 ---
 
 # 会议 · 通用纪要（默认）

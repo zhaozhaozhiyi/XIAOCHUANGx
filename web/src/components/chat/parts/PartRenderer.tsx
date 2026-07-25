@@ -173,14 +173,14 @@ function SkillBlock({
 }: {
   part: Extract<ChatPart, { kind: "skill" }>;
 }) {
-  const roleLabel =
-    part.role === "platform"
-      ? "平台规范"
-      : part.role === "catalog"
-        ? "候选扩展"
-        : part.role === "injected"
-          ? "注入能力"
-          : "流程 Skill";
+  let roleLabel = "流程 Skill";
+  if (part.lifecycleStatus === "selected") roleLabel = "正在准备";
+  else if (part.lifecycleStatus === "ready") roleLabel = "已就绪";
+  else if (part.lifecycleStatus === "failed") roleLabel = "失败";
+  else if (part.lifecycleStatus === "cancelled") roleLabel = "已取消";
+  else if (part.role === "platform") roleLabel = "平台规范";
+  else if (part.role === "catalog") roleLabel = "候选扩展";
+  else if (part.role === "injected") roleLabel = "注入能力";
   return (
     <div className="chat-part-row flex gap-2 text-sm">
       <BadgePlus className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--fg-tertiary)]" aria-hidden />
@@ -191,7 +191,9 @@ function SkillBlock({
             {roleLabel}
           </span>
         </div>
-        <p className="mt-0.5 truncate text-xs text-[var(--fg-tertiary)]">{part.slug}</p>
+        <p className="mt-0.5 truncate text-xs text-[var(--fg-tertiary)]">
+          {part.failureMessage ?? part.slug}
+        </p>
       </div>
     </div>
   );

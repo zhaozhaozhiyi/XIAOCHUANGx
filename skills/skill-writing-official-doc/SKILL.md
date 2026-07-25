@@ -1,9 +1,15 @@
 ---
 slug: skill-writing-official-doc
+version: "1.0"
+kind: workflow
+scope: ["writing"]
+summary: "公文写作：通知、请示、报告、函等机关公文体裁与规范用语"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
 module: writing
 task: writing
 templateId: official-doc
-version: "1.0"
 ---
 
 # 写作 · 公文

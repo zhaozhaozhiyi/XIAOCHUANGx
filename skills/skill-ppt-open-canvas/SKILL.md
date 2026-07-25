@@ -1,7 +1,13 @@
 ---
 slug: skill-ppt-open-canvas
-module: ppt
 version: "1.0"
+kind: workflow
+scope: ["ppt"]
+summary: "自由画布 1920×1080 自定义排版"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
+module: ppt
 source: open-design/skills/deck-open-slide-canvas
 templateId: open-canvas
 label: 自由画布

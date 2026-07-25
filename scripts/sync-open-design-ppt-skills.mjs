@@ -12,7 +12,6 @@ import {
   mkdir,
   readFile,
   readdir,
-  rm,
   stat,
   writeFile,
 } from "node:fs/promises";
@@ -23,6 +22,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, "..");
 const SKILLS_ROOT = join(REPO_ROOT, "skills");
 const MANIFEST_PATH = join(SKILLS_ROOT, "ppt-sync-manifest.json");
+const REGISTRY_PATH = join(SKILLS_ROOT, "skill-registry.generated.json");
 
 const ASSET_DIRS = new Set([
   "references",
@@ -51,12 +51,18 @@ function parseFrontmatter(raw) {
   return { meta, body };
 }
 
-function buildJlcFrontmatter(entry, odMeta) {
+function buildJlcFrontmatter(entry, odMeta, manifest) {
   const lines = [
     "---",
     `slug: ${entry.jlcSlug}`,
+    `version: ${JSON.stringify(manifest.version)}`,
+    `kind: ${manifest.kind}`,
+    `scope: ${JSON.stringify(manifest.scope)}`,
+    `summary: ${JSON.stringify(manifest.summary)}`,
+    `skillDependencies: ${JSON.stringify(manifest.skillDependencies)}`,
+    `capabilityRequirements: ${JSON.stringify(manifest.capabilityRequirements)}`,
+    `assetPolicy: ${JSON.stringify(manifest.assetPolicy)}`,
     "module: ppt",
-    'version: "1.0"',
     `source: open-design/${entry.source}/${entry.odSlug}`,
   ];
   if (entry.templateId) {
@@ -100,7 +106,7 @@ async function copyTree(src, dest, { skip = new Set() } = {}) {
   }
 }
 
-async function syncEntry(manifest, entry) {
+async function syncEntry(manifest, entry, registryBySlug) {
   const odRoot = join(REPO_ROOT, manifest.openDesignRoot);
   const srcDir = join(odRoot, entry.source, entry.odSlug);
   const destDir = join(SKILLS_ROOT, entry.jlcSlug);
@@ -117,16 +123,22 @@ async function syncEntry(manifest, entry) {
 
   const raw = await readFile(srcSkill, "utf8");
   const { meta: odMeta, body } = parseFrontmatter(raw);
-  const skillMd = `${buildJlcFrontmatter(entry, odMeta)}\n\n${body}\n`;
+  const registryManifest = registryBySlug.get(entry.jlcSlug);
+  if (!registryManifest) {
+    throw new Error(
+      `${entry.jlcSlug}: missing generated Registry metadata; run skills:generate before sync`,
+    );
+  }
+  const skillMd = `${buildJlcFrontmatter(entry, odMeta, registryManifest)}\n\n${body}\n`;
 
   if (dryRun) {
     console.log(`  would sync ${entry.odSlug} → ${entry.jlcSlug}`);
     return { status: "dry-run" };
   }
 
-  if (await exists(destDir)) {
-    await rm(destDir, { recursive: true, force: true });
-  }
+  // Some destination skills carry product-owned assets that are not present in
+  // the upstream snapshot. Update upstream-managed files in place so a sync
+  // cannot silently remove those assets.
   await mkdir(destDir, { recursive: true });
 
   const skip = new Set(["SKILL.md"]);
@@ -175,6 +187,10 @@ async function writeRegistrySnippet(manifest, templateEntries) {
 
 async function main() {
   const manifest = JSON.parse(await readFile(MANIFEST_PATH, "utf8"));
+  const registry = JSON.parse(await readFile(REGISTRY_PATH, "utf8"));
+  const registryBySlug = new Map(
+    registry.skills.map((item) => [item.slug, item]),
+  );
   console.log(
     `Open Design PPT sync (${manifest.entries.length} entries)${dryRun ? " [dry-run]" : ""}${force ? " [force]" : ""}`,
   );
@@ -182,7 +198,7 @@ async function main() {
   const stats = { synced: 0, skipped: 0, failed: 0 };
   for (const entry of manifest.entries) {
     try {
-      const result = await syncEntry(manifest, entry);
+      const result = await syncEntry(manifest, entry, registryBySlug);
       if (result.status === "synced") stats.synced += 1;
       else if (result.status === "skipped") stats.skipped += 1;
     } catch (err) {

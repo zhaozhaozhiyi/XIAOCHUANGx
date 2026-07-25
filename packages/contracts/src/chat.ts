@@ -191,6 +191,14 @@ export type SkillPart = ChatPartBase & {
   slug: string;
   label?: string;
   role?: "process" | "platform" | "catalog" | "injected";
+  decisionId?: string;
+  eventId?: string;
+  lifecycleStatus?: "selected" | "ready" | "failed" | "cancelled";
+  requiredSkillSlugs?: string[];
+  selectionSource?: string;
+  bundleCacheStatus?: "miss" | "partial-hit" | "full-hit";
+  failureCode?: string;
+  failureMessage?: string;
 };
 
 export type ReasoningPart = ChatPartBase & {

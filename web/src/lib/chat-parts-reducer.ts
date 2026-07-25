@@ -21,6 +21,11 @@ import {
   mergeSimulationDeltaIntoScenarioPreservingUpstream,
   mergeSimulationScenarioPreservingUpstream,
 } from "@jlc/contracts";
+import type {
+  SkillFailedEvent,
+  SkillReadyEvent,
+  SkillSelectedEvent,
+} from "@jlc/contracts";
 import { isWaitingUserSignal } from "@/lib/chat-history";
 import {
   orchestrationStatusLabel,
@@ -346,8 +351,9 @@ export function reduceRunStarted(
     p.kind === "turn_meta" ? withStreamSeq(p, metaSeq) : p,
   );
 
-  const slug = payload.baseProcessSkill ?? payload.processSkill;
-  if (slug || payload.orchestrationMode) {
+  const isV2 = payload.orchestrationMode === "companion-select-v2";
+  const slug = isV2 ? null : payload.baseProcessSkill ?? payload.processSkill;
+  if (slug || (payload.orchestrationMode && !isV2)) {
     parts = parts.filter(
       (p) => !(p.kind === "status" && p.label.startsWith("基座 ·")),
     );
@@ -1275,6 +1281,91 @@ export function reduceRunSkills(
   return next;
 }
 
+export function reduceSkillLifecycle(
+  state: AssistantPartsState,
+  event: SkillSelectedEvent | SkillReadyEvent | SkillFailedEvent,
+): AssistantPartsState {
+  const existingIndex = state.parts.findIndex(
+    (part) => part.kind === "skill" && part.decisionId === event.decisionId,
+  );
+  const existing = existingIndex >= 0 ? state.parts[existingIndex] : undefined;
+  if (existing?.kind === "skill" && existing.eventId === event.eventId) {
+    return state;
+  }
+  if (
+    existing?.kind === "skill" &&
+    (existing.lifecycleStatus === "ready" ||
+      existing.lifecycleStatus === "failed" ||
+      existing.lifecycleStatus === "cancelled")
+  ) {
+    return state;
+  }
+  if (
+    event.type === "skill.selected" &&
+    existing?.kind === "skill" &&
+    existing.lifecycleStatus !== "selected"
+  ) {
+    return state;
+  }
+  const { seq, nextStreamSeq } = reserveStreamSeq(state, event.streamSeq);
+  const slug =
+    event.type === "skill.selected"
+      ? event.primarySkillSlug
+      : existing?.kind === "skill"
+        ? existing.slug
+        : event.type === "skill.failed"
+          ? event.failedSkillSlug
+          : event.items[0]?.slug ?? "skill";
+  const lifecycleStatus =
+    event.type === "skill.selected"
+      ? "selected"
+      : event.type === "skill.ready"
+        ? "ready"
+        : "failed";
+  const part: SkillPart = {
+    ...(existing?.kind === "skill" ? existing : {}),
+    id:
+      existing?.kind === "skill"
+        ? existing.id
+        : `skill-lifecycle-${event.eventId}`,
+    zone: "activity",
+    kind: "skill",
+    slug,
+    label: skillLabel(slug),
+    role: "process",
+    decisionId: event.decisionId,
+    eventId: event.eventId,
+    lifecycleStatus,
+    streamSeq: existing?.streamSeq ?? seq,
+    streaming: lifecycleStatus === "selected",
+    completedAt: lifecycleStatus === "selected" ? undefined : Date.now(),
+    ...(event.type === "skill.selected"
+      ? {
+          requiredSkillSlugs: event.requiredSkillSlugs,
+          selectionSource: event.selectionSource,
+        }
+      : {}),
+    ...(event.type === "skill.ready"
+      ? { bundleCacheStatus: event.bundleCacheStatus }
+      : {}),
+    ...(event.type === "skill.failed"
+      ? {
+          failureCode: event.failureCode,
+          failureMessage: event.failureMessage,
+        }
+      : {}),
+  };
+  const parts = [...state.parts];
+  if (existingIndex >= 0) parts[existingIndex] = part;
+  else parts.push(part);
+  return {
+    ...state,
+    parts,
+    nextStreamSeq,
+    activityCollapse: "expanded",
+  };
+}
+
 export function reduceTodoItems(
   state: AssistantPartsState,
   items: Array<{
@@ -1486,9 +1577,19 @@ export function reduceStreamError(
 export function reduceStreamCancelled(
   state: AssistantPartsState,
 ): AssistantPartsState {
+  const cancelledParts = state.parts.map((part) =>
+    part.kind === "skill" && part.lifecycleStatus === "selected"
+      ? {
+          ...part,
+          lifecycleStatus: "cancelled" as const,
+          streaming: false,
+          completedAt: Date.now(),
+        }
+      : part,
+  );
   const finished = reduceStreamFinished({
     ...state,
-    parts: upsertTurnMeta(state.parts, {
+    parts: upsertTurnMeta(cancelledParts, {
       durationMs: state.runStartedAt
         ? Date.now() - state.runStartedAt
         : undefined,

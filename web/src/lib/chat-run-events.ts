@@ -8,6 +8,7 @@ import {
   reduceInterimAssistant,
   reducePartPatch,
   reduceRunStarted,
+  reduceSkillLifecycle,
   reduceStatusLabel,
   reduceStreamCancelled,
   reduceStreamError,
@@ -47,6 +48,10 @@ function applyRunEvent(
           ]),
         ),
       });
+    case "skill.selected":
+    case "skill.ready":
+    case "skill.failed":
+      return reduceSkillLifecycle(state, event);
     case "run.status":
       return reduceStatusLabel(state, event.label, event.phase);
     case "message.delta":

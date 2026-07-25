@@ -1,4 +1,10 @@
-import type { CanonicalTurnOutput, RunRecord } from "@jlc/contracts";
+import {
+  skillFailedEventSchema,
+  skillReadyEventSchema,
+  skillSelectedEventSchema,
+  type CanonicalTurnOutput,
+  type RunRecord,
+} from "@jlc/contracts";
 import type { CreateRunRequest } from "../types.js";
 import {
   appendRunEvent,
@@ -137,7 +143,40 @@ function mapEvent(
         typeof payload.stablePromptHash === "string"
           ? payload.stablePromptHash
           : undefined,
+      skillDecisionId:
+        typeof payload.skillDecisionId === "string"
+          ? payload.skillDecisionId
+          : undefined,
+      registryVersion:
+        typeof payload.registryVersion === "string"
+          ? payload.registryVersion
+          : undefined,
+      bundleHash:
+        typeof payload.bundleHash === "string"
+          ? payload.bundleHash
+          : undefined,
     };
+  }
+  if (eventName === "skill.selected") {
+    return skillSelectedEventSchema.parse({
+      ...payload,
+      type: "skill.selected",
+      runId,
+    });
+  }
+  if (eventName === "skill.ready") {
+    return skillReadyEventSchema.parse({
+      ...payload,
+      type: "skill.ready",
+      runId,
+    });
+  }
+  if (eventName === "skill.failed") {
+    return skillFailedEventSchema.parse({
+      ...payload,
+      type: "skill.failed",
+      runId,
+    });
   }
   if (eventName === "run.status") {
     return {

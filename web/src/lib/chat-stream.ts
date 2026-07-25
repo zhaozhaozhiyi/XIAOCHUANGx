@@ -8,6 +8,11 @@ import type {
   CanonicalTurnOutput,
   ChatPart,
 } from "@/lib/chat-parts";
+import type {
+  SkillFailedEvent,
+  SkillReadyEvent,
+  SkillSelectedEvent,
+} from "@jlc/contracts";
 import type { TodoItem } from "@/lib/chat-parts";
 import {
   parseRunStartedPayload,
@@ -49,6 +54,9 @@ export type ProjectEnsuredPayload = {
 export type ChatStreamCallbacks = {
   onStreamStart?: () => void;
   onRunStarted?: (payload: RunStartedPayload) => void;
+  onSkillLifecycle?: (
+    event: SkillSelectedEvent | SkillReadyEvent | SkillFailedEvent,
+  ) => void;
   onProjectEnsured?: (project: ProjectEnsuredPayload) => void;
   onDelta: (content: string) => void;
   onInterimAssistant?: (payload: {
@@ -113,6 +121,7 @@ function parseCompanionPayload(
   partPatch?: { id: string; merge: Record<string, unknown> };
   todoItems?: TodoItem[];
   runStarted?: RunStartedPayload;
+  skillLifecycle?: SkillSelectedEvent | SkillReadyEvent | SkillFailedEvent;
   projectEnsured?: ProjectEnsuredPayload;
   status?: { label: string; phase?: string };
   error?: string;
@@ -137,6 +146,18 @@ function parseCompanionPayload(
           ? json.message
           : "正在准备运行环境…";
       return { status: { label: message, phase: "accepted" } };
+    }
+    if (
+      eventName === "skill.selected" ||
+      eventName === "skill.ready" ||
+      eventName === "skill.failed"
+    ) {
+      return {
+        skillLifecycle: {
+          ...json,
+          type: eventName,
+        } as SkillSelectedEvent | SkillReadyEvent | SkillFailedEvent,
+      };
     }
     if (eventName === "run.started") {
       return { runStarted: parseRunStartedPayload(json) };
@@ -424,6 +445,9 @@ export async function consumeChatSse(
           }
           if (eventName === "run.started" && parsed?.runStarted) {
             callbacks.onRunStarted?.(parsed.runStarted);
+          }
+          if (parsed?.skillLifecycle) {
+            callbacks.onSkillLifecycle?.(parsed.skillLifecycle);
           }
           if (eventName === "project.ensured" && parsed?.projectEnsured) {
             callbacks.onProjectEnsured?.(parsed.projectEnsured);

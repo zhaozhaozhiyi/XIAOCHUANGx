@@ -1,0 +1,1270 @@
+{
+  "inventoryVersion": "0.1.7-v1",
+  "generatedAt": "2026-07-24T00:00:00.000Z",
+  "total": 48,
+  "active": 44,
+  "disabled": 4,
+  "entries": [
+    {
+      "directory": "skill-industrial-drawing-base",
+      "slug": "skill-industrial-drawing-base",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "3d"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [
+          "3d"
+        ],
+        "templates": []
+      },
+      "dependencies": [
+        "skill-industrial-drawing-parametric",
+        "skill-industrial-drawing-export"
+      ],
+      "capabilityRequirements": [
+        "cad-runtime",
+        "openscad-toolchain"
+      ],
+      "assetPolicy": {
+        "references": true,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-industrial-drawing-export",
+      "slug": "skill-industrial-drawing-export",
+      "version": "1.0",
+      "kind": "tool",
+      "scope": [
+        "chat",
+        "3d"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "dependencies": [],
+      "capabilityRequirements": [
+        "openscad-toolchain"
+      ],
+      "assetPolicy": {
+        "references": true,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-industrial-drawing-parametric",
+      "slug": "skill-industrial-drawing-parametric",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "3d"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "dependencies": [],
+      "capabilityRequirements": [
+        "cad-runtime"
+      ],
+      "assetPolicy": {
+        "references": true,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-kb-qa",
+      "slug": "skill-kb-qa",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "knowledge"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "dependencies": [],
+      "capabilityRequirements": [
+        "knowledge-base"
+      ],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-mm-client-review",
+      "slug": "skill-mm-client-review",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "meeting",
+        "writing"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-mm-daily-standup",
+      "slug": "skill-mm-daily-standup",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "meeting",
+        "writing"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-mm-internal-decision",
+      "slug": "skill-mm-internal-decision",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "meeting",
+        "writing"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-mm-summary",
+      "slug": "skill-mm-summary",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "meeting",
+        "writing"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-platform-research-norms",
+      "slug": "skill-platform-research-norms",
+      "version": "1.1",
+      "kind": "workflow",
+      "scope": [
+        "chat"
+      ],
+      "status": "disabled",
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": true,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-ppt-base",
+      "slug": "skill-ppt-base",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "ppt"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [
+          "ppt"
+        ],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "default"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": true,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-ppt-blue-professional",
+      "slug": "skill-ppt-blue-professional",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "ppt"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "blue-professional"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-ppt-deck",
+      "slug": "skill-ppt-deck",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "ppt"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "deck"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": true,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-ppt-editorial-burgundy",
+      "slug": "skill-ppt-editorial-burgundy",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "ppt"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "editorial-burgundy"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": true,
+        "scripts": false,
+        "templates": false,
+        "assets": true
+      }
+    },
+    {
+      "directory": "skill-ppt-fidelity-audit",
+      "slug": "skill-ppt-fidelity-audit",
+      "version": "1.0",
+      "kind": "tool",
+      "scope": [
+        "ppt"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "fidelity-audit"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": true,
+        "scripts": true,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-ppt-fintech-swiss",
+      "slug": "skill-ppt-fintech-swiss",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "ppt"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "fintech-swiss"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": true,
+        "scripts": false,
+        "templates": false,
+        "assets": true
+      }
+    },
+    {
+      "directory": "skill-ppt-guizang-editorial",
+      "slug": "skill-ppt-guizang-editorial",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "ppt"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "guizang-editorial"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-ppt-html-studio",
+      "slug": "skill-ppt-html-studio",
+      "version": "1.0",
+      "kind": "tool",
+      "scope": [
+        "chat",
+        "ppt"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "html-studio"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": true,
+        "scripts": true,
+        "templates": true,
+        "assets": true
+      }
+    },
+    {
+      "directory": "skill-ppt-knowledge-arch",
+      "slug": "skill-ppt-knowledge-arch",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "ppt"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "knowledge-arch"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-ppt-open-canvas",
+      "slug": "skill-ppt-open-canvas",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "ppt"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "open-canvas"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-ppt-pitch-deck",
+      "slug": "skill-ppt-pitch-deck",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "ppt"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "pitch-deck"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-ppt-pptx",
+      "slug": "skill-ppt-pptx",
+      "version": "1.0",
+      "kind": "tool",
+      "scope": [
+        "ppt"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "pptx"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-ppt-pptx-generator",
+      "slug": "skill-ppt-pptx-generator",
+      "version": "1.0",
+      "kind": "tool",
+      "scope": [
+        "ppt"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "pptx-generator"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-ppt-quarterly-review",
+      "slug": "skill-ppt-quarterly-review",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "ppt"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "quarterly-review"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": true,
+        "scripts": false,
+        "templates": false,
+        "assets": true
+      }
+    },
+    {
+      "directory": "skill-ppt-slides",
+      "slug": "skill-ppt-slides",
+      "version": "1.0",
+      "kind": "tool",
+      "scope": [
+        "ppt"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "slides"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-ppt-swiss-international",
+      "slug": "skill-ppt-swiss-international",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "ppt"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "swiss-international"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-ppt-tech-sharing",
+      "slug": "skill-ppt-tech-sharing",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "ppt"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "tech-sharing"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-ppt-weekly-report",
+      "slug": "skill-ppt-weekly-report",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "ppt"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "weekly-report"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-qa",
+      "slug": "skill-qa",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "chat"
+      ],
+      "status": "disabled",
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-qa-deep",
+      "slug": "skill-qa-deep",
+      "version": "1.1",
+      "kind": "workflow",
+      "scope": [
+        "chat"
+      ],
+      "status": "disabled",
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": true,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-qa-fast",
+      "slug": "skill-qa-fast",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "chat"
+      ],
+      "status": "disabled",
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-simulation-base",
+      "slug": "skill-simulation-base",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "simulation"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [
+          "simulation"
+        ],
+        "templates": []
+      },
+      "dependencies": [
+        "skill-world-model"
+      ],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-tr-doc",
+      "slug": "skill-tr-doc",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "translate"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-tr-polish",
+      "slug": "skill-tr-polish",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "translate"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-tr-text",
+      "slug": "skill-tr-text",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "translate"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-vp-base",
+      "slug": "skill-vp-base",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "video"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [
+          "video"
+        ],
+        "templates": [
+          {
+            "moduleId": "video",
+            "templateId": "auto"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-vp-poetic-visual-coding",
+      "slug": "skill-vp-poetic-visual-coding",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "video"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "video",
+            "templateId": "poetic"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-vp-screenplay-canvas",
+      "slug": "skill-vp-screenplay-canvas",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "video"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "video",
+            "templateId": "screenplay"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": true,
+        "scripts": true,
+        "templates": true,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-vp-video-stage",
+      "slug": "skill-vp-video-stage",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "video"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "video",
+            "templateId": "stage"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": true,
+        "scripts": true,
+        "templates": true,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-world-model",
+      "slug": "skill-world-model",
+      "version": "1.0",
+      "kind": "tool",
+      "scope": [
+        "chat",
+        "simulation"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": true,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-wr-industry",
+      "slug": "skill-wr-industry",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "writing"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "writing",
+            "templateId": "industry"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-wr-macro",
+      "slug": "skill-wr-macro",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "writing"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "writing",
+            "templateId": "macro"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-wr-policy",
+      "slug": "skill-wr-policy",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "writing"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "writing",
+            "templateId": "policy"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-wr-sector-data",
+      "slug": "skill-wr-sector-data",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "writing"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "writing",
+            "templateId": "sector-data"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-wr-topic",
+      "slug": "skill-wr-topic",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "writing"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "writing",
+            "templateId": "topic"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-writing-base",
+      "slug": "skill-writing-base",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "writing"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [
+          "writing"
+        ],
+        "templates": []
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": true,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-writing-general",
+      "slug": "skill-writing-general",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "writing"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "writing",
+            "templateId": "general"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-writing-meeting-minutes",
+      "slug": "skill-writing-meeting-minutes",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "writing"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "writing",
+            "templateId": "meeting-minutes"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "directory": "skill-writing-official-doc",
+      "slug": "skill-writing-official-doc",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "writing"
+      ],
+      "status": "active",
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "writing",
+            "templateId": "official-doc"
+          }
+        ]
+      },
+      "dependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    }
+  ]
+}

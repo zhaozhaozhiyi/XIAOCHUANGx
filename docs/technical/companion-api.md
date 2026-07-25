@@ -2,6 +2,7 @@
 
 > **定位：** 模式 B 下 Web/桌面壳与**本机 Companion** 的唯一执行接口。Companion 按 `agentId` **spawn** 对应 CLI（`codex` / `claude` / `hermes`），在 `projectId` 工作区根目录执行，经 **SSE** 回传进度与文本。
 > **对齐：** PRD **v4.1 / `0.1.0-alpha` Desktop Alpha** §8.5、§5.3.2.1a/b、§5.3.2.2；[folder-import-and-desktop-shell.md](./folder-import-and-desktop-shell.md)；TypeScript 类型见 `web/src/lib/companion/types.ts`。
+> **Skill 编排：** `0.1.6` 字段记录当前实现；`0.1.7` 目标契约以 [requirements-0.1.7.md](../product/requirements-0.1.7.md) 和本文 §3/§4 的明确标注为准，尚未实现的字段不得描述为当前能力。
 
 ## 基址与安全
 
@@ -262,7 +263,7 @@ Web 发对话时 **`useClientHistory: true`**（始终携带已持久化历史�
 
 **请求头：** `Content-Type: application/json`，`Accept: text/event-stream`
 
-**请求体（`CreateRunRequest`）：**
+**`0.1.6` 当前请求体（`CreateRunRequest`）：**
 
 ```json
 {
@@ -286,9 +287,35 @@ Web 发对话时 **`useClientHistory: true`**（始终携带已持久化历史�
 | `workspaceProjectId` | 解析后的工作区 ID（当前 Desktop 主路径通常为 `local_bound`；内部/迁移场景可出现沙箱 ID） |
 | `agentId` | **决定 spawn 哪一款 CLI**，必填 |
 | `binding` | 模块注册表键；对话为 `{ moduleId, mode }` |
-| `processSkill` / `platformNormSkill` | spawn 前从 `skills/<slug>/SKILL.md` 加载并注入 prompt（见 PRD F-RT-003、`skills/README.md`） |
-| `orchestrationMode` | 对话编排模式；`moduleId=chat` 时为 `"hybrid-steer"`（F-RT-008） |
-| `catalogVersion` / `catalogSlugs` | 本轮可见 Skill Catalog（摘要已进 system；全文 Agent 按需 Pull） |
+| `processSkill` / `platformNormSkill` | `0.1.6` spawn 前加载的 Skill；`0.1.7` 标记 deprecated，不再是 Web 可覆盖的最终决定 |
+| `orchestrationMode` | `0.1.6` 对话编排模式；`moduleId=chat` 时为 `"hybrid-steer"`；`0.1.7` 不再发送给 Agent |
+| `catalogVersion` / `catalogSlugs` | `0.1.6` 本轮可见 Catalog；`0.1.7` 不再进入请求事实或 Prompt |
+
+#### `0.1.7` 目标请求契约（T00 已确认，待 T01 Schema 冻结）
+
+```json
+{
+  "sessionId": "1747824000123",
+  "projectId": "none",
+  "workspaceProjectId": "proj-x7k2m9",
+  "moduleId": "chat",
+  "binding": { "moduleId": "chat", "mode": "fast" },
+  "agentId": "codex",
+  "agentModel": "default",
+  "messages": [{ "role": "user", "content": "上周螺纹钢库存" }],
+  "useClientHistory": false
+}
+```
+
+`requestedSkillSlug` 仅在用户通过明确 UI 操作选择 Skill 时发送；普通文本中的“动作 + 完整 slug”由 Companion Selector 根据原始消息判断，Web 不解析也不生成最终选择。Companion 必须验证 slug 格式、Registry 状态和允许来源。
+
+`SKILL_ORCHESTRATION_V2_ENABLED=true` 时：
+
+1. Web 只发送消息、模块、模板和显式 UI 操作等用户事实；
+2. Companion 查询 `skill-registry.generated.json` 的内存快照，生成并持久化 `SkillSelectionDecisionV1`；
+3. `processSkill`、`platformNormSkill`、`supportSkillSlugs` 只在版本化兼容层中接受白名单旧模块绑定，不得覆盖 Companion Decision；
+4. `decisionOutcome=none` 的 Run 直接使用平台基础 Prompt，不创建 Agent Kit，也不产生 Skill UI 事件；
+5. `decisionOutcome=selected` 时才延迟加载主 Skill、依赖和必要资产，并将同一组装结果交给 Codex、Claude 或 Hermes。
 
 **SSE 事件（补充）：**
 
@@ -296,6 +323,9 @@ Web 发对话时 **`useClientHistory: true`**（始终携带已持久化历史�
 |------|------|
 | `run.accepted` | 连接建立后立刻发送，含 `message`（加载 Skill/Kit 等），用于首包可感知 |
 | `run.started` | Run 元数据（runId、skills、orchestration） |
+| `skill.selected` | `0.1.7` 已持久化 Decision 后产生；携带 decisionId、主 Skill、依赖和选择来源 |
+| `skill.ready` | `0.1.7` bundle 全部可用；携带 items、bundleHash 和缓存状态 |
+| `skill.failed` | `0.1.7` 选择或 bundle 准备失败；携带失败项、阶段和降级模式 |
 | `assistant.segment` | 带 `segmentId`、operation 与 pending/process/final role 的助手文本分段 |
 | `message.delta` | 旧正文增量；新分段路径下由 SSE 回放层合成并携带 `compatibility: "assistant.segment"` |
 | `tool.progress` | 工具/阶段进度 |
@@ -325,7 +355,10 @@ Web 发对话时 **`useClientHistory: true`**（始终携带已持久化历史�
 
 | `event` | `data` 示例 | UI |
 |---------|-------------|-----|
-| `run.started` | `{ "runId", "agentId", "cwd", "processSkill", "platformNormSkill", "orchestrationMode", "catalogVersion", "catalogSlugs", "skillsRoot", "promptsRoot", "injectedSkills", "missingSkills", "agentKitPath" }` | 可选阶段条；`agentKitPath` 仅 CLI 模式；对话见 F-RT-008 |
+| `run.started` | `0.1.6` 含 processSkill/Catalog 等旧字段；`0.1.7` 以 runId、agentId、cwd 和已持久化 decisionId 为权威，旧字段仅兼容读取 | 可选阶段条 |
+| `skill.selected` | `{ "eventId", "decisionId", "runId", "primarySkillSlug", "requiredSkillSlugs", "selectionSource", "reasonCode" }` | 显示已选择，不表示可用 |
+| `skill.ready` | `{ "eventId", "decisionId", "runId", "items", "bundleHash", "bundleCacheStatus" }` | bundle 全部可用后显示就绪 |
+| `skill.failed` | `{ "eventId", "decisionId", "runId", "failedSkillSlug", "failureStage", "failureCode", "fallbackMode" }` | 显示失败或降级 |
 | `assistant.segment` | `{ "segmentId", "operation", "role", "text"? }` | 过程/最终回答原位定类 |
 | `message.delta` | `{ "content": "片段", "compatibility"? }` | 旧正文；新版忽略 `compatibility: "assistant.segment"` 的镜像 |
 | `tool.progress` | `{ "tool": "read_file", "status": "running" }` | Activity 区工具行（见 [chat-message-parts.md](./chat-message-parts.md)） |
@@ -338,6 +371,8 @@ Web 发对话时 **`useClientHistory: true`**（始终携带已持久化历史�
 Web BFF 转发时设置响应头 `X-JLC-Execution: companion`，前端 `consumeChatSse(..., { format: "companion" })` 解析，经 `chat-parts-reducer` 写入消息的 `parts[]`。
 
 兼容镜像只存在于实时 SSE，不写入 `/v1/runs/{runId}/events`，也不重复写入 Session assistant content。
+
+`0.1.7` 的 Skill Decision 必须保存在 RunRecord；Skill 事件保存到 Run Event Store 并全部关联 decisionId。若 Run 在 selected 后取消，`run.cancelled` 终止 UI 加载态，不补造 ready 或 failed。
 
 ---
 

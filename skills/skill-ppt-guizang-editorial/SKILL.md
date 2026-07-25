@@ -1,7 +1,13 @@
 ---
 slug: skill-ppt-guizang-editorial
-module: ppt
 version: "1.0"
+kind: workflow
+scope: ["ppt"]
+summary: "归藏编辑墨水：杂志风叙事与多调色板"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
+module: ppt
 source: open-design/skills/deck-guizang-editorial
 templateId: guizang-editorial
 label: 归藏编辑墨水

@@ -1,7 +1,13 @@
 ---
 slug: skill-ppt-blue-professional
-module: ppt
 version: "1.0"
+kind: workflow
+scope: ["ppt"]
+summary: "专业蓝调机构研报风格幻灯片"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
+module: ppt
 source: open-design/design-templates/html-ppt-zhangzara-blue-professional
 templateId: blue-professional
 label: 专业蓝

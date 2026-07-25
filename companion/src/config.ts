@@ -31,7 +31,7 @@ export type RunTimeoutProfile =
   | "video"
   | "simulation";
 
-export const PACKAGE_VERSION = "0.1.6-rc.3";
+export const PACKAGE_VERSION = "0.1.7";
 
 export const config = {
   host: process.env.COMPANION_HOST ?? "127.0.0.1",
@@ -77,6 +77,10 @@ export const config = {
   runTimeoutVideoMs: envOptionalInt("COMPANION_RUN_TIMEOUT_VIDEO_MS"),
   runTimeoutSimulationMs: envOptionalInt("COMPANION_RUN_TIMEOUT_SIMULATION_MS"),
   runIdleTimeoutMs: envInt("COMPANION_RUN_IDLE_TIMEOUT_MS", 900_000),
+  skillOrchestrationV2Enabled: envBool(
+    "SKILL_ORCHESTRATION_V2_ENABLED",
+    true,
+  ),
 } as const;
 
 export function resolveRunTimeoutMs(

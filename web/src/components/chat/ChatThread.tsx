@@ -820,6 +820,7 @@ function SimulationWorkbench({
   const [activeRoundId, setActiveRoundId] = useState("round_1");
   const [activeSnapshot, setActiveSnapshot] = useState<CanvasSnapshot | null>(null);
   const [roundError, setRoundError] = useState<string | null>(null);
+  const snapshotRequestRef = useRef(0);
   const visibleRounds = rounds.length > 0 ? rounds : [{ roundId: "round_1" }];
   const activeRound = visibleRounds.find((round) => round.roundId === activeRoundId);
   const latestRound = visibleRounds.at(-1);
@@ -837,18 +838,24 @@ function SimulationWorkbench({
   );
 
   useEffect(() => {
+    snapshotRequestRef.current += 1;
     let cancelled = false;
     const retryDelay = (attempt: number) =>
       new Promise((resolve) => setTimeout(resolve, attempt * 350));
     const loadLatestSnapshot = async (roundId: string) => {
+      const requestId = ++snapshotRequestRef.current;
       for (let attempt = 1; attempt <= 4; attempt += 1) {
         try {
           const snapshotRes = await fetchSimulationSnapshot({ sessionId, roundId });
-          if (!cancelled) setActiveSnapshot(snapshotRes.snapshot);
+          if (!cancelled && requestId === snapshotRequestRef.current) {
+            setActiveSnapshot(snapshotRes.snapshot);
+          }
           return;
         } catch {
           if (attempt === 4) {
-            if (!cancelled) setActiveSnapshot(null);
+            if (!cancelled && requestId === snapshotRequestRef.current) {
+              setActiveSnapshot(null);
+            }
             return;
           }
           await retryDelay(attempt);
@@ -871,6 +878,7 @@ function SimulationWorkbench({
             if (latest.roundId !== "round_1") {
               void loadLatestSnapshot(latest.roundId);
             } else {
+              snapshotRequestRef.current += 1;
               setActiveSnapshot(null);
             }
           }
@@ -891,6 +899,7 @@ function SimulationWorkbench({
   }, [sessionId]);
 
   const selectRound = async (roundId: string) => {
+    const requestId = ++snapshotRequestRef.current;
     setActiveRoundId(roundId);
     setRoundError(null);
     if (roundId === "round_1" && rounds.length <= 1) {
@@ -899,10 +908,14 @@ function SimulationWorkbench({
     }
     try {
       const res = await fetchSimulationSnapshot({ sessionId, roundId });
-      setActiveSnapshot(res.snapshot);
+      if (requestId === snapshotRequestRef.current) {
+        setActiveSnapshot(res.snapshot);
+      }
     } catch (err) {
-      setRoundError(err instanceof Error ? err.message : "轮次快照读取失败");
-      if (roundId === "round_1") setActiveSnapshot(null);
+      if (requestId === snapshotRequestRef.current) {
+        setRoundError(err instanceof Error ? err.message : "轮次快照读取失败");
+        if (roundId === "round_1") setActiveSnapshot(null);
+      }
     }
   };
 

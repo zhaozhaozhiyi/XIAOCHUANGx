@@ -16,6 +16,8 @@ import {
   type LoadedChatCatalog,
 } from "./chat-catalog.js";
 import type { ChatModeId } from "./types.js";
+import type { SkillSelectionDecisionV1 } from "@jlc/contracts";
+import type { SelectedSkillBundle } from "./skill-loader.js";
 
 export type { RunConversationMessage } from "./conversation-prompt.js";
 
@@ -35,6 +37,9 @@ export type ComposeRunPromptsOptions = {
   chatCatalog?: LoadedChatCatalog | null;
   /** 模块绑定、模板偏好等附加上下文 */
   contextNotes?: string[];
+  orchestrationVersion?: "legacy" | "v2";
+  skillDecision?: SkillSelectionDecisionV1 | null;
+  selectedBundle?: SelectedSkillBundle | null;
 };
 
 export type ComposedRunPromptsMeta = {
@@ -48,6 +53,8 @@ export type ComposedRunPromptsMeta = {
   catalogVersion?: string;
   catalogSlugs?: string[];
   orchestrationMode?: string;
+  decisionId?: string;
+  bundleHash?: string;
 };
 
 export type ComposedRunPrompts = {
@@ -70,6 +77,9 @@ export function userTurn(userText: string): string {
 export function composeRunPrompts(
   options: ComposeRunPromptsOptions,
 ): ComposedRunPrompts {
+  if (options.orchestrationVersion === "v2") {
+    return composeRunPromptsV2(options);
+  }
   const skillsRoot = options.skillsRoot ?? resolveSkillsRoot();
   const promptsRoot = options.promptsRoot ?? resolvePromptsRoot();
   const bundle = loadSkillBundle({
@@ -177,6 +187,94 @@ export function composeRunPrompts(
       orchestrationMode: options.chatCatalog
         ? "hybrid-steer"
         : undefined,
+    },
+  };
+}
+
+function composeRunPromptsV2(
+  options: ComposeRunPromptsOptions,
+): ComposedRunPrompts {
+  const skillsRoot = options.skillsRoot ?? resolveSkillsRoot();
+  const promptsRoot = options.promptsRoot ?? resolvePromptsRoot();
+  const platform = loadPlatformPrompts(promptsRoot, {
+    orchestrationVersion: "v2",
+  });
+  const decision = options.skillDecision ?? null;
+  const bundle = options.selectedBundle ?? null;
+  if (decision?.decisionOutcome === "selected" && !bundle) {
+    throw new Error("A selected Skill Decision requires a ready bundle.");
+  }
+  if (bundle && bundle.decisionId !== decision?.decisionId) {
+    throw new Error("Skill bundle and Decision IDs do not match.");
+  }
+
+  const parts: string[] = [];
+  if (platform.body) {
+    parts.push("## 平台 Prompt", platform.body);
+  } else if (platform.missing.length > 0) {
+    parts.push(
+      `【平台 Prompt】部分文件缺失：${platform.missing.join(", ")}（目录：${promptsRoot}/platform）`,
+    );
+  }
+  if (options.contextNotes?.length) {
+    parts.push(
+      "",
+      "## 当前模块上下文",
+      ...options.contextNotes.map((note) => `- ${note}`),
+    );
+  }
+  parts.push(
+    "",
+    "## 对话进度（Web UI）",
+    "多步骤任务在调用工具前，用 1–2 句中文说明即将做什么；简单回答无需增加过程说明。",
+  );
+
+  const injectedSlugs: string[] = [];
+  if (bundle) {
+    parts.push(
+      "",
+      "## 已选择的流程 Skill",
+      formatSkillBodyForPrompt(bundle.primary),
+    );
+    injectedSlugs.push(bundle.primary.slug);
+    if (bundle.required.length > 0) {
+      parts.push("", "## 必需支持 Skill");
+      for (const item of bundle.required) {
+        parts.push("", formatSkillBodyForPrompt(item));
+        injectedSlugs.push(item.slug);
+      }
+    }
+  }
+  if (options.agentKit) {
+    parts.push("", formatAgentKitSection(options.agentKit));
+  }
+  if (hasMultiTurnContext(options.messages)) {
+    parts.push(
+      "",
+      "## 多轮会话",
+      "结合下方历史理解编号选项、确认语和续写请求；不要把孤立短语误当作新任务。",
+    );
+  }
+
+  const systemPrompt = parts.join("\n").trim();
+  const userPrompt =
+    options.messages && options.messages.length > 0
+      ? formatConversationUserPrompt(options.messages)
+      : userTurn(options.userText);
+  return {
+    systemPrompt,
+    userPrompt,
+    meta: {
+      skillsRoot,
+      promptsRoot,
+      agentKitPath: options.agentKit?.agentKitPath ?? null,
+      injectedSlugs,
+      missingSlugs: [],
+      platformFiles: platform.files,
+      missingPlatformFiles: platform.missing,
+      orchestrationMode: "companion-select-v2",
+      decisionId: decision?.decisionId,
+      bundleHash: bundle?.bundleHash,
     },
   };
 }

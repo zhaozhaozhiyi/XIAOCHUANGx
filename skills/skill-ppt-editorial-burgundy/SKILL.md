@@ -1,7 +1,13 @@
 ---
 slug: skill-ppt-editorial-burgundy
-module: ppt
 version: "1.0"
+kind: workflow
+scope: ["ppt"]
+summary: "编辑工作室：文化叙事与原则清单"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":true,"scripts":false,"templates":false,"assets":true}
+module: ppt
 source: open-design/skills/editorial-burgundy-principles-template
 templateId: editorial-burgundy
 label: 编辑工作室

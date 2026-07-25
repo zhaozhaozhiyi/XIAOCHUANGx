@@ -1,8 +1,14 @@
 ---
 slug: skill-ppt-deck
+version: "1.0"
+kind: workflow
+scope: ["chat","ppt"]
+summary: "默认演示文稿结构与生成流程；HTML 幻灯片 deck"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":true,"scripts":false,"templates":false,"assets":false}
 module: ppt
 task: deck
-version: "1.0"
 templatePackId: tpl-ppt-default
 ---
 

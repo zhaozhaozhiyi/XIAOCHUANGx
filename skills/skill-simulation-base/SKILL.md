@@ -1,8 +1,14 @@
 ---
 slug: skill-simulation-base
+version: "0.1"
+kind: workflow
+scope: ["chat","simulation"]
+summary: "推演基座：收敛复杂问题边界，拆解主体、变量、假设和多条情景路径，生成可继续深挖的推演报告"
+skillDependencies: ["skill-world-model"]
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
 module: simulation
 task: base
-version: "0.1"
 status: p0
 ---
 

@@ -1,6 +1,6 @@
 # @jlc/desktop
 
-Electron 桌面壳（**`0.1.6-rc.3` / Desktop Alpha 候选版**）。对 `web/` 的包装，无业务分叉；主进程提供系统选目录 + Companion `import-folder`。Companion 是 Desktop 本地文件夹工作区的本机运行时。
+Electron 桌面壳（**`0.1.7` / Desktop Alpha Skill 编排候选版**）。对 `web/` 的包装，无业务分叉；主进程提供系统选目录 + Companion `import-folder`。Companion 是 Desktop 本地文件夹工作区的本机运行时。
 
 ## 品牌图标
 

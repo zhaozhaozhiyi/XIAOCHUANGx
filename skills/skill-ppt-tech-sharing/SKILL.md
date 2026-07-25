@@ -1,7 +1,13 @@
 ---
 slug: skill-ppt-tech-sharing
-module: ppt
 version: "1.0"
+kind: workflow
+scope: ["ppt"]
+summary: "技术分享：方法论与案例结构"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
+module: ppt
 source: open-design/design-templates/html-ppt-tech-sharing
 templateId: tech-sharing
 label: 技术分享

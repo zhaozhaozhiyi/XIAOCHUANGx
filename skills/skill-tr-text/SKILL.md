@@ -1,9 +1,15 @@
 ---
 slug: skill-tr-text
+version: "0.1"
+kind: workflow
+scope: ["chat","translate"]
+summary: "文本翻译：粘贴片段即时中英互译，必给 ≥ 2 个备选译文"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
 module: translate
 task: translate
 templateId: text
-version: "0.1"
 ---
 
 # 翻译 · 文本翻译

@@ -11,17 +11,24 @@ import {
   composeAgentRunPayload,
   exceedsHardPromptLimit,
   extractPathFromToolMessage,
+  loadSelectedSkillBundle,
+  loadSkillRegistry,
   loadSkillBundle,
   prepareMessagesForRun,
   probeHermesGateway,
   resolveChatOrchestration,
   resolvePromptsRoot,
   resolveSkillsRoot,
+  selectSkill,
   runAgent,
   runHermesGateway,
   snapshotWorkspace,
   stageAgentKitForRun,
+  stageAgentKitForSelectedBundle,
+  type AgentKitStageResult,
   type ChatOrchestration,
+  type SelectedSkillBundle,
+  type SkillRegistrySnapshot,
   type RunConversationMessage,
   type RunAgentUserInputResponse,
 } from "@jlc/runtime-core";
@@ -56,7 +63,11 @@ import {
   summarizeGrammarViolations,
 } from "../simulation/grammar-check.js";
 import { buildCanvasDigest } from "../simulation/digest.js";
-import type { AgentId, CreateRunRequest } from "../types.js";
+import type {
+  AgentId,
+  CompanionAgentState,
+  CreateRunRequest,
+} from "../types.js";
 import {
   type AssistantSegmentPayload,
   type ChatPart,
@@ -65,6 +76,8 @@ import {
   type CanonicalEvent,
   type CanonicalWorkspaceChange,
   type RunStatus,
+  type SkillFailureCode,
+  type SkillSelectionDecisionV1,
   mergeSimulationDeltaIntoScenarioPreservingUpstream,
   mergeSimulationScenarioPreservingUpstream,
 } from "@jlc/contracts";
@@ -111,6 +124,7 @@ import {
 import { buildSimulatedReply } from "./reply.js";
 import { emitRunStatus } from "./runtime-events.js";
 import { createRuntimeStoreWriter } from "./runtime-store-writer.js";
+import { patchRunRecord } from "./store.js";
 import { createPersistedRunWriter } from "./session-persistence.js";
 import {
   appendFinalSegment,
@@ -125,6 +139,7 @@ import {
 } from "./sse.js";
 import { trySpawnVersionProbe } from "./spawn.js";
 import { primeRuntimeRunRecord } from "./runtime-store-writer.js";
+import { resolveAvailableSkillCapabilities } from "./skill-capabilities.js";
 
 const activeRuns = new Map<string, AbortController>();
 const activeRunRequests = new Map<string, CreateRunRequest>();
@@ -136,6 +151,25 @@ const activeRunUserInputHandlers = new Map<
 >();
 const LAZY_DEFAULT_WORKSPACE_ID = "__lazy_default__";
 const SIMULATION_WORLD_MODEL_SKILL = "skill-world-model";
+
+function rejectedSkillFailureCode(
+  decision: SkillSelectionDecisionV1,
+): SkillFailureCode {
+  switch (decision.reasonCode) {
+    case "explicit_invalid_format":
+      return "invalid_slug";
+    case "explicit_not_found":
+      return "skill_not_found";
+    case "explicit_disabled":
+      return "skill_disabled";
+    case "explicit_source_not_allowed":
+      return "source_not_allowed";
+    case "capability_unavailable":
+      return "capability_unavailable";
+    default:
+      return "internal_error";
+  }
+}
 type SimulationScenario = Extract<
   ChatPart,
   { kind: "simulation_scenario" }
@@ -720,12 +754,14 @@ async function streamSimulatedReply(
   }
 }
 
-async function executeRunLifecycle(
+export async function executeRunLifecycle(
   req: CreateRunRequest,
   writer: RunEventWriter,
   runId: string,
 ): Promise<void> {
   const abort = new AbortController();
+  let lazyTempCwd: string | null = null;
+  let lifecycleFinalized = false;
   registerRun(runId, abort);
   activeRunWriters.set(runId, writer);
   activeRunRequests.set(runId, {
@@ -733,6 +769,72 @@ async function executeRunLifecycle(
     messages: [...req.messages],
   });
   activeSessionRuns.set(req.sessionId, runId);
+
+  const finalizeLifecycle = async (): Promise<void> => {
+    if (lifecycleFinalized) return;
+    lifecycleFinalized = true;
+    await writer.flush?.();
+    writer.end();
+    activeRuns.delete(runId);
+    activeRunWriters.delete(runId);
+    activeRunUserInputHandlers.delete(runId);
+    pendingRunClarifications.delete(runId);
+    activeRunRequests.delete(runId);
+    if (activeSessionRuns.get(req.sessionId) === runId) {
+      activeSessionRuns.delete(req.sessionId);
+    }
+    if (lazyTempCwd) {
+      await rm(lazyTempCwd, { recursive: true, force: true }).catch(() => {});
+    }
+    void import("./queue-runner.js").then((mod) =>
+      mod.scheduleSessionQueueDrain(req.sessionId),
+    );
+  };
+
+  const skillOrchestrationV2 = config.skillOrchestrationV2Enabled;
+  const priorRuntime = await loadSessionRuntime(req.sessionId);
+  let skillRegistry: SkillRegistrySnapshot | null = null;
+  let skillDecision: SkillSelectionDecisionV1 | null = null;
+  let selectedSkillBundle: SelectedSkillBundle | null = null;
+  if (skillOrchestrationV2) {
+    skillRegistry = loadSkillRegistry();
+    const selectionUserText =
+      [...req.messages].reverse().find((message) => message.role === "user")
+        ?.content ?? "";
+    const templateId =
+      "templateId" in req.binding && typeof req.binding.templateId === "string"
+        ? req.binding.templateId.trim() || null
+        : null;
+    skillDecision = selectSkill({
+      registry: skillRegistry,
+      decisionId: `decision-${randomUUID()}`,
+      runId,
+      sessionId: req.sessionId,
+      decidedAt: new Date().toISOString(),
+      moduleId: req.moduleId,
+      templateId,
+      requestedSkillSlug: req.requestedSkillSlug ?? null,
+      userText: selectionUserText,
+      continuation: priorRuntime?.lastSuccessfulWorkflowSkill
+        ? {
+            primarySkillSlug:
+              priorRuntime.lastSuccessfulWorkflowSkill.primarySkillSlug,
+            succeeded: true,
+          }
+        : null,
+      availableCapabilities: resolveAvailableSkillCapabilities(),
+    });
+    await writer.flush?.();
+    const persisted = await patchRunRecord(runId, {
+      skillDecision,
+    });
+    if (!persisted) {
+      throw new Error("Failed to persist Skill Decision before Agent startup.");
+    }
+    req.processSkill = skillDecision.primarySkillSlug;
+    req.platformNormSkill = undefined;
+    req.supportSkillSlugs = skillDecision.requiredSkillSlugs;
+  }
 
   const persistEarlyFailure = async (
     message: string,
@@ -751,9 +853,16 @@ async function executeRunLifecycle(
       ...patch,
     });
 
-  const agents = await detectAllAgents();
-  const agent = findAgentState(agents.agents, req.agentId);
   const agentSpec = getAgentRegistryEntry(req.agentId);
+  const agent: CompanionAgentState | undefined =
+    config.runMode === "simulate"
+      ? {
+          agentId: req.agentId,
+          bin: agentSpec.execution.bin,
+          status: "available",
+          version: "simulate",
+        }
+      : findAgentState((await detectAllAgents()).agents, req.agentId);
   if (!agent || agent.status !== "available") {
     const message =
       agent?.hint ??
@@ -768,10 +877,10 @@ async function executeRunLifecycle(
       code: "agent_unavailable",
       message,
     });
+    await finalizeLifecycle();
     return;
   }
 
-  const priorRuntime = await loadSessionRuntime(req.sessionId);
   const isLazyDefaultWorkspace =
     req.workspaceProjectId === LAZY_DEFAULT_WORKSPACE_ID;
   if (
@@ -791,7 +900,6 @@ async function executeRunLifecycle(
     priorRuntime?.workspaceProjectId === req.workspaceProjectId &&
     typeof priorRuntime.resolvedCwd === "string" &&
     priorRuntime.resolvedCwd.trim().length > 0;
-  let lazyTempCwd: string | null = null;
   try {
     if (reusedRuntimeCwd) {
       cwd = priorRuntime.resolvedCwd!.trim();
@@ -813,6 +921,7 @@ async function executeRunLifecycle(
       code: "project_not_found",
       message,
     });
+    await finalizeLifecycle();
     return;
   }
   const resolvedCwdSource = reusedRuntimeCwd
@@ -1445,8 +1554,22 @@ async function executeRunLifecycle(
   const persistRuntimeStatus = async (
     status: RunStatus,
     patch?: Partial<SessionRuntimeRecord>,
-  ) =>
-    patchSessionRuntime(req.sessionId, {
+  ) => {
+    const selectedManifest =
+      skillDecision?.primarySkillSlug && skillRegistry
+        ? skillRegistry.bySlug.get(skillDecision.primarySkillSlug)
+        : null;
+    const successfulWorkflow =
+      status === "completed" &&
+      skillDecision?.decisionOutcome === "selected" &&
+      selectedManifest?.kind === "workflow"
+        ? {
+            primarySkillSlug: skillDecision.primarySkillSlug!,
+            runId,
+            succeededAt: new Date().toISOString(),
+          }
+        : undefined;
+    return patchSessionRuntime(req.sessionId, {
       projectId: req.projectId,
       workspaceProjectId: req.workspaceProjectId,
       resolvedCwd: cwd,
@@ -1460,29 +1583,37 @@ async function executeRunLifecycle(
       idleTimeoutMs,
       lastRunId: runId,
       lastRunStatus: status,
+      ...(skillDecision ? { lastSkillDecision: skillDecision } : {}),
+      ...(successfulWorkflow
+        ? { lastSuccessfulWorkflowSkill: successfulWorkflow }
+        : {}),
       ...patch,
     });
+  };
 
+  const acceptedLabel = skillOrchestrationV2
+    ? "正在准备运行环境…"
+    : "正在加载 Skill 与运行环境…";
   writer.send("run.accepted", {
     runId,
     sessionId: req.sessionId,
     agentId: req.agentId,
-    message: "正在加载 Skill 与运行环境…",
+    message: acceptedLabel,
   });
   emitRunStatus(writer, {
     runId,
     phase: "accepted",
-    label: "正在加载 Skill 与运行环境…",
+    label: acceptedLabel,
   });
   emitCanonicalRunAccepted(writer, {
     runId,
-    message: "正在加载 Skill 与运行环境…",
+    message: acceptedLabel,
   });
   pushCanonicalEvent({
     type: "run_accepted",
     runId,
     timestamp: Date.now(),
-    message: "正在加载 Skill 与运行环境…",
+    message: acceptedLabel,
   });
   const simulationMeta =
     req.moduleId === "simulation"
@@ -1494,7 +1625,7 @@ async function executeRunLifecycle(
       : undefined;
 
   await persistRuntimeStatus("accepted", {
-    lastStatusLabel: "正在加载 Skill 与运行环境…",
+    lastStatusLabel: acceptedLabel,
     ...(simulationMeta ? { simulationMeta } : {}),
   });
 
@@ -1502,7 +1633,10 @@ async function executeRunLifecycle(
   const promptsRoot = resolvePromptsRoot();
 
   let chatOrchestration: ChatOrchestration | null = null;
-  if (req.moduleId === "chat") {
+  let injectedSkills: string[] = [];
+  let missingSkills: string[] = [];
+  let agentKit: AgentKitStageResult | null = null;
+  if (!skillOrchestrationV2 && req.moduleId === "chat") {
     const mode =
       normalizeChatMode(
         req.binding.moduleId === "chat" ? req.binding.mode : "auto",
@@ -1515,35 +1649,192 @@ async function executeRunLifecycle(
       req.platformNormSkill = chatOrchestration.platformNormSkill;
     }
   }
-  if (req.moduleId === "simulation") {
+  if (!skillOrchestrationV2 && req.moduleId === "simulation") {
     req.supportSkillSlugs = Array.from(
       new Set([...(req.supportSkillSlugs ?? []), SIMULATION_WORLD_MODEL_SKILL]),
     );
   }
-
-  const skillBundle = loadSkillBundle({
-    skillsRoot,
-    processSkill: req.processSkill,
-    platformNormSkill: req.platformNormSkill,
-    supportSkillSlugs: req.supportSkillSlugs,
-  });
-  const injectedSkills = Array.from(
-    new Set([
-      ...(skillBundle.platformNorm ? [skillBundle.platformNorm.slug] : []),
-      ...(skillBundle.process ? [skillBundle.process.slug] : []),
-      ...skillBundle.support.map((skill) => skill.slug),
-    ]),
-  );
-
-  const agentKit =
-    config.runMode === "cli"
-      ? await stageAgentKitForRun({
+  if (skillOrchestrationV2 && skillDecision && skillRegistry) {
+    const eventBase = {
+      skillEventVersion: 1 as const,
+      decisionId: skillDecision.decisionId,
+      runId,
+      sessionId: req.sessionId,
+    };
+    if (skillDecision.decisionOutcome === "rejected") {
+      const failureCode = rejectedSkillFailureCode(skillDecision);
+      const failureMessage = skillDecision.reasonText;
+      writer.send("skill.failed", {
+        ...eventBase,
+        eventId: `skill-event-${randomUUID()}`,
+        occurredAt: new Date().toISOString(),
+        failedSkillSlug: skillDecision.requestedSkillSlug ?? "unknown",
+        failureStage: "selection",
+        loadedItems: [],
+        failureCode,
+        failureMessage,
+        fallbackMode: "blocked",
+      });
+      await persistRuntimeStatus("failed", { lastStatusLabel: failureMessage });
+      writer.send("run.error", {
+        code: failureCode,
+        message: failureMessage,
+      });
+      emitCanonicalRunFailed(writer, {
+        runId,
+        code: failureCode,
+        message: failureMessage,
+      });
+      await finalizeLifecycle();
+      return;
+    }
+    if (
+      skillDecision.decisionOutcome === "selected" &&
+      skillDecision.primarySkillSlug
+    ) {
+      writer.send("skill.selected", {
+        ...eventBase,
+        eventId: `skill-event-${randomUUID()}`,
+        occurredAt: new Date().toISOString(),
+        primarySkillSlug: skillDecision.primarySkillSlug,
+        requiredSkillSlugs: skillDecision.requiredSkillSlugs,
+        selectionSource: skillDecision.selectionSource,
+        reasonCode: skillDecision.reasonCode,
+      });
+      const bundleResult = loadSelectedSkillBundle({
+        decision: skillDecision,
+        registry: skillRegistry,
+        skillsRoot,
+        signal: abort.signal,
+      });
+      if (bundleResult.status === "cancelled") {
+        await persistRuntimeStatus("cancelled", {
+          lastStatusLabel: "Run cancelled",
+        });
+        writer.send("run.cancelled", { runId });
+        emitCanonicalRunCancelled(writer, { runId });
+        await finalizeLifecycle();
+        return;
+      }
+      if (bundleResult.status === "failed") {
+        writer.send("skill.failed", {
+          ...eventBase,
+          eventId: `skill-event-${randomUUID()}`,
+          occurredAt: new Date().toISOString(),
+          failedSkillSlug: bundleResult.failedSkillSlug,
+          failureStage: bundleResult.failureStage,
+          loadedItems: bundleResult.loadedItems.map((item) => ({
+            slug: item.slug,
+            version: item.version,
+            contentHash: item.contentHash,
+            cacheStatus: item.cacheStatus,
+          })),
+          failureCode: bundleResult.failureCode,
+          failureMessage: bundleResult.failureMessage,
+          fallbackMode: bundleResult.fallbackMode,
+        });
+        await persistRuntimeStatus("failed", {
+          lastStatusLabel: bundleResult.failureMessage,
+        });
+        writer.send("run.error", {
+          code: bundleResult.failureCode,
+          message: bundleResult.failureMessage,
+        });
+        emitCanonicalRunFailed(writer, {
           runId,
-          processSkill: req.processSkill,
-          supportSkillSlugs: req.supportSkillSlugs,
-          skillsRoot,
-        })
-      : null;
+          code: bundleResult.failureCode,
+          message: bundleResult.failureMessage,
+        });
+        await finalizeLifecycle();
+        return;
+      }
+      selectedSkillBundle = bundleResult;
+      try {
+        agentKit =
+          config.runMode === "cli"
+            ? await stageAgentKitForSelectedBundle({
+                runId,
+                bundle: selectedSkillBundle,
+                skillsRoot,
+              })
+            : null;
+      } catch (error) {
+        const failureMessage =
+          error instanceof Error ? error.message : String(error);
+        writer.send("skill.failed", {
+          ...eventBase,
+          eventId: `skill-event-${randomUUID()}`,
+          occurredAt: new Date().toISOString(),
+          failedSkillSlug: skillDecision.primarySkillSlug,
+          failureStage: "asset",
+          loadedItems: selectedSkillBundle.items.map((item) => ({
+            slug: item.slug,
+            version: item.version,
+            contentHash: item.contentHash,
+            cacheStatus: item.cacheStatus,
+          })),
+          failureCode: "asset_prepare_failed",
+          failureMessage,
+          fallbackMode:
+            skillDecision.selectionSource === "intent" ? "basic" : "blocked",
+        });
+        await persistRuntimeStatus("failed", { lastStatusLabel: failureMessage });
+        writer.send("run.error", {
+          code: "asset_prepare_failed",
+          message: failureMessage,
+        });
+        emitCanonicalRunFailed(writer, {
+          runId,
+          code: "asset_prepare_failed",
+          message: failureMessage,
+        });
+        await finalizeLifecycle();
+        return;
+      }
+      injectedSkills = [
+        selectedSkillBundle.primary.slug,
+        ...selectedSkillBundle.required.map((item) => item.slug),
+      ];
+      writer.send("skill.ready", {
+        ...eventBase,
+        eventId: `skill-event-${randomUUID()}`,
+        occurredAt: new Date().toISOString(),
+        items: selectedSkillBundle.items.map((item) => ({
+          slug: item.slug,
+          version: item.version,
+          contentHash: item.contentHash,
+          cacheStatus: item.cacheStatus,
+        })),
+        bundleHash: selectedSkillBundle.bundleHash,
+        bundleCacheStatus: selectedSkillBundle.bundleCacheStatus,
+        agentKitPath: agentKit?.agentKitPath ?? null,
+      });
+    }
+  } else {
+    const skillBundle = loadSkillBundle({
+      skillsRoot,
+      processSkill: req.processSkill,
+      platformNormSkill: req.platformNormSkill,
+      supportSkillSlugs: req.supportSkillSlugs,
+    });
+    missingSkills = skillBundle.missing;
+    injectedSkills = Array.from(
+      new Set([
+        ...(skillBundle.platformNorm ? [skillBundle.platformNorm.slug] : []),
+        ...(skillBundle.process ? [skillBundle.process.slug] : []),
+        ...skillBundle.support.map((skill) => skill.slug),
+      ]),
+    );
+    agentKit =
+      config.runMode === "cli"
+        ? await stageAgentKitForRun({
+            runId,
+            processSkill: req.processSkill,
+            supportSkillSlugs: req.supportSkillSlugs,
+            skillsRoot,
+          })
+        : null;
+  }
 
   const emitRunStartedEvent = (input?: {
     stablePromptHash?: string;
@@ -1558,12 +1849,17 @@ async function executeRunLifecycle(
         chatOrchestration?.baseProcessSkill ?? req.processSkill ?? null,
       platformNormSkill: req.platformNormSkill ?? null,
       supportSkillSlugs: req.supportSkillSlugs ?? null,
-      orchestrationMode: chatOrchestration?.orchestrationMode ?? null,
+      orchestrationMode: skillOrchestrationV2
+        ? "companion-select-v2"
+        : (chatOrchestration?.orchestrationMode ?? null),
       catalogVersion: chatOrchestration?.catalogVersion ?? null,
       catalogSlugs: chatOrchestration?.catalogSlugs ?? null,
       injectedSkills,
-      missingSkills: skillBundle.missing,
+      missingSkills,
       catalogMissingSlugs: chatOrchestration?.catalog.missingSlugs ?? null,
+      skillDecisionId: skillDecision?.decisionId,
+      registryVersion: skillRegistry?.registry.registryVersion,
+      bundleHash: selectedSkillBundle?.bundleHash,
       skillsRoot,
       promptsRoot,
       agentKitPath: agentKit?.agentKitPath ?? null,
@@ -1601,7 +1897,9 @@ async function executeRunLifecycle(
         processSkill: req.processSkill ?? null,
         platformNormSkill: req.platformNormSkill ?? null,
         injectedSkills,
-        orchestrationMode: chatOrchestration?.orchestrationMode ?? null,
+        orchestrationMode: skillOrchestrationV2
+          ? "companion-select-v2"
+          : (chatOrchestration?.orchestrationMode ?? null),
         catalogVersion: chatOrchestration?.catalogVersion ?? null,
         catalogSlugs: chatOrchestration?.catalogSlugs ?? null,
         skillsRoot,
@@ -1744,6 +2042,9 @@ async function executeRunLifecycle(
         supportSkillSlugs: req.supportSkillSlugs,
         agentKit,
         chatCatalog: chatOrchestration?.catalog ?? null,
+        orchestrationVersion: skillOrchestrationV2 ? "v2" : "legacy",
+        skillDecision,
+        selectedBundle: selectedSkillBundle,
         contextNotes: buildPromptContextNotes(req, { userText, canvasDigest }),
         agentId: req.agentId,
         cwd,
@@ -1766,6 +2067,9 @@ async function executeRunLifecycle(
           supportSkillSlugs: req.supportSkillSlugs,
           agentKit,
           chatCatalog: chatOrchestration?.catalog ?? null,
+          orchestrationVersion: skillOrchestrationV2 ? "v2" : "legacy",
+          skillDecision,
+          selectedBundle: selectedSkillBundle,
           contextNotes: buildPromptContextNotes(req, { userText, canvasDigest }),
           agentId: req.agentId,
           cwd,
@@ -1815,7 +2119,9 @@ async function executeRunLifecycle(
         processSkill: req.processSkill ?? null,
         platformNormSkill: req.platformNormSkill ?? null,
         injectedSkills,
-        orchestrationMode: chatOrchestration?.orchestrationMode ?? null,
+        orchestrationMode: skillOrchestrationV2
+          ? "companion-select-v2"
+          : (chatOrchestration?.orchestrationMode ?? null),
         catalogVersion: chatOrchestration?.catalogVersion ?? null,
         catalogSlugs: chatOrchestration?.catalogSlugs ?? null,
         stablePromptHash,
@@ -2750,7 +3056,9 @@ async function executeRunLifecycle(
       processSkill: req.processSkill ?? null,
       platformNormSkill: req.platformNormSkill ?? null,
       injectedSkills,
-      orchestrationMode: chatOrchestration?.orchestrationMode ?? null,
+      orchestrationMode: skillOrchestrationV2
+        ? "companion-select-v2"
+        : (chatOrchestration?.orchestrationMode ?? null),
       catalogVersion: chatOrchestration?.catalogVersion ?? null,
       catalogSlugs: chatOrchestration?.catalogSlugs ?? null,
       skillsRoot,
@@ -2789,22 +3097,7 @@ async function executeRunLifecycle(
       message: err instanceof Error ? err.message : String(err),
     });
   } finally {
-    await writer.flush?.();
-    writer.end();
-    activeRuns.delete(runId);
-    activeRunWriters.delete(runId);
-    activeRunUserInputHandlers.delete(runId);
-    pendingRunClarifications.delete(runId);
-    activeRunRequests.delete(runId);
-    if (activeSessionRuns.get(req.sessionId) === runId) {
-      activeSessionRuns.delete(req.sessionId);
-    }
-    if (lazyTempCwd) {
-      await rm(lazyTempCwd, { recursive: true, force: true }).catch(() => {});
-    }
-    void import("./queue-runner.js").then((mod) =>
-      mod.scheduleSessionQueueDrain(req.sessionId),
-    );
+    await finalizeLifecycle();
   }
 }
 

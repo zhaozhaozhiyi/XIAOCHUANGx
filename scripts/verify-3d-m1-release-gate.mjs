@@ -72,6 +72,7 @@ const checks = [
             "--reporter=line",
             "--workers=1",
             "--timeout=60000",
+            "--global-timeout=120000",
           ],
           env: {
             CI: process.env.CI || "1",

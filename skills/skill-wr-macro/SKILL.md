@@ -1,9 +1,15 @@
 ---
 slug: skill-wr-macro
+version: "0.1"
+kind: workflow
+scope: ["chat","writing"]
+summary: "宏观数据解读：当期/滚动数据点评（CPI、社融、PMI 等），含市场与政策含义"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
 module: writing
 task: writing
 templateId: macro
-version: "0.1"
 ---
 
 # 写作 · 宏观数据解读

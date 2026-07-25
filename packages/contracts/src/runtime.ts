@@ -16,6 +16,13 @@ import {
 } from "./chat";
 import type { CanonicalTurnOutput, ChatPart } from "./chat";
 import { workspaceKindSchema } from "./common";
+import {
+  skillFailedEventSchema,
+  skillReadyEventSchema,
+  skillSelectedEventSchema,
+  skillSelectionDecisionV1Schema,
+  skillSlugSchema,
+} from "./skill-orchestration";
 
 export const agentIdSchema = z.string().min(1);
 export type AgentId = z.infer<typeof agentIdSchema>;
@@ -233,8 +240,16 @@ export const createRunRequestSchema = z.object({
   context: z
     .object({
       visibleMessages: z.array(createRunMessageSchema).optional(),
+      moduleId: z
+        .enum(["chat", "writing", "ppt", "3d", "video", "simulation"])
+        .optional(),
+      templateId: z.string().min(1).optional(),
+      requestedSkillSlug: skillSlugSchema.optional(),
+      /** @deprecated Compatibility input only; Companion owns the decision. */
       processSkill: z.string().optional(),
+      /** @deprecated Compatibility input only; ignored by V2 selection. */
       platformNormSkill: z.string().optional(),
+      /** @deprecated Compatibility input only; ignored by V2 selection. */
       supportSkillSlugs: z.array(z.string()).optional(),
       workspaceHints: z
         .object({
@@ -264,6 +279,7 @@ export const runRecordSchema = z.object({
   finishedAt: z.string().datetime().optional(),
   parentRunId: z.string().optional(),
   resumeToken: z.string().optional(),
+  skillDecision: skillSelectionDecisionV1Schema.optional(),
   canonicalOutput: z
     .object({
       protocolVersion: z.literal(CHAT_OUTPUT_PROTOCOL_VERSION),
@@ -353,7 +369,13 @@ const runEventPayloadSchema = z.discriminatedUnion("type", [
     timeoutMs: z.number().int().positive().optional(),
     idleTimeoutMs: z.number().int().positive().optional(),
     stablePromptHash: z.string().optional(),
+    skillDecisionId: z.string().optional(),
+    registryVersion: z.string().optional(),
+    bundleHash: z.string().regex(/^sha256:[a-f0-9]{64}$/).optional(),
   }),
+  skillSelectedEventSchema,
+  skillReadyEventSchema,
+  skillFailedEventSchema,
   z.object({
     type: z.literal("run.status"),
     runId: z.string(),

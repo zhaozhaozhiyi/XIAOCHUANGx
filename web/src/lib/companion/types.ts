@@ -130,8 +130,12 @@ export type CreateRunRequest = {
   agentModel: string;
   messages: ChatRunMessage[];
   useClientHistory?: boolean;
+  requestedSkillSlug?: string;
+  /** @deprecated V2 accepts this only as a legacy compatibility input. */
   processSkill?: string | null;
+  /** @deprecated Ignored by V2. */
   platformNormSkill?: string;
+  /** @deprecated Ignored by V2. */
   supportSkillSlugs?: string[];
   timeoutProfile?:
     | "default"

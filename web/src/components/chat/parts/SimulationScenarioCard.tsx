@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CanvasSnapshot, ChatPart } from "@/lib/chat-parts";
 import { ChatMarkdown } from "@/components/chat/parts/ChatMarkdown";
 import { SimulationCanvas } from "@/components/simulation/SimulationCanvas";
@@ -150,10 +150,12 @@ export function SimulationScenarioCard({
   const [activeRoundId, setActiveRoundId] = useState("round_1");
   const [activeSnapshot, setActiveSnapshot] = useState<CanvasSnapshot | null>(null);
   const [roundError, setRoundError] = useState<string | null>(null);
+  const snapshotRequestRef = useRef(0);
   const [actionError, setActionError] = useState<string | null>(null);
   const [variableDrafts, setVariableDrafts] = useState<Record<string, string>>({});
 
   useEffect(() => {
+    snapshotRequestRef.current += 1;
     if (!sessionId) return;
     let cancelled = false;
     const retryDelay = (attempt: number) =>
@@ -202,6 +204,7 @@ export function SimulationScenarioCard({
   const provenance = provenanceNotice(scenario.provenance);
 
   const selectRound = async (roundId: string) => {
+    const requestId = ++snapshotRequestRef.current;
     setActiveRoundId(roundId);
     setRoundError(null);
     if (roundId === "round_1" && rounds.length <= 1) {
@@ -211,10 +214,14 @@ export function SimulationScenarioCard({
     if (!sessionId) return;
     try {
       const res = await fetchSimulationSnapshot({ sessionId, roundId });
-      setActiveSnapshot(res.snapshot);
+      if (requestId === snapshotRequestRef.current) {
+        setActiveSnapshot(res.snapshot);
+      }
     } catch (err) {
-      setRoundError(err instanceof Error ? err.message : "轮次快照读取失败");
-      if (roundId === "round_1") setActiveSnapshot(null);
+      if (requestId === snapshotRequestRef.current) {
+        setRoundError(err instanceof Error ? err.message : "轮次快照读取失败");
+        if (roundId === "round_1") setActiveSnapshot(null);
+      }
     }
   };
 

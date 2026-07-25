@@ -1,7 +1,13 @@
 ---
 slug: skill-ppt-knowledge-arch
-module: ppt
 version: "1.0"
+kind: workflow
+scope: ["ppt"]
+summary: "知识架构梳理与体系化呈现"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
+module: ppt
 source: open-design/design-templates/html-ppt-knowledge-arch-blueprint
 templateId: knowledge-arch
 label: 知识架构蓝图

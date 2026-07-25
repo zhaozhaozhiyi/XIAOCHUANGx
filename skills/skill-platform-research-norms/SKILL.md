@@ -1,7 +1,13 @@
 ---
 slug: skill-platform-research-norms
-layer: platform-norm
 version: "1.1"
+kind: workflow
+scope: ["chat"]
+summary: "小窗 — 横切规范"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":true,"scripts":false,"templates":false,"assets":false}
+layer: platform-norm
 ---
 
 # 小窗 — 横切规范

@@ -1,7 +1,13 @@
 ---
 slug: skill-ppt-pitch-deck
-module: ppt
 version: "1.0"
+kind: workflow
+scope: ["chat","ppt"]
+summary: "路演 Pitch 十页结构与叙事；PPT 模块默认模板"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
+module: ppt
 source: open-design/design-templates/html-ppt-pitch-deck
 templateId: pitch-deck
 label: 路演 Pitch Deck

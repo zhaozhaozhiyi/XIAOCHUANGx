@@ -1,9 +1,15 @@
 ---
 slug: skill-writing-general
+version: "1.0"
+kind: workflow
+scope: ["chat","writing"]
+summary: "默认写作流程：产出 Markdown 文稿并写入工作区，支持研报、政策解读、行业分析等"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
 module: writing
 task: writing
 templateId: general
-version: "1.0"
 ---
 
 # 写作 · 通用文稿

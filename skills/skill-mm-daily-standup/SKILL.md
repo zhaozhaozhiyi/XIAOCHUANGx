@@ -1,9 +1,15 @@
 ---
 slug: skill-mm-daily-standup
+version: "0.1"
+kind: workflow
+scope: ["chat","meeting","writing"]
+summary: "会议 · 站会 / 周会速记"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
 module: meeting
 task: summary
 templateId: daily-standup
-version: "0.1"
 ---
 
 # 会议 · 站会 / 周会速记

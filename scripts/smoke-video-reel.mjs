@@ -117,6 +117,11 @@ async function main() {
       return Number.parseFloat(fill.style.width.replace("%", "")) > 15;
     });
 
+    const replay = page.getByRole("button", { name: "重播" });
+    if (await replay.isVisible().catch(() => false)) {
+      await replay.click();
+      await page.waitForSelector(".reel-overlay", { state: "detached" });
+    }
     await page.locator(".reel-frame").click({ position: { x: 640, y: 360 } });
     const advanced = await readReelState(page);
     if (advanced.fills[0] !== 100 && !advanced.sceneText.includes("02")) {

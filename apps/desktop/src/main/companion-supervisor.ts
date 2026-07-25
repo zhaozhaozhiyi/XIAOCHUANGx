@@ -316,6 +316,9 @@ export class CompanionSupervisor {
           // 让 runtime-core 找到资源目录（用户 env 优先）
           JLC_SKILLS_DIR: process.env.JLC_SKILLS_DIR ?? layout.skillsDir,
           JLC_PROMPTS_DIR: process.env.JLC_PROMPTS_DIR ?? layout.promptsDir,
+          JLC_OPENSCAD_RESOURCES_DIR:
+            process.env.JLC_OPENSCAD_RESOURCES_DIR ??
+            join(process.resourcesPath, "engines", "openscad"),
         },
       });
       this.child = child;

@@ -3,9 +3,26 @@ import { cp, mkdir, readdir, rm } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { resolveAgentKitRoot, resolveSkillsRoot } from "./paths.js";
 import { loadSkill } from "./skill-loader.js";
+import type { SelectedSkillBundle } from "./skill-loader.js";
 
 /** Deck / HTML-PPT 类 Skill 除 references 外需同步到 Agent Kit 的目录 */
 const SKILL_ASSET_DIRS = ["references", "templates", "assets", "scripts", "examples"] as const;
+const SELECTED_BUNDLE_ASSET_DIRS = [
+  "references",
+  "templates",
+  "assets",
+  "scripts",
+] as const;
+
+export type AgentKitMetrics = {
+  agentKitCreateCount: number;
+  assetFileCopyCount: number;
+};
+
+const agentKitMetrics: AgentKitMetrics = {
+  agentKitCreateCount: 0,
+  assetFileCopyCount: 0,
+};
 
 export type StagedReference = {
   name: string;
@@ -31,6 +48,7 @@ export async function stageAgentKitForRun(input: {
 
   await rm(agentKitPath, { recursive: true, force: true });
   await mkdir(referencesDir, { recursive: true });
+  agentKitMetrics.agentKitCreateCount += 1;
 
   const referenceFiles: StagedReference[] = [];
 
@@ -67,6 +85,7 @@ export async function stageAgentKitForRun(input: {
           } else if (ent.isFile()) {
             await cp(src, dest);
           }
+          agentKitMetrics.assetFileCopyCount += 1;
           const rel =
             dirName === "references"
               ? isProcessSkill
@@ -82,6 +101,77 @@ export async function stageAgentKitForRun(input: {
   }
 
   return { agentKitPath, referencesDir, referenceFiles };
+}
+
+export async function stageAgentKitForSelectedBundle(input: {
+  runId: string;
+  bundle: SelectedSkillBundle;
+  skillsRoot?: string;
+}): Promise<AgentKitStageResult | null> {
+  const selectedItems = [input.bundle.primary, ...input.bundle.required];
+  const hasDeclaredAssets = selectedItems.some((item) =>
+    Object.values(item.manifest.assetPolicy).some(Boolean),
+  );
+  if (!hasDeclaredAssets) return null;
+
+  const skillsRoot = input.skillsRoot ?? resolveSkillsRoot();
+  const agentKitPath = join(resolveAgentKitRoot(), "runs", input.runId);
+  const referencesDir = join(agentKitPath, "references");
+  await rm(agentKitPath, { recursive: true, force: true });
+  await mkdir(referencesDir, { recursive: true });
+  agentKitMetrics.agentKitCreateCount += 1;
+  const referenceFiles: StagedReference[] = [];
+
+  for (const item of selectedItems) {
+    const isPrimary = item.slug === input.bundle.primary.slug;
+    const skillDir = join(skillsRoot, item.slug);
+    for (const dirName of SELECTED_BUNDLE_ASSET_DIRS) {
+      if (!item.manifest.assetPolicy[dirName]) continue;
+      const srcDir = join(skillDir, dirName);
+      if (!existsSync(srcDir)) {
+        throw new Error(`Declared Skill asset directory is missing: ${item.slug}/${dirName}`);
+      }
+      const destDir =
+        dirName === "references"
+          ? isPrimary
+            ? referencesDir
+            : join(referencesDir, item.slug)
+          : isPrimary
+            ? join(agentKitPath, dirName)
+            : join(agentKitPath, "support-skills", item.slug, dirName);
+      await mkdir(destDir, { recursive: true });
+      const entries = await readdir(srcDir, { withFileTypes: true });
+      for (const entry of entries) {
+        const src = join(srcDir, entry.name);
+        const dest = join(destDir, entry.name);
+        if (entry.isDirectory()) {
+          await cp(src, dest, { recursive: true });
+        } else if (entry.isFile()) {
+          await cp(src, dest);
+        }
+        agentKitMetrics.assetFileCopyCount += 1;
+        const relativeName =
+          dirName === "references"
+            ? isPrimary
+              ? entry.name
+              : `${item.slug}/${entry.name}`
+            : isPrimary
+              ? `${dirName}/${entry.name}`
+              : `support-skills/${item.slug}/${dirName}/${entry.name}`;
+        referenceFiles.push({ name: relativeName, absolutePath: dest });
+      }
+    }
+  }
+  return { agentKitPath, referencesDir, referenceFiles };
+}
+
+export function getAgentKitMetrics(): AgentKitMetrics {
+  return { ...agentKitMetrics };
+}
+
+export function resetAgentKitMetrics(): void {
+  agentKitMetrics.agentKitCreateCount = 0;
+  agentKitMetrics.assetFileCopyCount = 0;
 }
 
 export function formatAgentKitSection(

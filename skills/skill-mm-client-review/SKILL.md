@@ -1,9 +1,15 @@
 ---
 slug: skill-mm-client-review
+version: "0.1"
+kind: workflow
+scope: ["chat","meeting","writing"]
+summary: "会议 · 客户沟通纪要"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
 module: meeting
 task: summary
 templateId: client-review
-version: "0.1"
 ---
 
 # 会议 · 客户沟通纪要

@@ -156,6 +156,10 @@ export function parseCreateRun(body: unknown): CreateRunRequest | null {
     agentModel: String(b.agentModel),
     messages,
     useClientHistory: b.useClientHistory === true,
+    requestedSkillSlug:
+      typeof b.requestedSkillSlug === "string" && b.requestedSkillSlug.trim()
+        ? b.requestedSkillSlug.trim()
+        : undefined,
     processSkill:
       typeof b.processSkill === "string" ? b.processSkill : null,
     platformNormSkill:

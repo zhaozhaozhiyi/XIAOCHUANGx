@@ -1,8 +1,14 @@
 ---
 slug: skill-industrial-drawing-export
+version: "1.0"
+kind: tool
+scope: ["chat","3d"]
+summary: "工业制图预览与导出：OpenSCAD STL/DXF、工具链状态、fallback 来源标注与导出质量检查"
+skillDependencies: []
+capabilityRequirements: ["openscad-toolchain"]
+assetPolicy: {"references":true,"scripts":false,"templates":false,"assets":false}
 module: 3d
 task: export
-version: "1.0"
 status: active
 ---
 

@@ -1,9 +1,15 @@
 ---
 slug: skill-tr-doc
+version: "0.1"
+kind: workflow
+scope: ["chat","translate"]
+summary: "文档翻译：保留层级与表格的整篇中英互译，可选对照模式"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
 module: translate
 task: translate
 templateId: doc
-version: "0.1"
 ---
 
 # 翻译 · 文档翻译

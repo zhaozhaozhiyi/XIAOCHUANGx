@@ -20,6 +20,7 @@ on:
         default: false
 
 permissions:
+  actions: read
   contents: write
 
 concurrency:
@@ -218,6 +219,24 @@ jobs:
             pnpm desktop:pack:ci
           fi
 
+      - name: Verify packaged Skill orchestration
+        if: steps.mode.outputs.release == 'true'
+        run: pnpm skill-orchestration:package-acceptance
+
+      - name: Download Windows 0.1.6-rc.3 rollback baseline
+        if: steps.mode.outputs.release == 'true' && runner.os == 'Windows'
+        uses: actions/download-artifact@v4
+        with:
+          name: 小窗-win-0.1.6-rc.3
+          path: .runtime/windows-baseline
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 29918723261
+
+      - name: Verify installed Windows upgrade and rollback
+        if: steps.mode.outputs.release == 'true' && runner.os == 'Windows'
+        run: pnpm skill-orchestration:installed-windows-acceptance
+
       - name: Upload desktop artifact
         uses: actions/upload-artifact@v4
         with:
@@ -230,6 +249,8 @@ jobs:
             apps/desktop/release/*.blockmap
             apps/desktop/release/latest*.yml
             apps/desktop/release/*.yml
+            output/skill-orchestration-0.1.7/packaged-runtime-report.json
+            output/skill-orchestration-0.1.7/installed-windows-report.json
             !apps/desktop/release/builder-debug.yml
 
   release:

@@ -183,7 +183,9 @@ export async function buildCreateRunRequest(
   }
 
   const mode = normalizeChatMode(parsed.mode) ?? "auto";
-  const orchestration = resolveChatOrchestration({ mode });
+  const legacyOrchestration = companionConfig.skillOrchestrationV2Enabled
+    ? null
+    : resolveChatOrchestration({ mode });
   const writingTemplateId =
     surfaceModuleId === "writing"
       ? parsed.writingTemplateId?.trim() || undefined
@@ -197,8 +199,9 @@ export async function buildCreateRunRequest(
       ? parsed.videoTemplateId?.trim() || undefined
       : undefined;
 
-  const moduleSkills =
-    surfaceModuleId === "writing"
+  const moduleSkills = !legacyOrchestration
+    ? null
+    : surfaceModuleId === "writing"
       ? resolveSkills({
           moduleId: "writing",
           binding: { templateId: writingTemplateId },
@@ -225,8 +228,9 @@ export async function buildCreateRunRequest(
                 })
         : null;
 
-  const processSkill =
-    surfaceModuleId === "writing"
+  const processSkill = !legacyOrchestration
+    ? undefined
+    : surfaceModuleId === "writing"
       ? WRITING_BASE_SKILL
       : surfaceModuleId === "ppt"
         ? PPT_DEFAULT_SKILL
@@ -236,17 +240,19 @@ export async function buildCreateRunRequest(
             ? (moduleSkills?.processSkill ?? VIDEO_BASE_SKILL)
             : surfaceModuleId === "simulation"
               ? SIMULATION_BASE_SKILL
-        : orchestration.baseProcessSkill;
-  const platformNormSkill =
-    surfaceModuleId === "writing" ||
+        : legacyOrchestration.baseProcessSkill;
+  const platformNormSkill = !legacyOrchestration
+    ? undefined
+    : surfaceModuleId === "writing" ||
     surfaceModuleId === "ppt" ||
     surfaceModuleId === "3d" ||
     surfaceModuleId === "video" ||
     surfaceModuleId === "simulation"
-      ? (moduleSkills?.platformNormSkill ?? orchestration.platformNormSkill)
-      : orchestration.platformNormSkill;
-  const supportSkillSlugs =
-    surfaceModuleId === "simulation"
+      ? (moduleSkills?.platformNormSkill ?? legacyOrchestration.platformNormSkill)
+      : legacyOrchestration.platformNormSkill;
+  const supportSkillSlugs = !legacyOrchestration
+    ? undefined
+    : surfaceModuleId === "simulation"
       ? (moduleSkills?.supportSkillSlugs.length
           ? moduleSkills.supportSkillSlugs
           : [SIMULATION_WORLD_MODEL_SKILL])
@@ -326,9 +332,12 @@ export async function buildCreateRunRequest(
       agentModel: parsed.agentModel,
       messages,
       useClientHistory: parsed.useClientHistory,
-      processSkill,
-      platformNormSkill,
-      supportSkillSlugs,
+      ...(parsed.requestedSkillSlug
+        ? { requestedSkillSlug: parsed.requestedSkillSlug }
+        : {}),
+      ...(!companionConfig.skillOrchestrationV2Enabled
+        ? { processSkill, platformNormSkill, supportSkillSlugs }
+        : {}),
       timeoutProfile,
     },
   };

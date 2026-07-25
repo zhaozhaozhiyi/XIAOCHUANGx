@@ -1,8 +1,14 @@
 ---
 slug: skill-industrial-drawing-parametric
+version: "1.0"
+kind: workflow
+scope: ["chat","3d"]
+summary: "参数化 OpenSCAD 建模：生成可编辑 drawing.scad 与 drawing.parameters.json，支持后续参数回改"
+skillDependencies: []
+capabilityRequirements: ["cad-runtime"]
+assetPolicy: {"references":true,"scripts":false,"templates":false,"assets":false}
 module: 3d
 task: parametric-model
-version: "1.0"
 status: active
 ---
 

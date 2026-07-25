@@ -1,7 +1,13 @@
 ---
 slug: skill-ppt-quarterly-review
-module: ppt
 version: "1.0"
+kind: workflow
+scope: ["ppt"]
+summary: "季度回顾：复盘、路线图与关键指标"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":true,"scripts":false,"templates":false,"assets":true}
+module: ppt
 source: open-design/skills/html-ppt-retro-quarterly-review
 templateId: quarterly-review
 label: 复古季报回顾

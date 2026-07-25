@@ -8,3 +8,4 @@ export * from "./simulation-grammar";
 export * from "./runtime";
 export * from "./module-adapter";
 export * from "./artifact-manifest";
+export * from "./skill-orchestration";

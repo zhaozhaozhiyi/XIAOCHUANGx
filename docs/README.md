@@ -1,6 +1,6 @@
 # 文档中心
 
-> 当前平台候选版本为 **`0.1.6-rc.2`（Desktop Alpha 对话结果与业务过程体验收口候选版）**，最近正式基线为 `0.1.5`。产品边界以 [平台与工作区边界定义](./product/platform-workspace-boundary.md) 为准：**Desktop = 本地文件夹工作区**；**Web 在线沙箱工作区 = 下一大版本目标**。需求、技术、计划、归档文档统一收纳在本目录下；运行时资产文档（如 `skills/*/SKILL.md`、`prompts/*`）仍保留在对应资产目录。
+> 当前平台候选版本为 **`0.1.6-rc.3`（Desktop Alpha 对话结果与业务过程体验收口候选版）**，最近正式基线为 `0.1.5`。`0.1.7` 聚焦 Skill 按需选择、加载和真实状态；统一任务、模板、多交付物与导航改造已拆分为独立的 `0.2.0` 规划。产品边界以 [平台与工作区边界定义](./product/platform-workspace-boundary.md) 为准：**Desktop = 本地文件夹工作区**；**Web 在线沙箱工作区 = 下一大版本目标**。需求、技术、计划、归档文档统一收纳在本目录下；运行时资产文档（如 `skills/*/SKILL.md`、`prompts/*`）仍保留在对应资产目录。
 
 ## 目录约定
 
@@ -28,8 +28,9 @@
 | [release-notes-0.1.4-alpha.md](./product/release-notes-0.1.4-alpha.md) | `0.1.4-alpha` 版本升级说明 |
 | [requirements-0.1.6.md](./product/requirements-0.1.6.md) | `0.1.6` 对话结果与过程体验收口版本边界 |
 | [release-notes-0.1.6.md](./release-notes/0.1.6.md) | `0.1.6` 对话结果与过程体验收口更新说明 |
-| [requirements-0.1.7.md](./product/requirements-0.1.7.md) | 历史提案；旁白可见性范围已并入 `0.1.6-rc.2` |
-| [release-notes-0.1.7.md](./release-notes/0.1.7.md) | 已并入 `0.1.6-rc.2` 的历史预发说明 |
+| [requirements-0.1.7.md](./product/requirements-0.1.7.md) | `0.1.7` 聚焦规划：业务 Skill 按需选择、加载和真实状态 |
+| [release-notes-0.1.7.md](./release-notes/0.1.7.md) | `0.1.7` 规划中用户变化摘要 |
+| [requirements-0.2.0.md](./product/requirements-0.2.0.md) | `0.2.0` 规划：统一任务、模板、多交付物工作台和迁移 |
 | [platform-workspace-boundary.md](./product/platform-workspace-boundary.md) | Web / Desktop / Sandbox / Companion 边界定义 |
 | [功能清单.md](./product/功能清单.md) | 当前模块与功能清单 |
 | [需求整理.md](./product/需求整理.md) | 需求整理来源文档 |
@@ -63,6 +64,7 @@
 | [chat-execution-roadmap.md](./plans/chat-execution-roadmap.md) | Desktop Alpha 执行闭环清单 |
 | [chat-process-collapse-implementation-plan.md](./plans/chat-process-collapse-implementation-plan.md) | `0.1.6` 对话过程收束实施方案 |
 | [chat-process-narration-visibility-plan.md](./plans/chat-process-narration-visibility-plan.md) | 历史专项方案；实现已合并到 `0.1.6` 主计划 v1.6 |
+| [skill-orchestration-0.1.7-execution-plan.md](./plans/skill-orchestration-0.1.7-execution-plan.md) | `0.1.7` Skill 按需编排目标、工作包、验收矩阵与发布门禁 |
 | [p0-three-module-acceptance.md](./plans/p0-three-module-acceptance.md) | 主线模块 P0 收口与六模块入口回归矩阵（文件名保留历史） |
 | [three-module-quality-review.md](./plans/three-module-quality-review.md) | 六模块导航与主线模块稳定性 / 架构 / 交互评审清单（文件名保留历史） |
 | [mvp-closure-checklist.md](./plans/mvp-closure-checklist.md) | `0.1.0-alpha` 收口验收清单 |

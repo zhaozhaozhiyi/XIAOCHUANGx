@@ -53,17 +53,22 @@ docs/technical/*
 !docs/technical/agent-cli-activity-mapping.md
 !docs/technical/companion-api.md
 !docs/technical/chat-timeline-contract-v1.md
+!docs/technical/chat-skill-orchestration-analysis.md
 !docs/release-notes/
 docs/release-notes/*
 !docs/release-notes/0.1.5.md
 !docs/release-notes/0.1.6.md
+!docs/release-notes/0.1.7.md
 !docs/product/
 docs/product/*
 !docs/product/requirements-0.1.6.md
+!docs/product/requirements-0.1.7.md
+!docs/product/requirements-0.2.0.md
 !docs/plans/
 docs/plans/*
 !docs/plans/chat-process-collapse-implementation-plan.md
 !docs/plans/chat-process-narration-visibility-plan.md
+!docs/plans/skill-orchestration-0.1.7-execution-plan.md
 参考项目/
 
 # OS & IDE

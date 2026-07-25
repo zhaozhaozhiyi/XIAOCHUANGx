@@ -1,4 +1,5 @@
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 
 const packageFiles = [
   "package.json",
@@ -43,5 +44,33 @@ if (process.env.GITHUB_REF_TYPE === "tag") {
     throw new Error(`tag/version mismatch: tag=${tag}, package=v${expected}`);
   }
 }
+
+const evidenceDir =
+  process.env.JLC_SKILL_EVIDENCE_DIR?.trim() ||
+  join("output", "skill-orchestration-0.1.7");
+const tagChecked = process.env.GITHUB_REF_TYPE === "tag";
+const report = {
+  reportVersion: 1,
+  candidateVersion: expected,
+  generatedAt: new Date().toISOString(),
+  packages: versions,
+  companionPackageVersion: companionVersion,
+  gitRef: {
+    type: process.env.GITHUB_REF_TYPE ?? null,
+    name: process.env.GITHUB_REF_NAME ?? null,
+  },
+  gates: {
+    allPackageVersionsMatch: mismatches.length === 0,
+    companionVersionMatches: companionVersion === expected,
+    tagVersionMatches:
+      !tagChecked || process.env.GITHUB_REF_NAME === `v${expected}`,
+  },
+};
+await mkdir(evidenceDir, { recursive: true });
+await writeFile(
+  join(evidenceDir, "release-version-report.json"),
+  `${JSON.stringify(report, null, 2)}\n`,
+  "utf8",
+);
 
 console.log(`PASS release version ${expected} (${packageFiles.length} packages + Companion)`);

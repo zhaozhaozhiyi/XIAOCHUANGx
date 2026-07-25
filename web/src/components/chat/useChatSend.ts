@@ -39,6 +39,7 @@ import {
   reduceClarificationRequired,
   reduceInterimAssistant,
   reduceRunSkills,
+  reduceSkillLifecycle,
   reduceStatusLabel,
   reduceStreamCancelled,
   reduceStreamError,
@@ -465,8 +466,12 @@ export function useChatSend(
           },
           onRunStarted: (payload) => {
             setCompanionRunId(payload.runId);
-            schedulePatch((s) =>
-              reduceRunSkills(reduceRunStarted(s, payload), {
+            schedulePatch((s) => {
+              const started = reduceRunStarted(s, payload);
+              if (payload.orchestrationMode === "companion-select-v2") {
+                return started;
+              }
+              return reduceRunSkills(started, {
                 processSkill: payload.processSkill,
                 platformNormSkill: payload.platformNormSkill,
                 catalogSlugs: payload.catalogSlugs,
@@ -476,8 +481,11 @@ export function useChatSend(
                     ...(payload.supportSkillSlugs ?? []),
                   ]),
                 ),
-              }),
-            );
+              });
+            });
+          },
+          onSkillLifecycle: (event) => {
+            schedulePatch((state) => reduceSkillLifecycle(state, event));
           },
           onDelta: (chunk) => {
             schedulePatch((s) => reduceTextDelta(s, chunk));
