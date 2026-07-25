@@ -60,6 +60,7 @@ const electronUserDataDir = join(tempRoot, "electron-user-data");
 const workspaceRoot = join(tempRoot, "workspaces");
 const deliverablesRoot = join(tempRoot, "deliverables");
 const logsRoot = join(tempRoot, "logs");
+const simulationCliDir = join(tempRoot, "simulation-cli");
 let activeDesktop = null;
 
 function delay(ms) {
@@ -153,6 +154,24 @@ async function snapshotProtectedUserData() {
   const result = {};
   for (const root of roots) result[root] = await snapshotTree(root);
   return result;
+}
+
+async function prepareSimulationCliShim() {
+  await mkdir(simulationCliDir, { recursive: true });
+  await writeFile(
+    join(simulationCliDir, "codex.cmd"),
+    [
+      "@echo off",
+      'if /I "%~1"=="--version" (',
+      "  echo codex-simulated-acceptance-shim 0.0.0",
+      "  exit /b 0",
+      ")",
+      "echo Acceptance shim only supports --version 1>&2",
+      "exit /b 127",
+      "",
+    ].join("\r\n"),
+    "utf8",
+  );
 }
 
 async function findFile(root, predicate) {
@@ -487,6 +506,7 @@ async function startDesktop(label, expectedVersion, v2Enabled) {
         COMPANION_RUN_MODE: "simulate",
         COMPANION_CLI_FALLBACK: "error",
         COMPANION_LOG_LEVEL: "error",
+        JLC_CLI_PATHS: simulationCliDir,
         JLC_DEFAULT_WORKSPACE_ROOT: workspaceRoot,
         JLC_DESKTOP_WEB_PORT: String(webPort),
         SKILL_ORCHESTRATION_V2_ENABLED: v2Enabled ? "true" : "false",
@@ -693,6 +713,7 @@ await mkdir(companionDataDir, { recursive: true });
 await mkdir(electronUserDataDir, { recursive: true });
 await mkdir(workspaceRoot, { recursive: true });
 await mkdir(deliverablesRoot, { recursive: true });
+await prepareSimulationCliShim();
 const workspaceSentinel = join(workspaceRoot, "legacy-project", "input.txt");
 const deliverableSentinel = join(deliverablesRoot, "legacy-deliverable.md");
 await mkdir(dirname(workspaceSentinel), { recursive: true });
@@ -974,6 +995,11 @@ try {
       realUserDataPreserved: true,
       protectedRoots: Object.keys(protectedUserDataBefore),
       temporaryRootRemovedOnExit: !args.has("keep-workdir"),
+      simulationCliShim: {
+        agentId: "codex",
+        probeOnly: true,
+        runMode: "simulate",
+      },
     },
   };
   await mkdir(dirname(reportPath), { recursive: true });
