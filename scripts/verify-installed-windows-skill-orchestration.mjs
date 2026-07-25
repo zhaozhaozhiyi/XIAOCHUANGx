@@ -208,6 +208,22 @@ async function executableVersion(path) {
   return result.stdout.trim();
 }
 
+function productVersionCore(version) {
+  const match = /^(\d+)\.(\d+)\.(\d+)/.exec(version);
+  assert(match, `invalid Windows ProductVersion: ${version}`);
+  return match.slice(1).map(Number).join(".");
+}
+
+async function assertExecutableVersion(path, expectedVersion) {
+  const actualVersion = await executableVersion(path);
+  assert.equal(
+    productVersionCore(actualVersion),
+    productVersionCore(expectedVersion),
+    `Windows ProductVersion ${actualVersion} does not match ${expectedVersion}`,
+  );
+  return actualVersion;
+}
+
 async function installNsis(installerPath) {
   await mkdir(installDir, { recursive: true });
   await runCommand(installerPath, ["/S", `/D=${installDir}`]);
@@ -233,7 +249,10 @@ async function downgradeNsis(baselineInstaller) {
   let directError = null;
   try {
     await installNsis(baselineInstaller);
-    if ((await executableVersion(desktopExecutable())) === expectedBaselineVersion) {
+    if (
+      productVersionCore(await executableVersion(desktopExecutable())) ===
+      productVersionCore(expectedBaselineVersion)
+    ) {
       return "in-place";
     }
   } catch (error) {
@@ -251,7 +270,7 @@ async function downgradeNsis(baselineInstaller) {
     await delay(100);
   }
   await installNsis(baselineInstaller);
-  assert.equal(await executableVersion(desktopExecutable()), expectedBaselineVersion);
+  await assertExecutableVersion(desktopExecutable(), expectedBaselineVersion);
   return "uninstall-preserve-data-reinstall";
 }
 
@@ -667,7 +686,10 @@ try {
   };
 
   await installNsis(baselineInstaller);
-  assert.equal(await executableVersion(desktopExecutable()), expectedBaselineVersion);
+  const baselineProductVersion = await assertExecutableVersion(
+    desktopExecutable(),
+    expectedBaselineVersion,
+  );
   activeDesktop = await startDesktop(
     "01-baseline-cold-start",
     expectedBaselineVersion,
@@ -695,7 +717,10 @@ try {
   activeDesktop = null;
 
   await installNsis(candidateInstaller);
-  assert.equal(await executableVersion(desktopExecutable()), expectedCandidateVersion);
+  const candidateProductVersion = await assertExecutableVersion(
+    desktopExecutable(),
+    expectedCandidateVersion,
+  );
   const resources = await candidateResources();
   activeDesktop = await startDesktop(
     "02-candidate-v2",
@@ -797,7 +822,10 @@ try {
   activeDesktop = null;
 
   const downgradeMethod = await downgradeNsis(baselineInstaller);
-  assert.equal(await executableVersion(desktopExecutable()), expectedBaselineVersion);
+  const downgradeProductVersion = await assertExecutableVersion(
+    desktopExecutable(),
+    expectedBaselineVersion,
+  );
   activeDesktop = await startDesktop(
     "05-baseline-downgrade",
     expectedBaselineVersion,
@@ -849,12 +877,14 @@ try {
       installerPath: baselineInstaller,
       installerSha256: await sha256File(baselineInstaller),
       version: expectedBaselineVersion,
+      productVersion: baselineProductVersion,
       health: baselineHealth,
     },
     candidate: {
       installerPath: candidateInstaller,
       installerSha256: await sha256File(candidateInstaller),
       version: expectedCandidateVersion,
+      productVersion: candidateProductVersion,
       resources,
     },
     upgrade: {
@@ -880,6 +910,7 @@ try {
     },
     downgrade: {
       method: downgradeMethod,
+      productVersion: downgradeProductVersion,
       health: downgradeHealth,
       legacy: summarizeRun(downgradeLegacy),
       unknownV2EventsReadableOrIgnored: true,
