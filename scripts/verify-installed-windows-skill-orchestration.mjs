@@ -226,7 +226,20 @@ async function assertExecutableVersion(path, expectedVersion) {
 
 async function installNsis(installerPath) {
   await mkdir(installDir, { recursive: true });
-  await runCommand(installerPath, ["/S", `/D=${installDir}`]);
+  let installError = null;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      await runCommand(installerPath, ["/S", `/D=${installDir}`]);
+      installError = null;
+      break;
+    } catch (error) {
+      installError = error;
+      const exitCode = Number(error?.code);
+      if (exitCode !== 0xc0000005 || attempt === 3) throw error;
+      await delay(1_000 * attempt);
+    }
+  }
+  assert.equal(installError, null, `NSIS install failed: ${installerPath}`);
   const executable = desktopExecutable();
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
