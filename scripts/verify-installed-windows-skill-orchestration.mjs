@@ -349,9 +349,11 @@ async function isPortListening(port) {
 async function pidsListeningOn(port) {
   assert(Number.isInteger(port) && port > 0 && port <= 65_535);
   const script =
+    "$ErrorActionPreference='SilentlyContinue';" +
     `$items=Get-NetTCPConnection -State Listen -LocalPort ${port} ` +
     "-ErrorAction SilentlyContinue;" +
-    "if ($items) { $items.OwningProcess | Sort-Object -Unique }";
+    "if ($items) { $items.OwningProcess | Sort-Object -Unique };" +
+    "exit 0";
   const result = await runCommand("powershell.exe", [
     "-NoLogo",
     "-NoProfile",
@@ -368,8 +370,10 @@ async function pidsListeningOn(port) {
 async function processExecutable(pid) {
   assert(Number.isInteger(pid) && pid > 0);
   const script =
+    "$ErrorActionPreference='SilentlyContinue';" +
     `$process=Get-Process -Id ${pid} -ErrorAction SilentlyContinue;` +
-    "if ($process) { $process.Path }";
+    "if ($process) { $process.Path };" +
+    "exit 0";
   const result = await runCommand("powershell.exe", [
     "-NoLogo",
     "-NoProfile",
