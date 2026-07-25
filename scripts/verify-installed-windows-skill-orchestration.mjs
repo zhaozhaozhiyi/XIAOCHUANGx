@@ -193,16 +193,17 @@ function desktopExecutable() {
 }
 
 async function executableVersion(path) {
+  const encodedPath = Buffer.from(path, "utf8").toString("base64");
   const script =
     "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;" +
-    "(Get-Item -LiteralPath $args[0]).VersionInfo.ProductVersion";
+    `$path=[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('${encodedPath}'));` +
+    "(Get-Item -LiteralPath $path).VersionInfo.ProductVersion";
   const result = await runCommand("powershell.exe", [
     "-NoLogo",
     "-NoProfile",
     "-NonInteractive",
     "-Command",
     script,
-    path,
   ]);
   return result.stdout.trim();
 }
@@ -327,8 +328,9 @@ async function isPortListening(port) {
 }
 
 async function pidsListeningOn(port) {
+  assert(Number.isInteger(port) && port > 0 && port <= 65_535);
   const script =
-    "$items=Get-NetTCPConnection -State Listen -LocalPort ([int]$args[0]) " +
+    `$items=Get-NetTCPConnection -State Listen -LocalPort ${port} ` +
     "-ErrorAction SilentlyContinue;" +
     "if ($items) { $items.OwningProcess | Sort-Object -Unique }";
   const result = await runCommand("powershell.exe", [
@@ -337,7 +339,6 @@ async function pidsListeningOn(port) {
     "-NonInteractive",
     "-Command",
     script,
-    String(port),
   ]);
   return result.stdout
     .split(/\s+/)
@@ -346,8 +347,9 @@ async function pidsListeningOn(port) {
 }
 
 async function processExecutable(pid) {
+  assert(Number.isInteger(pid) && pid > 0);
   const script =
-    "$process=Get-Process -Id ([int]$args[0]) -ErrorAction SilentlyContinue;" +
+    `$process=Get-Process -Id ${pid} -ErrorAction SilentlyContinue;` +
     "if ($process) { $process.Path }";
   const result = await runCommand("powershell.exe", [
     "-NoLogo",
@@ -355,7 +357,6 @@ async function processExecutable(pid) {
     "-NonInteractive",
     "-Command",
     script,
-    String(pid),
   ]);
   return result.stdout.trim();
 }
