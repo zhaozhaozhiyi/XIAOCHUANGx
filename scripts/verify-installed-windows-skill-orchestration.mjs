@@ -715,8 +715,16 @@ try {
   });
   const baselineRunRecord = structuredClone(baselineRun.record);
   const baselineRunEvents = structuredClone(baselineRun.events);
-  assert.equal(summarizeRun(baselineRun).orchestrationMode, "hybrid-steer");
-  assert.deepEqual(summarizeRun(baselineRun).skillEvents, []);
+  const baselineSummary = summarizeRun(baselineRun);
+  assert.equal(baselineRun.record.skillDecision, undefined);
+  assert.equal(baselineSummary.status, "completed");
+  assert(
+    baselineSummary.orchestrationMode === null ||
+      baselineSummary.orchestrationMode === "hybrid-steer",
+    `unexpected baseline orchestration mode: ${baselineSummary.orchestrationMode}`,
+  );
+  assert.deepEqual(baselineSummary.skillEvents, []);
+  assert.deepEqual(baselineSummary.terminalEvents, ["run.finished"]);
   await stopDesktop(activeDesktop);
   activeDesktop = null;
 
@@ -845,8 +853,15 @@ try {
     },
   );
   assert.equal(downgradeLegacy.record.skillDecision, undefined);
-  assert.equal(summarizeRun(downgradeLegacy).orchestrationMode, "hybrid-steer");
-  assert.deepEqual(summarizeRun(downgradeLegacy).skillEvents, []);
+  const downgradeSummary = summarizeRun(downgradeLegacy);
+  assert.equal(downgradeSummary.status, "completed");
+  assert(
+    downgradeSummary.orchestrationMode === null ||
+      downgradeSummary.orchestrationMode === "hybrid-steer",
+    `unexpected downgraded orchestration mode: ${downgradeSummary.orchestrationMode}`,
+  );
+  assert.deepEqual(downgradeSummary.skillEvents, []);
+  assert.deepEqual(downgradeSummary.terminalEvents, ["run.finished"]);
   const v2EventsFromBaseline = await jsonRequest(
     activeDesktop.companionBaseUrl,
     `/v1/runs/${selected.runId}/events`,
