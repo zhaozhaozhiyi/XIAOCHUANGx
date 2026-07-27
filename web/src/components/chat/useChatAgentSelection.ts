@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSettings } from "@/components/settings/SettingsContext";
 import type { ChatExecutionSource } from "@/lib/byok/shared";
 import type { AgentId } from "@/lib/settings";
@@ -43,9 +43,29 @@ export function useChatAgentSelection() {
     agentId: defaultAgentId,
     agentModel: defaultAgentModel,
   });
+  const selectionTouched = useRef(false);
+
+  useEffect(() => {
+    if (selectionTouched.current) return;
+    const nextModel =
+      settings.executionSource === "api"
+        ? resolvedDefaultApiModel
+        : settings.agentModels[settings.defaultAgentId];
+    setSelection({
+      executionSource: settings.executionSource,
+      agentId: settings.defaultAgentId,
+      agentModel: nextModel,
+    });
+  }, [
+    resolvedDefaultApiModel,
+    settings.agentModels,
+    settings.defaultAgentId,
+    settings.executionSource,
+  ]);
 
   const selectAgentModel = useCallback(
     (source: ChatExecutionSource, id: AgentId, model: string) => {
+      selectionTouched.current = true;
       setSelection({
         executionSource: source,
         agentId: id,

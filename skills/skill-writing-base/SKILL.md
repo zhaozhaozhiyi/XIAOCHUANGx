@@ -1,8 +1,14 @@
 ---
 slug: skill-writing-base
+version: "1.0"
+kind: workflow
+scope: ["chat","writing"]
+summary: "写作 · 需求采集基座"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":true,"scripts":false,"templates":false,"assets":false}
 module: writing
 task: base
-version: "1.0"
 label: 写作需求采集基座
 ---
 

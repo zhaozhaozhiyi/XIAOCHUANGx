@@ -1,7 +1,13 @@
 ---
 slug: skill-ppt-html-studio
-module: ppt
 version: "1.0"
+kind: tool
+scope: ["chat","ppt"]
+summary: "HTML PPT Studio：多风格静态 HTML 幻灯片主技能"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":true,"scripts":true,"templates":true,"assets":true}
+module: ppt
 source: open-design/design-templates/html-ppt
 role: utility
 description: "HTML PPT Studio — author professional static HTML presentations in many styles, layouts, and animations, all driven by templates. Use when the user asks for a presentation, PPT, slides, keynote, deck, slideshow, \"幻灯片\", \"演讲稿\", \"做一份 PPT\", \"做一份 slides\", a reveal-style HTML deck, a 小红书 图文, or any kind of multi-slide pitch/report/sharing document that should look tasteful and be usable with keyboard navigation. Triggers include keywords like \"presentation\", \"ppt\", \"slides\", \"deck\", \"keynote\", \"reveal\", \"slideshow\", \"幻灯片\", \"演讲稿\", \"分享稿\", \"小红书图文\", \"talk slides\", \"pitch deck\", \"tech sharing\", \"technical presentation\"."

@@ -1,7 +1,7 @@
 {
   "name": "@jlc/desktop",
   "productName": "小窗",
-  "version": "0.1.6-rc.1",
+  "version": "0.1.7",
   "private": true,
   "description": "小窗 — Electron 桌面壳（Desktop Alpha §5.3.7）",
   "main": "dist/main/index.js",
@@ -13,7 +13,7 @@
     "start": "electron .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "icons": "node ../../scripts/generate-brand-icons.mjs",
-    "prepare:web": "node ../../scripts/prepare-desktop-web.mjs",
+    "prepare:web": "node ../../scripts/prepare-desktop-web.mjs && node ../../scripts/smoke-desktop-web-bundle.mjs",
     "prepare:companion": "pnpm --filter @jlcresearch/companion bundle && node ../../scripts/prepare-companion-bundle.mjs",
     "fetch:openscad": "node ../../scripts/fetch-openscad-runtime.mjs",
     "prepare:openscad": "node ../../scripts/prepare-openscad-runtime.mjs",

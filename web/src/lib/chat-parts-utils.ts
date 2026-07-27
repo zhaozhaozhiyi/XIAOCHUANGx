@@ -151,7 +151,7 @@ export function isActivityExpanded(
 ): boolean {
   if (collapse === "user_expanded") return true;
   if (collapse === "user_collapsed") return false;
-  // 0.1.7: active / error turns show process unless user collapsed.
+  // 0.1.6: active / error turns show process unless user collapsed.
   if (status === "loading" || status === "streaming" || status === "error") {
     return true;
   }

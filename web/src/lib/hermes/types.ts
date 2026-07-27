@@ -36,6 +36,8 @@ export type ChatCompletionRequestBody = {
   pptTemplateId?: string;
   /** 视频类型 ID（auto / stage / screenplay / poetic） */
   videoTemplateId?: string;
+  /** Structured explicit Skill choice; Companion still validates and decides. */
+  requestedSkillSlug?: string;
 };
 
 export type OpenAIChatMessage = {

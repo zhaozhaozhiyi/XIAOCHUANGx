@@ -1,4 +1,12 @@
 ---
+slug: skill-world-model
+version: "1.0"
+kind: tool
+scope: ["chat","simulation"]
+summary: "世界模型：按 wave 增量构建逻辑自洽的推演画布，覆盖节点本体论、推导语法、上游依据、rationale 与 checkpoint"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":true,"scripts":false,"templates":false,"assets":false}
 name: skill-world-model
 description: Logic-rich, wave-driven world modeling for simulation canvases. Use when building, extending, or revising a simulation/world-model canvas that must be semantically incremental, causally traceable, logically self-consistent, and rich enough to cover entities, variables, evidence, hypotheses, inferences, events, risks, scenarios, decisions, actions, outputs, history, and recovery; especially for complex causal questions, market/policy/project risk simulations, scenario planning, node/edge/path generation, upstream-dependent reasoning, checkpoints, reruns, contradiction checks, or explaining why each canvas node exists.
 ---

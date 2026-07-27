@@ -1,7 +1,13 @@
 ---
 slug: skill-ppt-fintech-swiss
-module: ppt
 version: "1.0"
+kind: workflow
+scope: ["ppt"]
+summary: "金融科技瑞系风格：数据驱动、瑞士网格"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":true,"scripts":false,"templates":false,"assets":true}
+module: ppt
 source: open-design/skills/digits-fintech-swiss-template
 templateId: fintech-swiss
 label: 金融科技瑞系

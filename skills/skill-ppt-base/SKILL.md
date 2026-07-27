@@ -1,8 +1,14 @@
 ---
 slug: skill-ppt-base
+version: "1.0"
+kind: workflow
+scope: ["ppt"]
+summary: "PPT · 需求采集基座"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":true,"scripts":false,"templates":false,"assets":false}
 module: ppt
 task: base
-version: "1.0"
 label: PPT 需求采集基座
 ---
 

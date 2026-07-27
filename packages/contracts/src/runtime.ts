@@ -1,5 +1,7 @@
 import { z } from "zod";
 import {
+  assistantSegmentOperationSchema,
+  assistantSegmentRoleSchema,
   CHAT_OUTPUT_PROTOCOL_VERSION,
   canonicalFinalAnswerSchema,
   canonicalNextActionSchema,
@@ -14,6 +16,13 @@ import {
 } from "./chat";
 import type { CanonicalTurnOutput, ChatPart } from "./chat";
 import { workspaceKindSchema } from "./common";
+import {
+  skillFailedEventSchema,
+  skillReadyEventSchema,
+  skillSelectedEventSchema,
+  skillSelectionDecisionV1Schema,
+  skillSlugSchema,
+} from "./skill-orchestration";
 
 export const agentIdSchema = z.string().min(1);
 export type AgentId = z.infer<typeof agentIdSchema>;
@@ -231,8 +240,16 @@ export const createRunRequestSchema = z.object({
   context: z
     .object({
       visibleMessages: z.array(createRunMessageSchema).optional(),
+      moduleId: z
+        .enum(["chat", "writing", "ppt", "3d", "video", "simulation"])
+        .optional(),
+      templateId: z.string().min(1).optional(),
+      requestedSkillSlug: skillSlugSchema.optional(),
+      /** @deprecated Compatibility input only; Companion owns the decision. */
       processSkill: z.string().optional(),
+      /** @deprecated Compatibility input only; ignored by V2 selection. */
       platformNormSkill: z.string().optional(),
+      /** @deprecated Compatibility input only; ignored by V2 selection. */
       supportSkillSlugs: z.array(z.string()).optional(),
       workspaceHints: z
         .object({
@@ -262,6 +279,7 @@ export const runRecordSchema = z.object({
   finishedAt: z.string().datetime().optional(),
   parentRunId: z.string().optional(),
   resumeToken: z.string().optional(),
+  skillDecision: skillSelectionDecisionV1Schema.optional(),
   canonicalOutput: z
     .object({
       protocolVersion: z.literal(CHAT_OUTPUT_PROTOCOL_VERSION),
@@ -315,7 +333,7 @@ export const clarificationResponseSchema = z.object({
 });
 export type ClarificationResponse = z.infer<typeof clarificationResponseSchema>;
 
-export const runEventSchema = z.discriminatedUnion("type", [
+const runEventPayloadSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("run.accepted"),
     runId: z.string(),
@@ -351,7 +369,13 @@ export const runEventSchema = z.discriminatedUnion("type", [
     timeoutMs: z.number().int().positive().optional(),
     idleTimeoutMs: z.number().int().positive().optional(),
     stablePromptHash: z.string().optional(),
+    skillDecisionId: z.string().optional(),
+    registryVersion: z.string().optional(),
+    bundleHash: z.string().regex(/^sha256:[a-f0-9]{64}$/).optional(),
   }),
+  skillSelectedEventSchema,
+  skillReadyEventSchema,
+  skillFailedEventSchema,
   z.object({
     type: z.literal("run.status"),
     runId: z.string(),
@@ -379,12 +403,23 @@ export const runEventSchema = z.discriminatedUnion("type", [
     alreadyStreamed: z.boolean().optional(),
   }),
   z.object({
+    type: z.literal("assistant.segment"),
+    runId: z.string(),
+    segmentId: z.string(),
+    operation: assistantSegmentOperationSchema,
+    role: assistantSegmentRoleSchema,
+    text: z.string().optional(),
+  }),
+  z.object({
     type: z.literal("tool.progress"),
     runId: z.string(),
+    callId: z.string().optional(),
     toolCallId: z.string().optional(),
     tool: z.string(),
-    status: z.enum(["running", "done", "failed"]),
+    status: z.enum(["running", "done", "failed", "cancelled"]),
     message: z.string().optional(),
+    input: z.unknown().optional(),
+    output: z.unknown().optional(),
   }),
   z.object({
     type: z.literal("artifact.append"),
@@ -457,4 +492,14 @@ export const runEventSchema = z.discriminatedUnion("type", [
     runId: z.string(),
   }),
 ]);
+
+/**
+ * Events are ordered once at the Runtime/Companion boundary.  Keep the
+ * field optional so old persisted events remain readable.
+ */
+export const runEventSchema = runEventPayloadSchema.and(
+  z.object({
+    streamSeq: z.number().int().nonnegative().optional(),
+  }),
+);
 export type RunEvent = z.infer<typeof runEventSchema>;

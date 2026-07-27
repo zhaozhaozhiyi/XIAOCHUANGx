@@ -25,6 +25,11 @@ import {
 } from "../runs/store.js";
 import { createSseWriter } from "../runs/sse.js";
 import type { RunEvent } from "@jlc/contracts";
+import {
+  appendFinalSegment,
+  createFinalSegmentAccumulator,
+  type FinalSegmentAccumulator,
+} from "../runs/assistant-segments.js";
 
 const VALID_AGENT_IDS = new Set<string>(AGENT_IDS);
 const MODULE_IDS = new Set<string>([
@@ -80,6 +85,7 @@ function replayPayloadForSse(event: RunEvent): unknown {
   if (event.type === "tool.progress") {
     return {
       ...event,
+      callId: event.callId ?? event.toolCallId,
       status:
         event.status === "done"
           ? "success"
@@ -92,6 +98,21 @@ function replayPayloadForSse(event: RunEvent): unknown {
     return { ...event, content: event.text };
   }
   return event;
+}
+
+function compatibilityDeltaForSse(
+  event: RunEvent,
+  segments: FinalSegmentAccumulator,
+): Record<string, unknown> | null {
+  if (event.type !== "assistant.segment") return null;
+  const content = appendFinalSegment(segments, event);
+  if (!content) return null;
+  return {
+    runId: event.runId,
+    turnId: `turn-${event.runId}`,
+    content,
+    compatibility: "assistant.segment",
+  };
 }
 
 export function parseCreateRun(body: unknown): CreateRunRequest | null {
@@ -135,6 +156,10 @@ export function parseCreateRun(body: unknown): CreateRunRequest | null {
     agentModel: String(b.agentModel),
     messages,
     useClientHistory: b.useClientHistory === true,
+    requestedSkillSlug:
+      typeof b.requestedSkillSlug === "string" && b.requestedSkillSlug.trim()
+        ? b.requestedSkillSlug.trim()
+        : undefined,
     processSkill:
       typeof b.processSkill === "string" ? b.processSkill : null,
     platformNormSkill:
@@ -218,10 +243,18 @@ export async function runRoutes(app: FastifyInstance): Promise<void> {
     let cursor = 0;
     let terminalSeen = false;
     const startedAt = Date.now();
+    const assistantSegments = createFinalSegmentAccumulator();
     while (!closed && !terminalSeen) {
       const events = await loadRunEvents(runId);
       for (const event of events.slice(cursor)) {
         writer.send(event.type, replayPayloadForSse(event));
+        const compatibilityDelta = compatibilityDeltaForSse(
+          event,
+          assistantSegments,
+        );
+        if (compatibilityDelta) {
+          writer.send("message.delta", compatibilityDelta);
+        }
         terminalSeen = terminalSeen || isTerminalRunEvent(event);
       }
       cursor = events.length;

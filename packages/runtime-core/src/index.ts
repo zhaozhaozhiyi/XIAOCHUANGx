@@ -26,8 +26,12 @@ export {
   type AgentRegistryEntry,
 } from "./agent-registry.js";
 export {
+  getAgentKitMetrics,
+  resetAgentKitMetrics,
   stageAgentKitForRun,
+  stageAgentKitForSelectedBundle,
   formatAgentKitSection,
+  type AgentKitMetrics,
   type AgentKitStageResult,
   type StagedReference,
 } from "./agent-kit.js";
@@ -105,14 +109,38 @@ export {
   type ComposeAgentRunPayloadOptions,
 } from "./compose-daemon-prompt.js";
 export {
+  clearSelectedSkillBundleCache,
   clearSkillCache,
   formatSkillBodyForPrompt,
   formatSkillForPrompt,
   loadSkill,
   loadSkillBundle,
+  loadSelectedSkillBundle,
+  getSkillLoaderMetrics,
+  resetSkillLoaderMetrics,
   type LoadedSkill,
+  type SelectedSkillBundle,
+  type SelectedSkillBundleCancelled,
+  type SelectedSkillBundleFailure,
+  type SelectedSkillBundleItem,
+  type SelectedSkillBundleResult,
+  type SkillLoaderMetrics,
   type SkillBundle,
 } from "./skill-loader.js";
+export {
+  clearSkillRegistryCache,
+  getSkillRegistryMetrics,
+  loadSkillRegistry,
+  refreshSkillRegistry,
+  type SkillRegistryMetrics,
+  type SkillRegistrySnapshot,
+} from "./skill-registry.js";
+export {
+  selectSkill,
+  type SelectSkillInput,
+  type SkillContinuationState,
+  type SkillSelectorModuleId,
+} from "./skill-selector.js";
 export { runAgent } from "./run-agent.js";
 export {
   probeHermesGateway,

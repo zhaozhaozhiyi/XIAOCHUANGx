@@ -1,7 +1,13 @@
 ---
 slug: skill-ppt-slides
-module: ppt
 version: "1.0"
+kind: tool
+scope: ["ppt"]
+summary: "Markdown 转幻灯片（OpenAI Slides）"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
+module: ppt
 source: open-design/skills/slides
 role: utility
 description: "|"

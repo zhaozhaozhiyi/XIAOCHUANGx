@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { authHook } from "./auth.js";
 import { config, assertLoopbackBind } from "./config.js";
+import { getSkillRegistryMetrics, loadSkillRegistry } from "@jlc/runtime-core";
 import { healthRoutes } from "./routes/health.js";
 import { agentRoutes } from "./routes/agents.js";
 import { desktopRoutes } from "./routes/desktop.js";
@@ -12,6 +13,13 @@ import { simulationRoutes } from "./routes/simulation.js";
 
 export async function buildServer() {
   assertLoopbackBind();
+  if (config.skillOrchestrationV2Enabled) {
+    const registry = loadSkillRegistry();
+    const metrics = getSkillRegistryMetrics();
+    console.log(
+      `[companion] Skill Registry ${registry.registry.registryVersion} loaded: ${registry.registry.skills.length} entries in ${metrics.registryLoadMs.toFixed(2)}ms`,
+    );
+  }
 
   const app = Fastify({
     logger: {

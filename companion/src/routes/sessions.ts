@@ -1,14 +1,18 @@
 import type { FastifyInstance } from "fastify";
 import {
+  listSessionMessages,
   loadSessionMessages,
   saveSessionMessages,
   type StoredChatMessage,
 } from "../sessions/store.js";
-import { loadSessionRuntime } from "../sessions/runtime.js";
+import {
+  loadSessionRuntime,
+  type SessionRuntimeRecord,
+} from "../sessions/runtime.js";
 import { getSessionQueueState } from "../runs/queue-runner.js";
 import { listSessionRunRecords } from "../runs/store.js";
 
-function parseMessages(body: unknown): StoredChatMessage[] | null {
+export function parseMessages(body: unknown): StoredChatMessage[] | null {
   if (!body || typeof body !== "object") return null;
   const b = body as Record<string, unknown>;
   if (!Array.isArray(b.messages)) return null;
@@ -41,6 +45,12 @@ function parseMessages(body: unknown): StoredChatMessage[] | null {
         typeof row.activityCollapse === "string"
           ? row.activityCollapse
           : undefined,
+      finalCollapseRevision:
+        typeof row.finalCollapseRevision === "number" &&
+        Number.isInteger(row.finalCollapseRevision) &&
+        row.finalCollapseRevision >= 0
+          ? row.finalCollapseRevision
+          : undefined,
       runId: typeof row.runId === "string" ? row.runId : undefined,
       runStartedAt:
         typeof row.runStartedAt === "number" ? row.runStartedAt : undefined,
@@ -53,7 +63,63 @@ function parseMessages(body: unknown): StoredChatMessage[] | null {
   return messages;
 }
 
+function resolvedProjectId(
+  projectId: string | undefined,
+  runtime: SessionRuntimeRecord | null,
+): string | null {
+  if (projectId && projectId !== "none") return projectId;
+  if (runtime?.projectId && runtime.projectId !== "none") {
+    return runtime.projectId;
+  }
+  if (
+    runtime?.workspaceProjectId &&
+    runtime.workspaceProjectId !== "none" &&
+    runtime.workspaceProjectId !== "__lazy_default__"
+  ) {
+    return runtime.workspaceProjectId;
+  }
+  return projectId ?? null;
+}
+
+function sessionTitle(messages: StoredChatMessage[]): string {
+  const firstUserText =
+    messages.find((message) => message.role === "user")?.content ?? "";
+  return firstUserText.replace(/\s+/g, " ").trim().slice(0, 48) || "新对话";
+}
+
+function sessionRunStatus(
+  runtime: SessionRuntimeRecord | null,
+): "idle" | "running" | "waiting_user" {
+  if (runtime?.lastRunStatus === "waiting_user") return "waiting_user";
+  if (
+    runtime?.lastRunStatus === "queued" ||
+    runtime?.lastRunStatus === "running"
+  ) {
+    return "running";
+  }
+  return "idle";
+}
+
 export async function sessionRoutes(app: FastifyInstance): Promise<void> {
+  app.get("/v1/sessions", async (_req, reply) => {
+    const records = await listSessionMessages();
+    const items = await Promise.all(
+      records.map(async (record) => {
+        const runtime = await loadSessionRuntime(record.sessionId);
+        return {
+          sessionId: record.sessionId,
+          title: sessionTitle(record.messages),
+          projectId: resolvedProjectId(record.projectId, runtime),
+          surfaceModuleId: runtime?.moduleId ?? "chat",
+          createdAt: runtime?.createdAt ?? record.updatedAt,
+          updatedAt: record.updatedAt,
+          runStatus: sessionRunStatus(runtime),
+        };
+      }),
+    );
+    return reply.send({ items, count: items.length });
+  });
+
   app.get<{ Params: { sessionId: string } }>(
     "/v1/sessions/:sessionId/messages",
     async (req, reply) => {
@@ -66,16 +132,7 @@ export async function sessionRoutes(app: FastifyInstance): Promise<void> {
         return reply.send({ sessionId, messages: [], updatedAt: null });
       }
       const runtime = await loadSessionRuntime(sessionId);
-      const projectId =
-        record.projectId && record.projectId !== "none"
-          ? record.projectId
-          : runtime?.projectId && runtime.projectId !== "none"
-            ? runtime.projectId
-            : runtime?.workspaceProjectId &&
-                runtime.workspaceProjectId !== "none" &&
-                runtime.workspaceProjectId !== "__lazy_default__"
-              ? runtime.workspaceProjectId
-              : (record.projectId ?? null);
+      const projectId = resolvedProjectId(record.projectId, runtime);
       return reply.send({
         sessionId: record.sessionId,
         projectId,

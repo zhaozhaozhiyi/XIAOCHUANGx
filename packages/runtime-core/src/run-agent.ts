@@ -96,6 +96,15 @@ export async function runAgent(
 
   const state = {
     textEmitted: false,
+    hasFinalText: false,
+    assistantSegments: new Map<
+      string,
+      {
+        text: string;
+        forwardedFinalLength: number;
+        forwardedProcessLength: number;
+      }
+    >(),
     threadId: undefined as string | undefined,
   };
   let closeStdinAfterTurnEnd: (() => void) | null = null;

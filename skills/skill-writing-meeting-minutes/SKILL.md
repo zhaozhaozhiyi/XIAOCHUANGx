@@ -1,9 +1,15 @@
 ---
 slug: skill-writing-meeting-minutes
+version: "1.0"
+kind: workflow
+scope: ["writing"]
+summary: "会议纪要撰写：议题归纳、决议与待办表格，可基于要点或附件成稿"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
 module: writing
 task: writing
 templateId: meeting-minutes
-version: "1.0"
 ---
 
 # 写作 · 会议纪要

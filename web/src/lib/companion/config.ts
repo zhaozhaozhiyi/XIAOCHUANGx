@@ -21,6 +21,10 @@ export const companionConfig = {
   apiToken: process.env.COMPANION_API_TOKEN ?? "",
   /** Mock Companion + mock CLI spawn (no daemon). */
   useMock: envBool("COMPANION_USE_MOCK", false),
+  skillOrchestrationV2Enabled: envBool(
+    "SKILL_ORCHESTRATION_V2_ENABLED",
+    true,
+  ),
 } as const;
 
 export function companionUrl(path: string): string {
@@ -132,6 +136,10 @@ export function companionSessionMessagesUrl(sessionId: string): string {
   return companionUrl(
     `/v1/sessions/${encodeURIComponent(sessionId)}/messages`,
   );
+}
+
+export function companionSessionsUrl(): string {
+  return companionUrl("/v1/sessions");
 }
 
 export function companionSessionRunsUrl(sessionId: string): string {

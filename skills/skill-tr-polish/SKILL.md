@@ -1,9 +1,15 @@
 ---
 slug: skill-tr-polish
+version: "0.1"
+kind: workflow
+scope: ["chat","translate"]
+summary: "译文润色：已有译文按语气/术语/文体方向打磨，给修改对照"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
 module: translate
 task: translate
 templateId: polish
-version: "0.1"
 ---
 
 # 翻译 · 译文润色

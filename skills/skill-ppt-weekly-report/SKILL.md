@@ -1,7 +1,13 @@
 ---
 slug: skill-ppt-weekly-report
-module: ppt
 version: "1.0"
+kind: workflow
+scope: ["ppt"]
+summary: "周报幻灯片：品种跟踪与数据摘要"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
+module: ppt
 source: open-design/design-templates/html-ppt-weekly-report
 templateId: weekly-report
 label: 周报

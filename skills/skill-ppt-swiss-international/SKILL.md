@@ -1,7 +1,13 @@
 ---
 slug: skill-ppt-swiss-international
-module: ppt
 version: "1.0"
+kind: workflow
+scope: ["ppt"]
+summary: "瑞士国际主义：极简网格与强排版"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
+module: ppt
 source: open-design/skills/deck-swiss-international
 templateId: swiss-international
 label: 瑞士国际主义

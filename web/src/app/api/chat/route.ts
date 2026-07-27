@@ -189,6 +189,10 @@ function parseBody(body: unknown): ChatCompletionRequestBody | null {
     typeof b.videoTemplateId === "string" && b.videoTemplateId.trim()
       ? b.videoTemplateId.trim()
       : undefined;
+  const requestedSkillSlug =
+    typeof b.requestedSkillSlug === "string" && b.requestedSkillSlug.trim()
+      ? b.requestedSkillSlug.trim()
+      : undefined;
   const apiProvider =
     b.apiProvider && typeof b.apiProvider === "object"
       ? (b.apiProvider as ChatCompletionRequestBody["apiProvider"])
@@ -207,6 +211,7 @@ function parseBody(body: unknown): ChatCompletionRequestBody | null {
     writingTemplateId,
     pptTemplateId,
     videoTemplateId,
+    requestedSkillSlug,
     useClientHistory: b.useClientHistory === true,
   };
 }

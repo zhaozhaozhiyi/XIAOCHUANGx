@@ -1,8 +1,14 @@
 ---
 slug: skill-qa-fast
+version: "1.0"
+kind: workflow
+scope: ["chat"]
+summary: "对话 · 快速模式"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
 module: chat
 mode: fast
-version: "1.0"
 ---
 
 # 对话 · 快速模式

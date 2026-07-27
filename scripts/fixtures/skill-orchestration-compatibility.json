@@ -1,0 +1,89 @@
+{
+  "matrixVersion": "0.1.7-v1",
+  "featureFlag": "SKILL_ORCHESTRATION_V2_ENABLED",
+  "requestFields": [
+    {
+      "field": "moduleId",
+      "v2Disposition": "accept",
+      "authority": "request_fact"
+    },
+    {
+      "field": "binding.templateId",
+      "v2Disposition": "accept",
+      "authority": "request_fact"
+    },
+    {
+      "field": "requestedSkillSlug",
+      "v2Disposition": "accept_and_validate",
+      "authority": "explicit_user_fact"
+    },
+    {
+      "field": "processSkill",
+      "v2Disposition": "deprecated_ignore_for_selection",
+      "authority": "none"
+    },
+    {
+      "field": "platformNormSkill",
+      "v2Disposition": "deprecated_ignore",
+      "authority": "none"
+    },
+    {
+      "field": "supportSkillSlugs",
+      "v2Disposition": "deprecated_ignore",
+      "authority": "none"
+    },
+    {
+      "field": "orchestrationMode",
+      "v2Disposition": "reject_as_request_fact",
+      "authority": "companion_output_only"
+    },
+    {
+      "field": "catalogVersion",
+      "v2Disposition": "reject_as_request_fact",
+      "authority": "legacy_output_only"
+    },
+    {
+      "field": "catalogSlugs",
+      "v2Disposition": "reject_as_request_fact",
+      "authority": "legacy_output_only"
+    }
+  ],
+  "combinations": [
+    {
+      "web": "v2",
+      "companion": "v2",
+      "supported": true,
+      "expected": "Web sends facts; Companion persists the only Decision"
+    },
+    {
+      "web": "legacy",
+      "companion": "v2",
+      "supported": true,
+      "expected": "Deprecated Skill fields parse but cannot override the V2 Decision"
+    },
+    {
+      "web": "legacy_flag_off",
+      "companion": "legacy_flag_off",
+      "supported": true,
+      "expected": "0.1.6 hybrid-steer request, Prompt and event semantics are restored"
+    },
+    {
+      "reader": "legacy",
+      "record": "v2",
+      "supported": true,
+      "expected": "Unknown Skill events are ignored; existing messages and Run data remain readable"
+    }
+  ],
+  "history": {
+    "legacyRunRecord": "accept_without_skillDecision",
+    "v2RunRecord": "accept_with_selected_none_or_rejected_decision",
+    "legacyRunEvents": "accept",
+    "v2SkillEvents": "optional_for_legacy_consumers"
+  },
+  "rollback": {
+    "requiresDataMigration": false,
+    "deletesEvents": false,
+    "deletesMessages": false,
+    "modifiesWorkspace": false
+  }
+}

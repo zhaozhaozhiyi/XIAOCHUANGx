@@ -1,8 +1,14 @@
 ---
 slug: skill-vp-screenplay-canvas
+version: "0.1"
+kind: workflow
+scope: ["chat","video"]
+summary: "屏幕叙事生产：从源材料生成 cue 驱动的 screenplay-canvas studio，支持 ?preview=1 预览、?voice=1 配音检查、?capture=1 录屏路径"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":true,"scripts":true,"templates":true,"assets":false}
 module: video
 task: screenplay-canvas
-version: "0.1"
 status: experimental
 name: screenplay-canvas
 description: 把文章、讲稿、教程或产品材料，做成 cue 驱动的 16:9 屏幕叙事项目。产物不是传统 PPT，而是一个可预览、可配音、可录屏的 narrative studio。适用场景：讲解视频、产品演示、动态课程、路演讲述、视觉说故事。触发词包括 screenplay、canvas、screen narrative、cue sheet、beat sheet、录屏型视频项目。

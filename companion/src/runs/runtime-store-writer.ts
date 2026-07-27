@@ -1,4 +1,10 @@
-import type { CanonicalTurnOutput, RunRecord } from "@jlc/contracts";
+import {
+  skillFailedEventSchema,
+  skillReadyEventSchema,
+  skillSelectedEventSchema,
+  type CanonicalTurnOutput,
+  type RunRecord,
+} from "@jlc/contracts";
 import type { CreateRunRequest } from "../types.js";
 import {
   appendRunEvent,
@@ -137,7 +143,40 @@ function mapEvent(
         typeof payload.stablePromptHash === "string"
           ? payload.stablePromptHash
           : undefined,
+      skillDecisionId:
+        typeof payload.skillDecisionId === "string"
+          ? payload.skillDecisionId
+          : undefined,
+      registryVersion:
+        typeof payload.registryVersion === "string"
+          ? payload.registryVersion
+          : undefined,
+      bundleHash:
+        typeof payload.bundleHash === "string"
+          ? payload.bundleHash
+          : undefined,
     };
+  }
+  if (eventName === "skill.selected") {
+    return skillSelectedEventSchema.parse({
+      ...payload,
+      type: "skill.selected",
+      runId,
+    });
+  }
+  if (eventName === "skill.ready") {
+    return skillReadyEventSchema.parse({
+      ...payload,
+      type: "skill.ready",
+      runId,
+    });
+  }
+  if (eventName === "skill.failed") {
+    return skillFailedEventSchema.parse({
+      ...payload,
+      type: "skill.failed",
+      runId,
+    });
   }
   if (eventName === "run.status") {
     return {
@@ -165,6 +204,7 @@ function mapEvent(
     };
   }
   if (eventName === "message.delta") {
+    if (payload.compatibility === "assistant.segment") return null;
     const text =
       typeof payload.content === "string"
         ? payload.content
@@ -190,20 +230,50 @@ function mapEvent(
         payload.alreadyStreamed === true || payload.already_streamed === true,
     };
   }
+  if (eventName === "assistant.segment") {
+    const operation = payload.operation;
+    const role = payload.role;
+    if (
+      typeof payload.segmentId !== "string" ||
+      (operation !== "start" && operation !== "delta" && operation !== "commit") ||
+      (role !== "pending" && role !== "process" && role !== "final")
+    ) {
+      return null;
+    }
+    return {
+      type: "assistant.segment",
+      runId,
+      segmentId: payload.segmentId,
+      operation,
+      role,
+      text: typeof payload.text === "string" ? payload.text : undefined,
+    };
+  }
   if (eventName === "tool.progress") {
+    const callId =
+      typeof payload.callId === "string"
+        ? payload.callId
+        : typeof payload.toolCallId === "string"
+          ? payload.toolCallId
+          : undefined;
     const status =
-      payload.status === "error" || payload.status === "failed"
-        ? "failed"
-        : payload.status === "success" || payload.status === "done"
-          ? "done"
-          : "running";
+      payload.status === "cancelled"
+        ? "cancelled"
+        : payload.status === "error" || payload.status === "failed"
+          ? "failed"
+          : payload.status === "success" || payload.status === "done"
+            ? "done"
+            : "running";
     return {
       type: "tool.progress",
       runId,
+      ...(callId ? { callId, toolCallId: callId } : {}),
       tool: typeof payload.tool === "string" ? payload.tool : "tool",
       status,
       message:
         typeof payload.message === "string" ? payload.message : undefined,
+      input: payload.input,
+      output: payload.output,
     };
   }
   if (eventName === "clarification.required") {
@@ -370,6 +440,42 @@ export function createRuntimeStoreWriter(
 ): RunEventWriter {
   let recordPromise = primeRuntimeRunRecord(req, runId, input);
   let flushChain: Promise<void> = Promise.resolve();
+  let nextStreamSeq = 0;
+
+  function normalizeWirePayload(eventName: string, data: unknown): unknown {
+    const streamSeq = nextStreamSeq++;
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      return { streamSeq };
+    }
+    const payload = data as Record<string, unknown>;
+    const normalized: Record<string, unknown> = {
+      ...payload,
+      streamSeq,
+    };
+    if (
+      eventName === "part.append" &&
+      payload.part &&
+      typeof payload.part === "object" &&
+      !Array.isArray(payload.part)
+    ) {
+      normalized.part = {
+        ...(payload.part as Record<string, unknown>),
+        streamSeq,
+      };
+    }
+    if (
+      eventName === "part.patch" &&
+      payload.merge &&
+      typeof payload.merge === "object" &&
+      !Array.isArray(payload.merge)
+    ) {
+      normalized.merge = {
+        ...(payload.merge as Record<string, unknown>),
+        streamSeq,
+      };
+    }
+    return normalized;
+  }
 
   const schedule = (job: () => Promise<void>): void => {
     flushChain = flushChain.then(job).catch(() => {});
@@ -377,12 +483,23 @@ export function createRuntimeStoreWriter(
 
   return {
     send(eventName: string, data: unknown) {
-      baseWriter.send(eventName, data);
-      const event = mapEvent(eventName, runId, data);
+      const wireData = normalizeWirePayload(eventName, data);
+      baseWriter.send(eventName, wireData);
+      const event = mapEvent(eventName, runId, wireData);
       if (!event) return;
+      const streamSeq =
+        wireData && typeof wireData === "object" && !Array.isArray(wireData)
+          ? (wireData as Record<string, unknown>).streamSeq
+          : undefined;
       schedule(async () => {
         await recordPromise;
-        await appendRunEvent(runId, event as never);
+        await appendRunEvent(
+          runId,
+          {
+            ...event,
+            ...(typeof streamSeq === "number" ? { streamSeq } : {}),
+          } as never,
+        );
         await persistStatusSideEffect(eventName, runId, data);
       });
     },

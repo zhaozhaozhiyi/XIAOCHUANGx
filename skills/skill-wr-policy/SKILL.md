@@ -1,9 +1,15 @@
 ---
 slug: skill-wr-policy
+version: "0.1"
+kind: workflow
+scope: ["chat","writing"]
+summary: "政策解读：政策原文 → 一句话核心 + 逐条解读 + 风险与不确定性"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
 module: writing
 task: writing
 templateId: policy
-version: "0.1"
 ---
 
 # 写作 · 政策解读

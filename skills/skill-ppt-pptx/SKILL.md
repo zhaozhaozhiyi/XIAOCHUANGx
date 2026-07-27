@@ -1,7 +1,13 @@
 ---
 slug: skill-ppt-pptx
-module: ppt
 version: "1.0"
+kind: tool
+scope: ["ppt"]
+summary: "PPTX 读写与编辑（Anthropic 官方技能）"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
+module: ppt
 source: open-design/skills/pptx
 role: utility
 description: "|"

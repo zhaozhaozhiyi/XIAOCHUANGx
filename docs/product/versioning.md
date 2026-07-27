@@ -2,15 +2,17 @@
 
 | 项 | 当前值 |
 |----|--------|
-| 平台候选版本 | `0.1.6-rc.1` |
-| 最近正式版本 | `0.1.5` |
-| 当前整理目标 | `0.2.0-beta` |
+| 当前正式版本 | `0.1.7` |
+| 上一正式版本 | `0.1.5` |
+| 当前整理目标 | 冻结 `0.1.7` 升级基线并进入后续数据底座与产品规划 |
 | 当前产品阶段 | Desktop Alpha → Desktop Beta 收口过渡 |
 | 当前产品形态 | Desktop + 本地 Companion + 本地文件夹工作区 |
 | 当前文档基线 | PRD 文档 `v4.1` |
-| 当前候选目标 | `0.1.6` 正式版 |
-| 下一纠偏目标 | `0.1.7`（过程旁白与业务过程可见性；边界已锁定） |
-| 下一 Beta 目标 | `0.2.0-beta` |
+| 当前发布基线 | `v0.1.7` Skill 编排优化版 |
+| 已合并纠偏 | 原 `0.1.7` 过程旁白与业务过程可见性已并入 `0.1.6` 候选版 |
+| `0.1.7` 规划主题 | Skill 按需发现、选择和加载；普通对话不再每 Run 硬注入业务 Skill |
+| `0.2.0` 规划主题 | 统一任务、任务模板、多交付物阶段、工作台与旧会话迁移 |
+| 下一 Beta 目标 | `0.2.0-beta.1` |
 | 下一大版本目标 | Web Sandbox `1.0.0` 或独立 Web 版本线 |
 
 ---
@@ -31,9 +33,9 @@
 | `0.1.3-alpha` | Desktop Alpha 交付体验补强版 | `0.1.2-alpha` 后的交付物结构化、3D 交付卡动作、视频三路径与 poetic 短动画、推演图例、QA gate 补强版本 |
 | `0.1.4-alpha` | Desktop Alpha 推演画布交互闭环补丁版 | `0.1.3-alpha` 后的推演画布按钮定义、确认反馈、Topic 边界编辑、新版世界模型生成与 UI smoke 稳定补丁版本 |
 | `0.1.5` | Desktop Alpha 工作区媒体与对话过程体验补强版 | `0.1.4-alpha` 后的工作区视频预览、SVG/源码编辑、对话过程状态收束、Composer 稳定性与桌面打包/交互补强版本 |
-| `0.1.6` | Desktop Alpha 对话结果与过程体验收口版 | `0.1.5` 后的 assistant Turn 分层、过程摘要与 Episode、连续结果、状态/滚动稳定、CLI 与历史兼容收口版本；不扩展协议或业务模块 |
-| `0.1.7` | Desktop Alpha 过程旁白与业务过程可见性纠偏版 | `0.1.6` 后的旁白 L1 必显、运行中过程陪跑、思考过程与技术详情拆分；保留结果在下与滚动稳定；不扩展协议或业务模块 |
-| `0.2.0-beta` | Desktop Beta | 写作 / PPT 收口、对话增强，3D M1 / 视频 0.x / 推演 Beta 按子线节奏推进，桌面本地工作区体验可试用 |
+| `0.1.6` | Desktop Alpha 对话结果与过程体验收口版 | `0.1.5` 后的 assistant Turn 分层、运行中业务时间线、final 一次性收起、连续结果、状态/滚动稳定、CLI 与历史兼容收口版本；含向后兼容 assistant.segment |
+| `0.1.7` | Desktop Alpha Skill 编排优化正式版 | Companion 统一选择、业务 Skill 按需加载、真实 Skill Run Events 与三 Agent 一致性；不包含统一任务和导航改造 |
+| `0.2.0` | Desktop Beta 统一任务版（规划中） | 首个预发布为 `0.2.0-beta.1`；统一 Task、模板、多交付阶段、工作台恢复、旧会话迁移与导航收敛 |
 | `1.0.0` | Desktop Stable | 桌面端正式稳定版 |
 | `1.x` | Desktop 增量 | 桌面端功能迭代与体验增强 |
 | `2.0.0` 或独立 `1.0.0-web` | Web Sandbox | Web 在线沙箱工作区、云端 Runtime、多用户后台进入正式产品线 |
@@ -68,8 +70,8 @@
 
 当前平台版本定义为：
 
-> **小窗 `0.1.6-rc.1`，Desktop Alpha 对话结果与过程体验收口候选版。**
-> `0.1.5` 仍是最近正式基线；当前工作区已进入 `0.1.6` 候选验证，根 `package.json`、桌面安装包、Web/API/Companion 与必要内部包统一使用 `0.1.6-rc.1`。通过内部可用性与安装包验收后再同步为正式 `0.1.6`。随后进入已锁定边界的 `0.1.7`（过程旁白与业务过程可见性纠偏）。
+> **小窗 `0.1.7`，Desktop Alpha Skill 编排优化正式版。**
+> `v0.1.7` tag、GitHub Release、双平台测试签名制品和 SHA-256 清单构成不可变发布基线。根 `package.json`、桌面安装包、Web/API/Companion 与必要内部包统一使用 `0.1.7`。后续升级验证只能使用该冻结基线，不使用本地脏工作区或临时候选。
 
 当前版本已经具备：
 
@@ -80,10 +82,11 @@
 - 写作 / PPT 对话壳、需求卡 / 摘要 / 大纲、真实落盘与关键 smoke / E2E。
 - 3D M1 入口、Skill、OpenSCAD CLI / WASM 与导出链路。
 - 工作区媒体预览、SVG 预览/源码编辑、文本源码直接编辑与对话过程运行态展示补强。
+- Companion 统一 Skill Registry 与确定性选择、业务 Skill 按需加载和真实 Skill Run Events。
 
-当前版本尚未完成：
+后续版本继续处理：
 
-- 签名、公证、更新源、首次启动等正式发布确认。
+- 生产级 Apple 公证、Windows Authenticode 签名与正式更新源运营；本次 Desktop Alpha 正式发布采用测试签名；
 - 写作 DOCX / PPTX 本地交付物体验（生成、打开、定位、另存 / 导出副本）、历史侧栏和更多真实多轮回归。
 - 3D Runtime 制品库、许可证材料、WASM UI 开关与异常 fixture。
 - 视频 Remotion / 网页视频项目闭环与 MP4 自动化；推演画布、Round 快照和报告导出。
@@ -95,16 +98,17 @@
 
 后续文档统一使用以下写法：
 
-- 平台版本：`0.1.0-alpha`、`0.2.0-beta`、`1.0.0`
+- 平台版本：`0.1.0-alpha`、`0.2.0-beta.1`、`0.2.0`、`1.0.0`
 - 小优化版本：`0.1.1-alpha`，需求统一记录在 [`requirements-0.1.1-alpha.md`](./requirements-0.1.1-alpha.md)
 - Alpha 补强版本：`0.1.2-alpha`，内容梳理统一记录在 [`requirements-0.1.2-alpha.md`](./requirements-0.1.2-alpha.md)
 - 后续 Alpha 补强版本：`0.1.3-alpha`，内容梳理统一记录在 [`requirements-0.1.3-alpha.md`](./requirements-0.1.3-alpha.md)
 - 推演画布交互闭环补丁版本：`0.1.4-alpha`，内容梳理统一记录在 [`requirements-0.1.4-alpha.md`](./requirements-0.1.4-alpha.md)
 - 工作区媒体与对话过程体验补强版本：`0.1.5`，更新说明记录在 [`../release-notes/0.1.5.md`](../release-notes/0.1.5.md)
 - 对话结果与过程体验收口版本：`0.1.6`，版本边界记录在 [`requirements-0.1.6.md`](./requirements-0.1.6.md)
-- 过程旁白与业务过程可见性纠偏版本：`0.1.7`，版本边界记录在 [`requirements-0.1.7.md`](./requirements-0.1.7.md)
+- Skill 编排优化版本：`0.1.7` 规划记录在 [`requirements-0.1.7.md`](./requirements-0.1.7.md)；原旁白纠偏已并入 `0.1.6`，不得重复计入
+- 统一任务与多交付物版本：`0.2.0` 规划记录在 [`requirements-0.2.0.md`](./requirements-0.2.0.md)；首个预发布版本使用 `0.2.0-beta.1`
 - 产品阶段：Desktop Alpha、Desktop Beta、Web Sandbox
-- 文档版本：PRD `v4.1`、技术方案 `v1.5`
+- 文档版本：PRD `v4.1`、技术方案 `v1.6`
 - 优先级：P0 / P1 / P2 仅表示任务优先级，不表示产品版本
 
 不再使用以下写法作为产品版本：

@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { RunStatus } from "@jlc/contracts";
+import type { SkillSelectionDecisionV1 } from "@jlc/contracts";
 import type {
   CreateRunBinding,
   ModuleId,
@@ -46,6 +47,12 @@ export type SessionRuntimeRecord = {
   lastRunId?: string;
   lastRunStatus?: RunStatus;
   lastStatusLabel?: string;
+  lastSkillDecision?: SkillSelectionDecisionV1;
+  lastSuccessfulWorkflowSkill?: {
+    primarySkillSlug: string;
+    runId: string;
+    succeededAt: string;
+  };
   createdAt: string;
   updatedAt: string;
 };

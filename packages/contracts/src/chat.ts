@@ -11,6 +11,42 @@ export const CHAT_PARTS_PROTOCOL_VERSION = 1 as const;
 export const chatPartZoneSchema = z.enum(["summary", "activity"]);
 export type ChatPartZone = z.infer<typeof chatPartZoneSchema>;
 
+export const chatPartPresentationRoleSchema = z.enum([
+  "process",
+  "checkpoint",
+  "result",
+  "deliverable",
+  "technical",
+]);
+export type ChatPartPresentationRole = z.infer<
+  typeof chatPartPresentationRoleSchema
+>;
+
+export const assistantSegmentRoleSchema = z.enum([
+  "pending",
+  "process",
+  "final",
+]);
+export type AssistantSegmentRole = z.infer<typeof assistantSegmentRoleSchema>;
+
+export const assistantSegmentOperationSchema = z.enum([
+  "start",
+  "delta",
+  "commit",
+]);
+export type AssistantSegmentOperation = z.infer<
+  typeof assistantSegmentOperationSchema
+>;
+
+export type AssistantSegmentPayload = {
+  segmentId: string;
+  operation: AssistantSegmentOperation;
+  role: AssistantSegmentRole;
+  text?: string;
+  /** Canonical order assigned when the event enters the unified run stream. */
+  streamSeq?: number;
+};
+
 // ---------------------------------------------------------------------------
 // Part kinds — 分类型 UI 渲染键
 // ---------------------------------------------------------------------------
@@ -119,6 +155,10 @@ export type ChatPartBase = {
   id: string;
   zone: ChatPartZone;
   kind: ChatPartKind;
+  /** Stable source segment for provisional process -> final reclassification. */
+  segmentId?: string;
+  /** Business placement; old records fall back to a deterministic kind mapping. */
+  presentationRole?: ChatPartPresentationRole;
   /** SSE 追加顺序（交错时间线排序） */
   streamSeq?: number;
   /** 流式进行中 */
@@ -151,6 +191,14 @@ export type SkillPart = ChatPartBase & {
   slug: string;
   label?: string;
   role?: "process" | "platform" | "catalog" | "injected";
+  decisionId?: string;
+  eventId?: string;
+  lifecycleStatus?: "selected" | "ready" | "failed" | "cancelled";
+  requiredSkillSlugs?: string[];
+  selectionSource?: string;
+  bundleCacheStatus?: "miss" | "partial-hit" | "full-hit";
+  failureCode?: string;
+  failureMessage?: string;
 };
 
 export type ReasoningPart = ChatPartBase & {
@@ -170,7 +218,7 @@ export type ToolPart = ChatPartBase & {
   kind: "tool";
   zone: "activity";
   tool: string;
-  status?: "pending" | "running" | "success" | "error";
+  status?: "pending" | "running" | "success" | "error" | "cancelled";
   message?: string;
   callId?: string;
   input?: unknown;
@@ -179,7 +227,7 @@ export type ToolPart = ChatPartBase & {
 
 export type ToolBatchItem = {
   tool: string;
-  status?: "pending" | "running" | "success" | "error";
+  status?: "pending" | "running" | "success" | "error" | "cancelled";
   message?: string;
 };
 
@@ -208,6 +256,8 @@ export type CommandPart = ChatPartBase & {
   kind: "command";
   zone: "activity";
   command: string;
+  callId?: string;
+  status?: ToolPart["status"];
   exitCode?: number | null;
   stdoutPreview?: string;
   stderrPreview?: string;
@@ -217,6 +267,8 @@ export type FileReadPart = ChatPartBase & {
   kind: "file_read";
   zone: "activity";
   path: string;
+  callId?: string;
+  status?: ToolPart["status"];
   lineRange?: { start: number; end: number };
 };
 
@@ -224,6 +276,8 @@ export type DocumentReadPart = ChatPartBase & {
   kind: "document_read";
   zone: "activity";
   path: string;
+  callId?: string;
+  status?: ToolPart["status"];
   docType: string;
 };
 
@@ -231,6 +285,8 @@ export type FileEditPart = ChatPartBase & {
   kind: "file_edit";
   zone: "activity";
   path: string;
+  callId?: string;
+  status?: ToolPart["status"];
   additions?: number;
   deletions?: number;
   /** 大 diff 仅存摘要，详情跳转工作区 */
@@ -241,6 +297,8 @@ export type DocumentEditPart = ChatPartBase & {
   kind: "document_edit";
   zone: "activity";
   path: string;
+  callId?: string;
+  status?: ToolPart["status"];
   docType: string;
   additions?: number;
   deletions?: number;
@@ -906,6 +964,7 @@ export const companionRunSseEventSchema = z.enum([
   "project.ensured",
   "message.delta",
   "interim_assistant",
+  "assistant.segment",
   "tool.progress",
   "clarification.required",
   "canonical.output",

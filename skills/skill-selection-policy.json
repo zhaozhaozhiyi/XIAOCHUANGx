@@ -1,0 +1,921 @@
+{
+  "policyVersion": "0.1.7-v1",
+  "registryVersion": "0.1.7-v1",
+  "selectorVersion": "0.1.7-v1",
+  "updatedAt": "2026-07-24T00:00:00.000Z",
+  "skills": [
+    {
+      "slug": "skill-industrial-drawing-base",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "module",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [
+          "3d"
+        ],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-industrial-drawing-export",
+      "status": "active",
+      "selectableSources": [
+        "explicit"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-industrial-drawing-parametric",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-kb-qa",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-mm-client-review",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-mm-daily-standup",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-mm-internal-decision",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-mm-summary",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-platform-research-norms",
+      "status": "disabled",
+      "selectableSources": [],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-ppt-base",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "module",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [
+          "ppt"
+        ],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "default"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-ppt-blue-professional",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "blue-professional"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-ppt-deck",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "deck"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-ppt-editorial-burgundy",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "editorial-burgundy"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-ppt-fidelity-audit",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "fidelity-audit"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-ppt-fintech-swiss",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "fintech-swiss"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-ppt-guizang-editorial",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "guizang-editorial"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-ppt-html-studio",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "html-studio"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-ppt-knowledge-arch",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "knowledge-arch"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-ppt-open-canvas",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "open-canvas"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-ppt-pitch-deck",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "pitch-deck"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-ppt-pptx",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "pptx"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-ppt-pptx-generator",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "pptx-generator"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-ppt-quarterly-review",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "quarterly-review"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-ppt-slides",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "slides"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-ppt-swiss-international",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "swiss-international"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-ppt-tech-sharing",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "tech-sharing"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-ppt-weekly-report",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "weekly-report"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-qa",
+      "status": "disabled",
+      "selectableSources": [],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-qa-deep",
+      "status": "disabled",
+      "selectableSources": [],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-qa-fast",
+      "status": "disabled",
+      "selectableSources": [],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-simulation-base",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "module",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [
+          "simulation"
+        ],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-tr-doc",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "continuation",
+        "intent"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [
+        {
+          "id": "translate-full-document-zh",
+          "type": "regex",
+          "pattern": "(?:(?:翻译|译成|中英互译).{0,12}(?:整篇|全文|文档|文件)|(?:整篇|全文|文档|文件).{0,12}(?:翻译|译成|中英互译))"
+        },
+        {
+          "id": "translate-full-document-en",
+          "type": "regex",
+          "pattern": "translate.{0,12}(?:document|file)",
+          "flags": "i"
+        }
+      ],
+      "excludes": [
+        {
+          "id": "explain-translation-skill",
+          "type": "regex",
+          "pattern": "(?:什么是|解释|介绍).{0,20}(?:skill-tr-doc|文档翻译)"
+        }
+      ],
+      "priority": 100
+    },
+    {
+      "slug": "skill-tr-polish",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-tr-text",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-vp-base",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "module",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [
+          "video"
+        ],
+        "templates": [
+          {
+            "moduleId": "video",
+            "templateId": "auto"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-vp-poetic-visual-coding",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "video",
+            "templateId": "poetic"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-vp-screenplay-canvas",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "video",
+            "templateId": "screenplay"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-vp-video-stage",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "video",
+            "templateId": "stage"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-world-model",
+      "status": "active",
+      "selectableSources": [],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-wr-industry",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "writing",
+            "templateId": "industry"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-wr-macro",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "writing",
+            "templateId": "macro"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-wr-policy",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "writing",
+            "templateId": "policy"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-wr-sector-data",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "writing",
+            "templateId": "sector-data"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-wr-topic",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "writing",
+            "templateId": "topic"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-writing-base",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "module",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [
+          "writing"
+        ],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-writing-general",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "writing",
+            "templateId": "general"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-writing-meeting-minutes",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "writing",
+            "templateId": "meeting-minutes"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    },
+    {
+      "slug": "skill-writing-official-doc",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "writing",
+            "templateId": "official-doc"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0
+    }
+  ]
+}

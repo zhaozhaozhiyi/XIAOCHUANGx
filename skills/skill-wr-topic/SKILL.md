@@ -1,9 +1,15 @@
 ---
 slug: skill-wr-topic
+version: "0.1"
+kind: workflow
+scope: ["chat","writing"]
+summary: "专题研究：围绕特定问题整合多源资料，含图表与情景推演"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
 module: writing
 task: writing
 templateId: topic
-version: "0.1"
 ---
 
 # 写作 · 专题研究

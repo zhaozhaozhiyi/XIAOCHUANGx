@@ -33,10 +33,20 @@ function extractErrorMessage(value: unknown, fallback: string): string {
 export function createCodexJsonParser(onEvent: Handler) {
   let buffer = "";
   let errorEmitted = false;
-  let prevAgentMsg = false;
-  let lastEndedNewline = false;
-  let pendingAgentText = "";
+  let anonymousSegmentSeq = 0;
   const activeToolItems = new Map<string, { tool: string; input: unknown }>();
+  const pendingAgentSegments: string[] = [];
+
+  function commitPendingAgentSegments(role: "process" | "final") {
+    for (const segmentId of pendingAgentSegments.splice(0)) {
+      onEvent({
+        type: "assistant_segment",
+        segmentId,
+        operation: "commit",
+        role,
+      });
+    }
+  }
 
   function itemId(item: Record<string, unknown>): string | null {
     return typeof item.id === "string" ? item.id : null;
@@ -56,6 +66,7 @@ export function createCodexJsonParser(onEvent: Handler) {
 
   function itemOutput(item: Record<string, unknown>): unknown {
     if (item.output !== undefined) return item.output;
+    if (item.aggregated_output !== undefined) return item.aggregated_output;
     if (item.result !== undefined) return item.result;
     if (item.content !== undefined) return item.content;
     if (item.error !== undefined) return { error: item.error };
@@ -121,7 +132,6 @@ export function createCodexJsonParser(onEvent: Handler) {
     item: Record<string, unknown>,
     phase: "start" | "end",
   ) {
-    flushAgentText();
     const rawType = typeof item.type === "string" ? item.type : "";
     if (!rawType || rawType === "agent_message") {
       return;
@@ -180,26 +190,11 @@ export function createCodexJsonParser(onEvent: Handler) {
     }
   }
 
-  function queueAgentText(text: string) {
-    const needsBoundary =
-      pendingAgentText.length > 0 &&
-      !pendingAgentText.endsWith("\n") &&
-      !text.startsWith("\n");
-    pendingAgentText += needsBoundary ? `\n${text}` : text;
-  }
-
-  function flushAgentText() {
-    if (!pendingAgentText) return;
-    onEvent({ type: "text_delta", delta: pendingAgentText });
-    prevAgentMsg = true;
-    lastEndedNewline = pendingAgentText.endsWith("\n");
-    pendingAgentText = "";
-  }
-
   function handle(obj: unknown) {
     if (!isRecord(obj)) return;
 
     if (obj.type === "error" || obj.type === "turn.failed") {
+      commitPendingAgentSegments("process");
       const message = extractErrorMessage(
         obj.message ?? obj.error,
         obj.type === "turn.failed" ? "Codex turn failed" : "Codex error",
@@ -228,19 +223,19 @@ export function createCodexJsonParser(onEvent: Handler) {
     }
 
     if (obj.type === "turn.started") {
-      prevAgentMsg = false;
-      lastEndedNewline = false;
-      flushAgentText();
       onEvent({ type: "tool_progress", ...progressFromPhase("运行中") });
+      return;
+    }
+
+    if (obj.type === "turn.completed") {
+      commitPendingAgentSegments("final");
       return;
     }
 
     if (obj.type === "item.started" && isRecord(obj.item)) {
       const item = obj.item;
       if (item.type && item.type !== "agent_message") {
-        prevAgentMsg = false;
-        lastEndedNewline = false;
-        flushAgentText();
+        commitPendingAgentSegments("process");
         const id = itemId(item);
         if (id && activeToolItems.has(id)) return;
         emitToolItem(item, "start");
@@ -251,9 +246,7 @@ export function createCodexJsonParser(onEvent: Handler) {
     if (obj.type === "item.completed" && isRecord(obj.item)) {
       const item = obj.item;
       if (item.type && item.type !== "agent_message") {
-        prevAgentMsg = false;
-        lastEndedNewline = false;
-        flushAgentText();
+        commitPendingAgentSegments("process");
         const id = itemId(item);
         if (id && !activeToolItems.has(id)) {
           emitToolItem(item, "start");
@@ -272,23 +265,27 @@ export function createCodexJsonParser(onEvent: Handler) {
     ) {
       const text = obj.item.text;
       const phase = itemPhase(obj.item);
-      onEvent({ type: "narration", text });
-      if (phase === "commentary") {
-        prevAgentMsg = false;
-        lastEndedNewline = false;
-        flushAgentText();
+      const segmentId =
+        itemId(obj.item) ?? `codex-agent-message-${anonymousSegmentSeq++}`;
+      if (phase !== "commentary" && phase !== "final_answer") {
+        pendingAgentSegments.push(segmentId);
+        onEvent({
+          type: "assistant_segment",
+          segmentId,
+          operation: "delta",
+          role: "pending",
+          text,
+        });
         return;
       }
-      queueAgentText(text);
+      onEvent({
+        type: "assistant_segment",
+        segmentId,
+        operation: "commit",
+        role: phase === "commentary" ? "process" : "final",
+        text,
+      });
       return;
-    }
-
-    if (
-      obj.type === "turn.completed" ||
-      obj.type === "turn.finished" ||
-      obj.type === "result"
-    ) {
-      flushAgentText();
     }
   }
 
@@ -310,16 +307,14 @@ export function createCodexJsonParser(onEvent: Handler) {
   function flush() {
     const rem = buffer.trim();
     buffer = "";
-    if (!rem) {
-      flushAgentText();
-      return;
+    if (rem) {
+      try {
+        handle(JSON.parse(rem));
+      } catch {
+        /* ignore */
+      }
     }
-    try {
-      handle(JSON.parse(rem));
-    } catch {
-      /* ignore */
-    }
-    flushAgentText();
+    commitPendingAgentSegments(errorEmitted ? "process" : "final");
   }
 
   return { feed, flush };

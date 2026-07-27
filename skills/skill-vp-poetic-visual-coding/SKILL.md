@@ -1,8 +1,14 @@
 ---
 slug: skill-vp-poetic-visual-coding
+version: "0.1"
+kind: workflow
+scope: ["chat","video"]
+summary: "诗意短动画生产：把一个词、概念、情绪或参考画面转成 10-25 秒 p5.js/Processing 风格视觉诗，可选时间线同步声音设计"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
 module: video
 task: poetic-visual-coding
-version: "0.1"
 status: imported
 name: poetic-visual-coding
 description: Turn a concept — a word, phrase, mood, rough idea, or optionally a reference image/video — into short poetic animations in this project's quiet style, with optional timeline-synced sound design. The default mode is to reason from the concept to an original visual direction; replicating or remixing local sources is a variant. Use when asked to design, storyboard, implement, analyze, replicate, or remix p5.js/Processing-style visual pieces, or for requests mentioning p5.js 动画, 灵感拆解, 视觉复刻, 诗意动效, 视觉方向, 音画同步, 声音设计, or 可复用创作流程.

@@ -1,6 +1,17 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { basename, join } from "node:path";
+import type {
+  SkillBundleCacheStatus,
+  SkillBundleItem,
+  SkillFailureCode,
+  SkillFailureStage,
+  SkillFallbackMode,
+  SkillManifestV1,
+  SkillSelectionDecisionV1,
+} from "@jlc/contracts";
 import { resolveSkillsRoot } from "./paths.js";
+import type { SkillRegistrySnapshot } from "./skill-registry.js";
 
 export { resolveSkillsRoot } from "./paths.js";
 
@@ -23,6 +34,62 @@ export type SkillBundle = {
 type CacheEntry = { mtimeMs: number; loaded: LoadedSkill };
 
 const bundleCache = new Map<string, CacheEntry>();
+
+type SelectedCacheEntry = {
+  mtimeMs: number;
+  item: SelectedSkillBundleItem;
+};
+
+const selectedBundleCache = new Map<string, SelectedCacheEntry>();
+
+export type SkillLoaderMetrics = {
+  skillBodyReadCount: number;
+  skillBodyCacheHitCount: number;
+};
+
+const selectedLoaderMetrics: SkillLoaderMetrics = {
+  skillBodyReadCount: 0,
+  skillBodyCacheHitCount: 0,
+};
+
+export type SelectedSkillBundleItem = SkillBundleItem & {
+  manifest: SkillManifestV1;
+  skillPath: string;
+  body: string;
+  referencePaths: string[];
+};
+
+export type SelectedSkillBundle = {
+  status: "ready";
+  decisionId: string;
+  primary: SelectedSkillBundleItem;
+  required: SelectedSkillBundleItem[];
+  items: SelectedSkillBundleItem[];
+  bundleHash: string;
+  bundleCacheStatus: SkillBundleCacheStatus;
+};
+
+export type SelectedSkillBundleFailure = {
+  status: "failed";
+  decisionId: string;
+  failedSkillSlug: string;
+  failureStage: SkillFailureStage;
+  failureCode: SkillFailureCode;
+  failureMessage: string;
+  fallbackMode: SkillFallbackMode;
+  loadedItems: SelectedSkillBundleItem[];
+};
+
+export type SelectedSkillBundleCancelled = {
+  status: "cancelled";
+  decisionId: string;
+  loadedItems: SelectedSkillBundleItem[];
+};
+
+export type SelectedSkillBundleResult =
+  | SelectedSkillBundle
+  | SelectedSkillBundleFailure
+  | SelectedSkillBundleCancelled;
 
 function assertSkillSlug(slug: string): void {
   if (!SLUG_RE.test(slug)) {
@@ -49,6 +116,10 @@ function listReferenceFiles(skillDir: string): string[] {
 
 function readSkillFile(skillPath: string): string {
   return stripFrontmatter(readFileSync(skillPath, "utf8"));
+}
+
+function sha256(value: string): string {
+  return `sha256:${createHash("sha256").update(value).digest("hex")}`;
 }
 
 function loadSkillFromDisk(
@@ -80,10 +151,14 @@ function getCachedOrLoad(
   const mtimeMs = statSync(skillPath).mtimeMs;
   const key = cacheKey(skillsRoot, slug);
   const hit = bundleCache.get(key);
-  if (hit && hit.mtimeMs === mtimeMs) return hit.loaded;
+  if (hit && hit.mtimeMs === mtimeMs) {
+    selectedLoaderMetrics.skillBodyCacheHitCount += 1;
+    return hit.loaded;
+  }
 
   const loaded = loadSkillFromDisk(skillsRoot, slug);
   if (!loaded) return null;
+  selectedLoaderMetrics.skillBodyReadCount += 1;
   bundleCache.set(key, { mtimeMs, loaded });
   return loaded;
 }
@@ -156,7 +231,170 @@ export function loadSkillBundle(input: {
   return { platformNorm, process, support, missing };
 }
 
+function selectedCacheKey(
+  skillsRoot: string,
+  manifest: SkillManifestV1,
+): string {
+  return `${skillsRoot}::${manifest.slug}::${manifest.version}`;
+}
+
+function loadSelectedItem(
+  skillsRoot: string,
+  manifest: SkillManifestV1,
+): SelectedSkillBundleItem | null {
+  const skillPath = join(skillsRoot, manifest.slug, "SKILL.md");
+  if (!existsSync(skillPath)) return null;
+  const key = selectedCacheKey(skillsRoot, manifest);
+  const cached = selectedBundleCache.get(key);
+  const development = process.env.NODE_ENV === "development";
+  if (cached) {
+    if (!development || statSync(skillPath).mtimeMs === cached.mtimeMs) {
+      selectedLoaderMetrics.skillBodyCacheHitCount += 1;
+      return { ...cached.item, cacheStatus: "memory-hit" };
+    }
+  }
+
+  const body = readSkillFile(skillPath);
+  selectedLoaderMetrics.skillBodyReadCount += 1;
+  const item: SelectedSkillBundleItem = {
+    slug: manifest.slug,
+    version: manifest.version,
+    contentHash: sha256(body),
+    cacheStatus: "miss",
+    manifest,
+    skillPath,
+    body,
+    referencePaths: listReferenceFiles(join(skillsRoot, manifest.slug)),
+  };
+  selectedBundleCache.set(key, {
+    mtimeMs: statSync(skillPath).mtimeMs,
+    item,
+  });
+  return item;
+}
+
+function fallbackForDecision(
+  decision: SkillSelectionDecisionV1,
+): SkillFallbackMode {
+  if (decision.selectionSource === "intent") return "basic";
+  if (decision.selectionSource === "continuation") return "retry";
+  return "blocked";
+}
+
+export function loadSelectedSkillBundle(input: {
+  decision: SkillSelectionDecisionV1;
+  registry: SkillRegistrySnapshot;
+  skillsRoot?: string;
+  signal?: AbortSignal;
+}): SelectedSkillBundleResult {
+  const { decision, registry, signal } = input;
+  const skillsRoot = input.skillsRoot ?? resolveSkillsRoot();
+  const loadedItems: SelectedSkillBundleItem[] = [];
+  if (signal?.aborted) {
+    return { status: "cancelled", decisionId: decision.decisionId, loadedItems };
+  }
+  if (decision.decisionOutcome !== "selected" || !decision.primarySkillSlug) {
+    return {
+      status: "failed",
+      decisionId: decision.decisionId,
+      failedSkillSlug: decision.requestedSkillSlug ?? "unknown",
+      failureStage: "selection",
+      failureCode: "manifest_invalid",
+      failureMessage: "A selected Decision is required before loading a Skill bundle.",
+      fallbackMode: fallbackForDecision(decision),
+      loadedItems,
+    };
+  }
+
+  const slugs = [
+    decision.primarySkillSlug,
+    ...decision.requiredSkillSlugs.filter(
+      (slug) => slug !== decision.primarySkillSlug,
+    ),
+  ];
+  for (const [index, slug] of slugs.entries()) {
+    if (signal?.aborted) {
+      return {
+        status: "cancelled",
+        decisionId: decision.decisionId,
+        loadedItems,
+      };
+    }
+    const manifest = registry.bySlug.get(slug);
+    if (!manifest || manifest.status !== "active") {
+      return {
+        status: "failed",
+        decisionId: decision.decisionId,
+        failedSkillSlug: slug,
+        failureStage: index === 0 ? "manifest" : "dependency",
+        failureCode: index === 0 ? "manifest_invalid" : "dependency_missing",
+        failureMessage: `Skill manifest is unavailable: ${slug}.`,
+        fallbackMode: fallbackForDecision(decision),
+        loadedItems,
+      };
+    }
+    const item = loadSelectedItem(skillsRoot, manifest);
+    if (!item) {
+      return {
+        status: "failed",
+        decisionId: decision.decisionId,
+        failedSkillSlug: slug,
+        failureStage: index === 0 ? "body" : "dependency",
+        failureCode: index === 0 ? "body_missing" : "dependency_missing",
+        failureMessage: `Skill body is unavailable: ${slug}.`,
+        fallbackMode: fallbackForDecision(decision),
+        loadedItems,
+      };
+    }
+    loadedItems.push(item);
+  }
+
+  const items = [...loadedItems].sort((a, b) => a.slug.localeCompare(b.slug));
+  const hitCount = items.filter(
+    (item) => item.cacheStatus === "memory-hit",
+  ).length;
+  const bundleCacheStatus: SkillBundleCacheStatus =
+    hitCount === items.length
+      ? "full-hit"
+      : hitCount === 0
+        ? "miss"
+        : "partial-hit";
+  const canonicalBundle = items
+    .map((item) => `${item.slug}\n${item.version}\n${item.contentHash}`)
+    .join("\n---\n");
+  const primary = loadedItems[0];
+  return {
+    status: "ready",
+    decisionId: decision.decisionId,
+    primary,
+    required: loadedItems.slice(1),
+    items,
+    bundleHash: sha256(canonicalBundle),
+    bundleCacheStatus,
+  };
+}
+
+export function getSkillLoaderMetrics(): SkillLoaderMetrics {
+  return { ...selectedLoaderMetrics };
+}
+
+export function resetSkillLoaderMetrics(): void {
+  selectedLoaderMetrics.skillBodyReadCount = 0;
+  selectedLoaderMetrics.skillBodyCacheHitCount = 0;
+}
+
+export function clearSelectedSkillBundleCache(slug?: string): void {
+  if (!slug) {
+    selectedBundleCache.clear();
+    return;
+  }
+  for (const key of selectedBundleCache.keys()) {
+    if (key.includes(`::${slug}::`)) selectedBundleCache.delete(key);
+  }
+}
+
 /** 清除进程内缓存（测试或热更新后调用） */
 export function clearSkillCache(): void {
   bundleCache.clear();
+  selectedBundleCache.clear();
 }

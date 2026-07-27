@@ -41,6 +41,7 @@ if (!requiredFailed) {
 
 let requiredVerifyOk = false;
 let archGuardFailed = false;
+let architectureCheckOk = false;
 let requiredArchitectures: string[] = [];
 try {
   const output = execFileSync("node", [
@@ -62,16 +63,27 @@ try {
     result.architectures.includes("x86_64") &&
     result.architectures.includes("arm64");
   requiredArchitectures = result.requiredArchitectures ?? [];
+  architectureCheckOk = requiredVerifyOk;
 } catch (err) {
   const output = `${(err as { stdout?: Buffer; stderr?: Buffer }).stdout ?? ""}${
     (err as { stderr?: Buffer }).stderr ?? ""
   }`;
+  const jsonStart = output.indexOf("{");
+  const result = jsonStart >= 0 ? JSON.parse(output.slice(jsonStart)) : {};
+  requiredArchitectures = result.requiredArchitectures ?? [];
   archGuardFailed =
     output.includes("runtime_arch_missing:x86_64") &&
     output.includes("runtime_arch_missing:arm64");
+  architectureCheckOk =
+    requiredArchitectures.includes("x86_64") &&
+    requiredArchitectures.includes("arm64") &&
+    ((result.architectures ?? []).includes("x86_64") ||
+      output.includes("runtime_arch_missing:x86_64")) &&
+    ((result.architectures ?? []).includes("arm64") ||
+      output.includes("runtime_arch_missing:arm64"));
 }
 
-if (!requiredVerifyOk && !archGuardFailed) {
+if (!architectureCheckOk) {
   throw new Error(
     "Release verifier should either pass with required architectures or fail on missing architectures",
   );
@@ -85,6 +97,7 @@ console.log(
       requiredMissingShaGuard: requiredFailed,
       requiredVerifyOk,
       requiredArchGuard: archGuardFailed,
+      architectureCheckOk,
       requiredArchitectures,
     },
     null,

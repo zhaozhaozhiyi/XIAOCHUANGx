@@ -1,8 +1,14 @@
 ---
 slug: skill-industrial-drawing-base
+version: "1.0"
+kind: workflow
+scope: ["chat","3d"]
+summary: "工业制图基座：需求收敛、3D 摘要/结构方案、参数化 CAD 文件落盘与 OpenSCAD 预览导出流程"
+skillDependencies: ["skill-industrial-drawing-parametric","skill-industrial-drawing-export"]
+capabilityRequirements: ["cad-runtime","openscad-toolchain"]
+assetPolicy: {"references":true,"scripts":false,"templates":false,"assets":false}
 module: 3d
 task: drawing
-version: "1.0"
 status: active
 ---
 

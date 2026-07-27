@@ -1,8 +1,14 @@
 ---
 slug: skill-vp-base
+version: "0.1"
+kind: workflow
+scope: ["chat","video"]
+summary: "视频制作基座：收敛视频 brief，P0 默认交接网页视频生产 Skill，产出可预览、可录屏的 presentation、studio 或 p5.js sketch；Remotion/MP4 属于 P1"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
 module: video
 task: base
-version: "0.1"
 status: p0-ready
 name: skill-vp-base
 description: 视频模块默认基座 Skill：收敛主题、受众、时长、画幅与风格，P0 选择并交接到网页视频生产 Skill。默认可路由到 skill-vp-video-stage、skill-vp-screenplay-canvas，也支持概念驱动的 p5.js 诗意短动画 skill-vp-poetic-visual-coding；Remotion/自动 MP4 属于 P1，不在 P0 虚构承诺。

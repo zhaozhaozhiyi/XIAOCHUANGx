@@ -150,8 +150,6 @@ function AssistantMessageBubbleV2({
         ),
       }
     : null;
-  const waitingOutcome = outcome?.kind === "waiting_user" ? outcome : null;
-  const terminalOutcome = outcome?.kind !== "waiting_user" ? outcome : null;
   const showPreparing =
     viewModel.state === "preparing" &&
     !viewModel.activity.hasActivity &&
@@ -161,8 +159,6 @@ function AssistantMessageBubbleV2({
     <div className="bubble-assistant" data-turn-state={viewModel.state}>
       <div className="chat-assistant-message">
         {showPreparing ? <LoadingBubble /> : null}
-
-        {waitingOutcome ? <OutcomeCallout outcome={waitingOutcome} /> : null}
 
         {viewModel.activity.hasActivity ? (
           <ActivitySection
@@ -178,10 +174,19 @@ function AssistantMessageBubbleV2({
                 : undefined
             }
             onDisclosureIntent={onDisclosureIntent}
+            rendererProps={{
+              onClarificationSubmitted,
+              onClarificationContinue,
+              onClarificationDraftChange,
+              onRequirementsSubmitted,
+              onRequirementsContinue,
+              onRequirementsDraftChange,
+              onOutlineCommitted,
+            }}
           />
         ) : null}
 
-        {terminalOutcome ? <OutcomeCallout outcome={terminalOutcome} /> : null}
+        {outcome ? <OutcomeCallout outcome={outcome} /> : null}
 
         <ResultSequence
           items={viewModel.resultItems}

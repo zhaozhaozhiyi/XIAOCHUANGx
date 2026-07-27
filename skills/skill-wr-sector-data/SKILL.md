@@ -1,9 +1,15 @@
 ---
 slug: skill-wr-sector-data
+version: "0.1"
+kind: workflow
+scope: ["chat","writing"]
+summary: "行业数据解读：高频量价/库存/产业链传导周月度点评"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
 module: writing
 task: writing
 templateId: sector-data
-version: "0.1"
 ---
 
 # 写作 · 行业数据解读

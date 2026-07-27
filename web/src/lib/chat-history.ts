@@ -1,4 +1,5 @@
 import type { ChatSurfaceModuleId } from "@/lib/module-chat-config";
+import type { CompanionSessionSummary } from "@/lib/companion/types";
 import {
   getResearchProject,
   isPlatformDefaultProject,
@@ -58,6 +59,9 @@ export type ChatHistoryProjectGroup = {
 
 const INDEX_KEY = "jlc-chat-history-index";
 const STARTED_PREFIX = "jlc-chat-started-";
+const COMPANION_IMPORT_KEY = "jlc-chat-history-companion-import-v1";
+const COMPANION_RECOVERY_WINDOW_MS = 24 * 60 * 60 * 1000;
+const COMPANION_RECOVERY_LIMIT = 50;
 const LOW_PRIORITY_STORAGE_PREFIXES = [
   STARTED_PREFIX,
   "simulation-canvas-layout:",
@@ -332,6 +336,57 @@ function writeIndex(sessions: ChatSessionRecord[]): void {
 export function notifyChatHistoryUpdated(): void {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new Event("jlc-chat-history-updated"));
+}
+
+export function needsCompanionHistoryImport(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return localStorage.getItem(COMPANION_IMPORT_KEY) !== "1";
+  } catch {
+    return false;
+  }
+}
+
+export function importCompanionChatHistory(
+  items: CompanionSessionSummary[],
+): void {
+  if (typeof window === "undefined") return;
+  const byId = new Map(readIndex().map((session) => [session.id, session]));
+  const recoveryCutoff = Date.now() - COMPANION_RECOVERY_WINDOW_MS;
+  const recoverable = items
+    .filter((item) => Date.parse(item.updatedAt) >= recoveryCutoff)
+    .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+    .slice(0, COMPANION_RECOVERY_LIMIT);
+  for (const item of recoverable) {
+    if (!item.sessionId || !item.title) continue;
+    const existing = byId.get(item.sessionId);
+    const updatedAt = Date.parse(item.updatedAt);
+    const createdAt = Date.parse(item.createdAt);
+    byId.set(
+      item.sessionId,
+      normalizeSession({
+        id: item.sessionId,
+        title: existing?.title ?? item.title,
+        projectId:
+          existing?.projectId ?? item.projectId ?? NO_PROJECT_ID,
+        surfaceModuleId:
+          existing?.surfaceModuleId ?? item.surfaceModuleId ?? "chat",
+        updatedAt: Number.isFinite(updatedAt)
+          ? Math.max(existing?.updatedAt ?? 0, updatedAt)
+          : existing?.updatedAt,
+        createdAt: existing?.createdAt ??
+          (Number.isFinite(createdAt) ? createdAt : undefined),
+        runStatus: item.runStatus,
+        lastReadAt: existing?.lastReadAt ?? 0,
+      }),
+    );
+    volatileStartedSessionIds.add(item.sessionId);
+    trySetLocalStorageItem(`${STARTED_PREFIX}${item.sessionId}`, "1");
+  }
+  writeIndex(
+    [...byId.values()].sort((a, b) => b.updatedAt - a.updatedAt),
+  );
+  trySetLocalStorageItem(COMPANION_IMPORT_KEY, "1");
 }
 
 export function isSessionStarted(sessionId: string): boolean {

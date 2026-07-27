@@ -8,6 +8,9 @@
  *   --agent <id>       目标 CLI（codex / claude / ...），默认 codex
  *   --skill <slug>     processSkill，默认 skill-qa
  *   --mode <auto|fast|deep> 对话策略，默认 auto
+ *   --prompt <text>    覆盖默认短提示词
+ *   --require-tool     要求至少一个带 callId 的完整工具生命周期
+ *   --require-tool-payload  进一步要求工具生命周期包含 input/output
  *   --soft             指定 agent 在 /v1/agents 中不可用时退出码 0（仅打印 SKIP，不 fail）
  *
  * 设计要点：
@@ -31,6 +34,9 @@ const timeoutSec = Number(readFlag("timeout", "120"));
 const agentId = readFlag("agent", "codex");
 const processSkill = readFlag("skill", "skill-qa");
 const mode = readFlag("mode", "auto");
+const prompt = readFlag("prompt", "只回复一个字：好。不要解释。");
+const requireToolPayload = hasFlag("require-tool-payload");
+const requireTool = hasFlag("require-tool") || requireToolPayload;
 const soft = hasFlag("soft");
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -72,15 +78,16 @@ function parseSseEvents(text) {
 }
 
 async function runSse() {
+  const sessionId = `smoke-${agentId}-${Date.now()}`;
   const body = {
-    sessionId: `smoke-${agentId}-${Date.now()}`,
+    sessionId,
     projectId: "none",
     workspaceProjectId: "sandbox-default",
     moduleId: "chat",
     binding: { moduleId: "chat", mode },
     agentId,
     agentModel: "default",
-    messages: [{ role: "user", content: "只回复一个字：好。不要解释。" }],
+    messages: [{ role: "user", content: prompt }],
     useClientHistory: false,
     processSkill,
     platformNormSkill: "skill-platform-research-norms",
@@ -89,22 +96,168 @@ async function runSse() {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutSec * 1000);
 
-  const res = await fetch(`${base}/v1/runs`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-    body: JSON.stringify(body),
-    signal: controller.signal,
-  });
+  try {
+    const res = await fetch(`${base}/v1/runs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
 
-  clearTimeout(timer);
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      throw new Error(`POST /v1/runs ${res.status}: ${errText.slice(0, 400)}`);
+    }
 
-  if (!res.ok) {
-    const errText = await res.text().catch(() => "");
-    throw new Error(`POST /v1/runs ${res.status}: ${errText.slice(0, 400)}`);
+    const text = await res.text();
+    return { events: parseSseEvents(text), sessionId };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function isCompatibilityDelta(event) {
+  return (
+    event?.event === "message.delta" &&
+    event?.data?.compatibility === "assistant.segment"
+  );
+}
+
+function isActionableTool(event) {
+  return (
+    event?.event === "tool.progress" &&
+    event?.data?.tool !== "phase" &&
+    event?.data?.tool !== "reasoning"
+  );
+}
+
+function isTerminalToolStatus(status) {
+  return (
+    status === "success" ||
+    status === "done" ||
+    status === "error" ||
+    status === "failed" ||
+    status === "cancelled"
+  );
+}
+
+function hasPayloadValue(value) {
+  return value !== undefined && value !== null;
+}
+
+function checkStreamSequence(events, label, options = {}) {
+  const failures = [];
+  const requireAll = options.requireAll === true;
+  const relevant = events.filter((event) => !isCompatibilityDelta(event));
+  const seqs = [];
+
+  for (const event of relevant) {
+    const seq = event?.data?.streamSeq;
+    if (!Number.isInteger(seq) || seq < 0) {
+      if (requireAll) failures.push(`${label} ${event?.event ?? "event"} missing streamSeq`);
+      continue;
+    }
+    seqs.push(seq);
+    if (
+      event.event === "part.append" &&
+      event.data?.part?.streamSeq !== seq
+    ) {
+      failures.push(`${label} part.append nested streamSeq mismatch at ${seq}`);
+    }
+    if (
+      event.event === "part.patch" &&
+      event.data?.merge?.streamSeq !== seq
+    ) {
+      failures.push(`${label} part.patch nested streamSeq mismatch at ${seq}`);
+    }
   }
 
-  const text = await res.text();
-  return parseSseEvents(text);
+  for (let index = 1; index < seqs.length; index += 1) {
+    if (seqs[index] <= seqs[index - 1]) {
+      failures.push(
+        `${label} streamSeq is not strictly increasing: ${seqs[index - 1]} -> ${seqs[index]}`,
+      );
+      break;
+    }
+  }
+  if (new Set(seqs).size !== seqs.length) {
+    failures.push(`${label} streamSeq contains duplicates`);
+  }
+
+  return { failures, seqs };
+}
+
+function checkToolLifecycle(events, label, required, requirePayload = false) {
+  const failures = [];
+  const tools = events.filter(isActionableTool);
+  const startsByCallId = new Map();
+  const terminals = [];
+
+  for (const event of tools) {
+    const { callId, status } = event.data ?? {};
+    if (typeof callId !== "string" || !callId) {
+      failures.push(`${label} actionable tool ${event.data?.tool ?? "tool"} missing callId`);
+      continue;
+    }
+    if (isTerminalToolStatus(status)) {
+      terminals.push(event);
+      if (!startsByCallId.has(callId)) {
+        failures.push(`${label} terminal tool ${callId} has no preceding start`);
+      }
+    } else if (!startsByCallId.has(callId)) {
+      startsByCallId.set(callId, event);
+    }
+  }
+
+  if (required && tools.length === 0) {
+    failures.push(`${label} missing actionable tool event`);
+  }
+  if (required && terminals.length === 0) {
+    failures.push(`${label} missing completed tool lifecycle`);
+  }
+  if (
+    requirePayload &&
+    ![...startsByCallId.values()].some((event) => hasPayloadValue(event.data?.input))
+  ) {
+    failures.push(`${label} tool starts missing input payload`);
+  }
+  if (
+    requirePayload &&
+    !terminals.some((event) => hasPayloadValue(event.data?.output))
+  ) {
+    failures.push(`${label} tool terminals missing output payload`);
+  }
+
+  return {
+    failures,
+    tools,
+    startsByCallId,
+    terminals,
+  };
+}
+
+function reconstructFinalFromSegments(events) {
+  const segments = new Map();
+  let hasFinalText = false;
+  let result = "";
+  for (const event of events) {
+    if (event?.event !== "assistant.segment" || event.data?.role !== "final") {
+      continue;
+    }
+    const segmentId = event.data?.segmentId;
+    if (typeof segmentId !== "string" || !segmentId) continue;
+    const previous = segments.get(segmentId) ?? { text: "", forwardedLength: 0 };
+    if (typeof event.data?.text === "string") previous.text += event.data.text;
+    const chunk = previous.text.slice(previous.forwardedLength);
+    if (chunk) {
+      if (previous.forwardedLength === 0 && hasFinalText) result += "\n\n";
+      result += chunk;
+      previous.forwardedLength = previous.text.length;
+      hasFinalText = true;
+    }
+    segments.set(segmentId, previous);
+  }
+  return result;
 }
 
 function check(events) {
@@ -129,13 +282,62 @@ function check(events) {
     const err = events.find((e) => e.event === "run.error");
     failures.push(`run.error: ${JSON.stringify(err?.data)}`);
   }
-  const hasDelta = names.some((n) => n === "message.delta");
+  const messageDeltas = events.filter((event) => event.event === "message.delta");
+  const compatibilityDeltas = messageDeltas.filter(
+    (event) => event.data?.compatibility === "assistant.segment",
+  );
+  const assistantSegments = events.filter(
+    (event) => event.event === "assistant.segment",
+  );
+  const hasDelta = messageDeltas.length > 0;
+  const hasAssistantSegment = assistantSegments.length > 0;
   const hasTool =
     names.includes("tool.progress") ||
     names.some((n) => n.startsWith("part.")) ||
     names.includes("todo.update");
   if (!hasDelta && !has("run.finished")) {
     failures.push("no message.delta before end");
+  }
+  if (has("run.finished") && !hasAssistantSegment) {
+    failures.push("completed run missing assistant.segment");
+  }
+  if (hasAssistantSegment && compatibilityDeltas.length === 0) {
+    failures.push("assistant.segment missing compatibility message.delta");
+  }
+
+  const sequence = checkStreamSequence(events, "SSE", { requireAll: true });
+  failures.push(...sequence.failures);
+  const toolLifecycle = checkToolLifecycle(
+    events,
+    "SSE",
+    requireTool,
+    requireToolPayload,
+  );
+  failures.push(...toolLifecycle.failures);
+
+  const compatibilityText = compatibilityDeltas
+    .map((event) =>
+      typeof event.data?.content === "string" ? event.data.content : "",
+    )
+    .join("");
+  const canonicalOutput = events.find(
+    (event) => event.event === "canonical.output",
+  )?.data?.canonicalOutput;
+  const canonicalText = canonicalOutput?.finalAnswer?.markdown;
+  if (
+    compatibilityText &&
+    typeof canonicalText === "string" &&
+    compatibilityText !== canonicalText
+  ) {
+    failures.push("compatibility delta text differs from canonical final answer");
+  }
+  const reconstructedFinal = reconstructFinalFromSegments(events);
+  if (
+    reconstructedFinal &&
+    typeof canonicalText === "string" &&
+    reconstructedFinal !== canonicalText
+  ) {
+    failures.push("assistant.segment reconstruction differs from canonical final answer");
   }
 
   return {
@@ -145,15 +347,152 @@ function check(events) {
       eventCount: events.length,
       uniqueEvents: [...new Set(names)],
       hasDelta,
+      hasAssistantSegment,
+      compatibilityDeltaCount: compatibilityDeltas.length,
       hasTool,
+      actionableToolCount: toolLifecycle.tools.length,
+      completedToolCount: toolLifecycle.terminals.length,
+      streamSeqCount: sequence.seqs.length,
       finished: has("run.finished"),
+    },
+  };
+}
+
+async function checkPersistence(events, sessionId) {
+  const failures = [];
+  const runId = events.find((event) => event.event === "run.accepted")?.data?.runId;
+  if (typeof runId !== "string" || !runId) {
+    return { failures: ["run.accepted missing runId"], summary: {} };
+  }
+
+  const [runEventsResponse, runResponse, sessionResponse] = await Promise.all([
+    getJson(`/v1/runs/${encodeURIComponent(runId)}/events`),
+    getJson(`/v1/runs/${encodeURIComponent(runId)}`),
+    getJson(`/v1/sessions/${encodeURIComponent(sessionId)}/messages`),
+  ]);
+  const runEvents = Array.isArray(runEventsResponse.body?.items)
+    ? runEventsResponse.body.items
+    : [];
+  const persistedDeltas = runEvents.filter(
+    (event) => event?.type === "message.delta",
+  );
+  const persistedSegments = runEvents.filter(
+    (event) => event?.type === "assistant.segment",
+  );
+  if (!runEventsResponse.ok) failures.push("failed to load persisted run events");
+  if (!runResponse.ok) failures.push("failed to load persisted run record");
+  if (persistedSegments.length === 0) {
+    failures.push("persisted run events missing assistant.segment");
+  }
+  if (persistedDeltas.length > 0) {
+    failures.push("compatibility message.delta leaked into persisted run events");
+  }
+
+  const persistedSequence = checkStreamSequence(
+    runEvents.map((event) => ({ event: event.type, data: event })),
+    "Run Events",
+    { requireAll: true },
+  );
+  failures.push(...persistedSequence.failures);
+  const wireSequence = checkStreamSequence(events, "SSE");
+  if (JSON.stringify(wireSequence.seqs) !== JSON.stringify(persistedSequence.seqs)) {
+    failures.push("SSE and persisted Run Events streamSeq differ");
+  }
+
+  const persistedToolLifecycle = checkToolLifecycle(
+    runEvents.map((event) => ({ event: event.type, data: event })),
+    "Run Events",
+    requireTool,
+    requireToolPayload,
+  );
+  failures.push(...persistedToolLifecycle.failures);
+
+  if (requireTool) {
+    const wireTools = events.filter(isActionableTool);
+    for (const wireEvent of wireTools) {
+      const persistedEvent = runEvents.find(
+        (event) =>
+          event?.type === "tool.progress" &&
+          event.callId === wireEvent.data?.callId &&
+          Boolean(isTerminalToolStatus(event.status)) ===
+            Boolean(isTerminalToolStatus(wireEvent.data?.status)),
+      );
+      if (!persistedEvent) {
+        failures.push(`Run Events missing SSE tool lifecycle event ${wireEvent.data?.callId}`);
+        continue;
+      }
+      if (JSON.stringify(persistedEvent.input) !== JSON.stringify(wireEvent.data?.input)) {
+        failures.push(`persisted tool input differs for ${wireEvent.data?.callId}`);
+      }
+      if (JSON.stringify(persistedEvent.output) !== JSON.stringify(wireEvent.data?.output)) {
+        failures.push(`persisted tool output differs for ${wireEvent.data?.callId}`);
+      }
+    }
+  }
+
+  const canonicalOutput = events.find(
+    (event) => event.event === "canonical.output",
+  )?.data?.canonicalOutput;
+  const canonicalText = canonicalOutput?.finalAnswer?.markdown;
+  const assistantMessage = Array.isArray(sessionResponse.body?.messages)
+    ? sessionResponse.body.messages.find(
+        (message) => message?.role === "assistant" && message?.runId === runId,
+      )
+    : undefined;
+  if (!sessionResponse.ok) failures.push("failed to load persisted session");
+  if (!assistantMessage) {
+    failures.push("persisted session missing assistant message");
+  } else if (
+    typeof canonicalText === "string" &&
+    assistantMessage.content !== canonicalText
+  ) {
+    failures.push("persisted assistant content differs from canonical final answer");
+  }
+
+  const persistedCanonical = runEvents.find(
+    (event) => event?.type === "canonical.output",
+  )?.canonicalOutput;
+  if (JSON.stringify(persistedCanonical) !== JSON.stringify(canonicalOutput)) {
+    failures.push("persisted canonical.output differs from SSE canonical.output");
+  }
+  if (JSON.stringify(runResponse.body?.canonicalOutput) !== JSON.stringify(canonicalOutput)) {
+    failures.push("Run record canonicalOutput differs from SSE canonical.output");
+  }
+  if (JSON.stringify(assistantMessage?.canonicalOutput) !== JSON.stringify(canonicalOutput)) {
+    failures.push("Session canonicalOutput differs from SSE canonical.output");
+  }
+  const reconstructedFinal = reconstructFinalFromSegments(
+    runEvents.map((event) => ({ event: event.type, data: event })),
+  );
+  if (
+    reconstructedFinal &&
+    typeof canonicalText === "string" &&
+    reconstructedFinal !== canonicalText
+  ) {
+    failures.push("persisted timeline reconstruction differs from canonical final answer");
+  }
+
+  return {
+    failures,
+    summary: {
+      runId,
+      persistedEventCount: runEvents.length,
+      persistedSegmentCount: persistedSegments.length,
+      persistedDeltaCount: persistedDeltas.length,
+      persistedToolCount: persistedToolLifecycle.tools.length,
+      persistedStreamSeqCount: persistedSequence.seqs.length,
+      timelineMatchesSse:
+        JSON.stringify(wireSequence.seqs) === JSON.stringify(persistedSequence.seqs),
+      persistedAssistantMatchesCanonical:
+        typeof canonicalText === "string" &&
+        assistantMessage?.content === canonicalText,
     },
   };
 }
 
 async function main() {
   const tag = `[smoke:${agentId}]`;
-  console.log(`${tag} base=${base} timeout=${timeoutSec}s mode=${mode} skill=${processSkill}${soft ? " soft=true" : ""}`);
+  console.log(`${tag} base=${base} timeout=${timeoutSec}s mode=${mode} skill=${processSkill}${requireTool ? " requireTool=true" : ""}${requireToolPayload ? " requireToolPayload=true" : ""}${soft ? " soft=true" : ""}`);
 
   const health = await getJson("/v1/health");
   if (!health.ok || health.body?.runMode !== "cli") {
@@ -176,16 +515,21 @@ async function main() {
   console.log(`${tag} OK ${agentId}`, target.version ?? "(no version)");
 
   console.log(`${tag} POST /v1/runs (short prompt, may take up to ${timeoutSec}s)…`);
-  let events;
+  let run;
   try {
-    events = await runSse();
+    run = await runSse();
   } catch (e) {
     console.error(`${tag} FAIL run`, e instanceof Error ? e.message : e);
     process.exit(1);
   }
 
+  const { events, sessionId } = run;
   const result = check(events);
+  const persistence = await checkPersistence(events, sessionId);
+  result.failures.push(...persistence.failures);
+  result.ok = result.failures.length === 0;
   console.log(`${tag} events:`, result.summary);
+  console.log(`${tag} persistence:`, persistence.summary);
 
   if (!result.ok) {
     console.error(`${tag} FAIL`, result.failures);

@@ -3,10 +3,12 @@ import {
   applyPartsStateToMessage,
   initAssistantPartsState,
   reduceAppendPart,
+  reduceAssistantSegment,
   reduceClarificationRequired,
   reduceInterimAssistant,
   reducePartPatch,
   reduceRunStarted,
+  reduceSkillLifecycle,
   reduceStatusLabel,
   reduceStreamCancelled,
   reduceStreamError,
@@ -46,6 +48,10 @@ function applyRunEvent(
           ]),
         ),
       });
+    case "skill.selected":
+    case "skill.ready":
+    case "skill.failed":
+      return reduceSkillLifecycle(state, event);
     case "run.status":
       return reduceStatusLabel(state, event.label, event.phase);
     case "message.delta":
@@ -54,6 +60,14 @@ function applyRunEvent(
       return reduceInterimAssistant(state, {
         text: event.text,
         alreadyStreamed: event.alreadyStreamed,
+      });
+    case "assistant.segment":
+      return reduceAssistantSegment(state, {
+        segmentId: event.segmentId,
+        operation: event.operation,
+        role: event.role,
+        text: event.text,
+        streamSeq: event.streamSeq,
       });
     case "tool.progress":
       return reduceToolProgress(state, {
@@ -65,7 +79,10 @@ function applyRunEvent(
               ? "error"
               : event.status,
         message: event.message,
-        callId: event.toolCallId,
+        callId: event.callId ?? event.toolCallId,
+        streamSeq: event.streamSeq,
+        input: event.input,
+        output: event.output,
       });
     case "todo.update":
       return reduceTodoItems(

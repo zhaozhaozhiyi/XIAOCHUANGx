@@ -1,8 +1,14 @@
 ---
 slug: skill-qa-deep
+version: "1.1"
+kind: workflow
+scope: ["chat"]
+summary: "对话 · 深度"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":true,"scripts":false,"templates":false,"assets":false}
 module: chat
 mode: deep
-version: "1.1"
 ---
 
 # 对话 · 深度

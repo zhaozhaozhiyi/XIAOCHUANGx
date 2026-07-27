@@ -1,8 +1,14 @@
 ---
 slug: skill-qa
+version: "1.0"
+kind: workflow
+scope: ["chat"]
+summary: "对话 · 自动问答策略"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
 module: chat
 mode: auto
-version: "1.0"
 ---
 
 # 对话 · 自动问答策略

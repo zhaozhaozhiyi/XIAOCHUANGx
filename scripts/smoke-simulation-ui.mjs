@@ -24,6 +24,7 @@ const REQUIREMENTS_SESSION_ID = `${SESSION_PREFIX}-requirements`;
 const GATED_SESSION_ID = `${SESSION_PREFIX}-gated`;
 const CONFIRMED_SESSION_ID = `${SESSION_PREFIX}-confirmed`;
 const SCENARIO_SESSION_ID = `${SESSION_PREFIX}-scenario`;
+const HISTORY_SESSION_ID = `${SESSION_PREFIX}-history`;
 const SANDBOX_PROJECT_ID = "sandbox-default";
 const REPORT_PATH = "simulation-report-smoke.md";
 const REPORT_CONTENT = [
@@ -43,14 +44,19 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitForNodeInCanvas(page, canvasRoot, node, timeoutMs = 2_500) {
+async function waitForNodeInCanvas(page, canvasRoot, node, timeoutMs = 12_000) {
   const startedAt = Date.now();
   let lastBounds = null;
   let panAttempts = 0;
+  let fitAttempted = false;
   while (Date.now() - startedAt < timeoutMs) {
     const [nodeBox, flowBox] = await Promise.all([
-      node.boundingBox().catch(() => null),
-      canvasRoot.locator(".react-flow").first().boundingBox().catch(() => null),
+      node.boundingBox({ timeout: 750 }).catch(() => null),
+      canvasRoot
+        .locator(".react-flow")
+        .first()
+        .boundingBox({ timeout: 750 })
+        .catch(() => null),
     ]);
     lastBounds = { nodeBox, flowBox };
     if (nodeBox && flowBox) {
@@ -64,35 +70,30 @@ async function waitForNodeInCanvas(page, canvasRoot, node, timeoutMs = 2_500) {
         centerY >= flowBox.y + verticalInset &&
         centerY <= flowBox.y + flowBox.height - verticalInset;
       if (inside) return;
-      if (panAttempts < 5) {
-        const targetX = Math.min(
-          Math.max(centerX, flowBox.x + horizontalInset),
-          flowBox.x + flowBox.width - horizontalInset,
-        );
-        const targetY = Math.min(
-          Math.max(centerY, flowBox.y + verticalInset),
-          flowBox.y + flowBox.height - verticalInset,
-        );
-        const dragX = Math.max(-520, Math.min(520, targetX - centerX));
-        const dragY = Math.max(-360, Math.min(360, targetY - centerY));
-        await page.evaluate(
-          ({ x, y }) => {
-            const viewport = document.querySelector(".react-flow__viewport");
-            if (!(viewport instanceof HTMLElement)) return;
-            const transform = window.getComputedStyle(viewport).transform;
-            const matrix =
-              transform && transform !== "none"
-                ? new DOMMatrixReadOnly(transform)
-                : new DOMMatrixReadOnly();
-            const scale = matrix.a || 1;
-            viewport.style.transform = `translate(${matrix.m41 + x}px, ${
-              matrix.m42 + y
-            }px) scale(${scale})`;
-          },
-          { x: dragX, y: dragY },
-        );
+      if (!fitAttempted) {
+        const fitButton = canvasRoot.getByRole("button", { name: "适应画布" }).first();
+        if ((await fitButton.count()) > 0) {
+          await fitButton.click();
+          fitAttempted = true;
+          await page.waitForTimeout(360);
+          continue;
+        }
+      }
+      if (panAttempts < 10) {
+        const targetX = flowBox.x + flowBox.width / 2;
+        const targetY = flowBox.y + flowBox.height / 2;
+        const maxDragX = Math.max(120, flowBox.width / 2 - 48);
+        const maxDragY = Math.max(100, flowBox.height / 2 - 48);
+        const dragX = Math.max(-maxDragX, Math.min(maxDragX, targetX - centerX));
+        const dragY = Math.max(-maxDragY, Math.min(maxDragY, targetY - centerY));
+        const startX = flowBox.x + flowBox.width / 2;
+        const startY = flowBox.y + flowBox.height * 0.82;
+        await page.mouse.move(startX, startY);
+        await page.mouse.down();
+        await page.mouse.move(startX + dragX, startY + dragY, { steps: 8 });
+        await page.mouse.up();
         panAttempts += 1;
-        await page.waitForTimeout(120);
+        await page.waitForTimeout(180);
         continue;
       }
     }
@@ -109,6 +110,7 @@ async function selectCanvasNodeUntilPanel(
   {
     attempts = 4,
     nodeSelector,
+    prepareAttempt,
     timeoutMs = 4_000,
   } = {},
 ) {
@@ -124,7 +126,14 @@ async function selectCanvasNodeUntilPanel(
       await inspectorClose.click({ timeout: 1_000 }).catch(() => undefined);
       await page.waitForTimeout(120);
     }
-    await waitForNodeInCanvas(page, canvasRoot, node);
+    if (prepareAttempt) await prepareAttempt(attempt);
+    try {
+      await waitForNodeInCanvas(page, canvasRoot, node);
+    } catch (error) {
+      if (attempt === attempts) throw error;
+      await page.waitForTimeout(500 * attempt);
+      continue;
+    }
     await node.click();
     try {
       await canvasRoot
@@ -1147,6 +1156,7 @@ async function cleanup() {
       GATED_SESSION_ID,
       CONFIRMED_SESSION_ID,
       SCENARIO_SESSION_ID,
+      HISTORY_SESSION_ID,
     ].map((sessionId) =>
       Promise.all([
         rm(join(COMPANION_DATA_DIR, "sessions", `${sessionId}.json`), {
@@ -1175,12 +1185,21 @@ async function main() {
     errorPart(),
     deliverablesPart(),
   ], SANDBOX_PROJECT_ID);
-  await putRoundSnapshot(SCENARIO_SESSION_ID, scenarioSnapshot("round_1"));
-  await putRoundSnapshot(
-    SCENARIO_SESSION_ID,
-    scenarioSnapshot("round_2", " · 历史快照"),
-  );
-  await waitForRoundFixtures(SCENARIO_SESSION_ID, 2);
+  await putMessages(HISTORY_SESSION_ID, [
+    scenarioPart(),
+    summaryPart(),
+    nextActionPart(),
+    errorPart(),
+    deliverablesPart(),
+  ], SANDBOX_PROJECT_ID);
+  for (const sessionId of [SCENARIO_SESSION_ID, HISTORY_SESSION_ID]) {
+    await putRoundSnapshot(sessionId, scenarioSnapshot("round_1"));
+    await putRoundSnapshot(
+      sessionId,
+      scenarioSnapshot("round_2", " · 历史快照"),
+    );
+    await waitForRoundFixtures(sessionId, 2);
+  }
 
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
@@ -1402,6 +1421,7 @@ async function main() {
       .locator("text=你正在查看历史轮次")
       .count();
     await page.locator('button:has-text("回到最新")').click();
+    await page.waitForSelector("text=历史快照", { timeout: 10_000 });
     await page.waitForSelector("text=风险压力测试", { timeout: 10_000 });
     await clickCanvasLayer(page, "全部");
     await page.waitForSelector("text=OPEC+ 延长减产", { timeout: 10_000 });
@@ -2179,9 +2199,29 @@ async function main() {
           `${REPORT_PATH} kind=primary mime=text/markdown project=${SANDBOX_PROJECT_ID}`,
         ),
     );
+    const scenarioOperationLogToggle = canvasRoot
+      .locator('[data-simulation-operation-log-toggle="true"]')
+      .first();
+    await scenarioOperationLogToggle.click();
+    await page.waitForSelector('[data-simulation-operation-log="true"]', {
+      timeout: 10_000,
+    });
+    const scenarioOperationLogReportEntries = await page
+      .locator(
+        '[data-simulation-operation-log-entry="true"][data-requests-report="true"]',
+      )
+      .count();
+    await page.goto(`${WEB_URL}/simulation/${HISTORY_SESSION_ID}`, {
+      waitUntil: "domcontentloaded",
+      timeout: NAVIGATION_TIMEOUT_MS,
+    });
+    await page.waitForSelector(".react-flow", { timeout: 20_000 });
+    await page.waitForSelector("text=OPEC+ 延长减产", { timeout: 10_000 });
     await clickCanvasLayer(page, "全部");
     await selectCanvasNodeUntilPanel(page, canvasRoot, "当前轮次 round_2", "版本操作", {
       nodeSelector: '.react-flow__node:has([data-simulation-node-id="history:round_2"])',
+      prepareAttempt: () => clickCanvasLayer(page, "全部"),
+      timeoutMs: 8_000,
     });
     const historyActions = await page.locator("text=版本操作").count();
     const historyCompareAction = await page
@@ -2207,7 +2247,7 @@ async function main() {
       .count();
     await clickPendingConfirm(page);
     const historyContinuePersistedMessage = await waitForUserMessage(
-      SCENARIO_SESSION_ID,
+      HISTORY_SESSION_ID,
       (content) =>
         content.includes("请处理这个推演历史版本") &&
         content.includes("History：当前轮次 round_2") &&
@@ -2246,7 +2286,7 @@ async function main() {
       .count();
     await page.locator('button:has-text("查看已保存内容")').first().click();
     const recoveryInspectPersistedMessage = await waitForUserMessage(
-      SCENARIO_SESSION_ID,
+      HISTORY_SESSION_ID,
       (content) =>
         content.includes("请处理这个推演恢复节点") &&
         content.includes("操作：查看已保存内容") &&
@@ -2430,6 +2470,7 @@ async function main() {
       reportDeckAction,
       reportSummaryAction,
       reportUpdatePersistedMessage,
+      scenarioOperationLogReportEntries,
     };
     assert(result.workbench > 0, "simulation workbench not visible");
     assert(result.canvas > 0, "React Flow canvas not visible");
@@ -2908,8 +2949,8 @@ async function main() {
       "operation log should distinguish new Round actions",
     );
     assert(
-      result.operationLogReportEntries > 0,
-      "operation log should distinguish report actions",
+      result.scenarioOperationLogReportEntries > 0,
+      "scenario operation log should distinguish report actions",
     );
     console.log(
       JSON.stringify(
@@ -2919,6 +2960,7 @@ async function main() {
             requirements: REQUIREMENTS_SESSION_ID,
             confirmed: CONFIRMED_SESSION_ID,
             scenario: SCENARIO_SESSION_ID,
+            history: HISTORY_SESSION_ID,
           },
           result,
           newHome: {

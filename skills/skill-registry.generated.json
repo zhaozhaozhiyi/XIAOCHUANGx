@@ -1,0 +1,1685 @@
+{
+  "registryVersion": "0.1.7-v1",
+  "selectorVersion": "0.1.7-v1",
+  "generatedAt": "2026-07-24T00:00:00.000Z",
+  "skills": [
+    {
+      "manifestVersion": 1,
+      "slug": "skill-industrial-drawing-base",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "3d"
+      ],
+      "summary": "工业制图基座：需求收敛、3D 摘要/结构方案、参数化 CAD 文件落盘与 OpenSCAD 预览导出流程",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "module",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [
+          "3d"
+        ],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [
+        "skill-industrial-drawing-parametric",
+        "skill-industrial-drawing-export"
+      ],
+      "capabilityRequirements": [
+        "cad-runtime",
+        "openscad-toolchain"
+      ],
+      "assetPolicy": {
+        "references": true,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-industrial-drawing-export",
+      "version": "1.0",
+      "kind": "tool",
+      "scope": [
+        "chat",
+        "3d"
+      ],
+      "summary": "工业制图预览与导出：OpenSCAD STL/DXF、工具链状态、fallback 来源标注与导出质量检查",
+      "status": "active",
+      "selectableSources": [
+        "explicit"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [
+        "openscad-toolchain"
+      ],
+      "assetPolicy": {
+        "references": true,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-industrial-drawing-parametric",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "3d"
+      ],
+      "summary": "参数化 OpenSCAD 建模：生成可编辑 drawing.scad 与 drawing.parameters.json，支持后续参数回改",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [
+        "cad-runtime"
+      ],
+      "assetPolicy": {
+        "references": true,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-kb-qa",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "knowledge"
+      ],
+      "summary": "知识库 RAG 问答：限定在已上传文档内检索后作答，引用片段锚点",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [
+        "knowledge-base"
+      ],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-mm-client-review",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "meeting",
+        "writing"
+      ],
+      "summary": "会议 · 客户沟通纪要",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-mm-daily-standup",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "meeting",
+        "writing"
+      ],
+      "summary": "会议 · 站会 / 周会速记",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-mm-internal-decision",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "meeting",
+        "writing"
+      ],
+      "summary": "会议 · 内部研讨 / 投决",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-mm-summary",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "meeting",
+        "writing"
+      ],
+      "summary": "会议 · 通用纪要（默认）",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-platform-research-norms",
+      "version": "1.1",
+      "kind": "workflow",
+      "scope": [
+        "chat"
+      ],
+      "summary": "小窗 — 横切规范",
+      "status": "disabled",
+      "selectableSources": [],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": true,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-ppt-base",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "ppt"
+      ],
+      "summary": "PPT · 需求采集基座",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "module",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [
+          "ppt"
+        ],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "default"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": true,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-ppt-blue-professional",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "ppt"
+      ],
+      "summary": "专业蓝调机构研报风格幻灯片",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "blue-professional"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-ppt-deck",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "ppt"
+      ],
+      "summary": "默认演示文稿结构与生成流程；HTML 幻灯片 deck",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "deck"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": true,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-ppt-editorial-burgundy",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "ppt"
+      ],
+      "summary": "编辑工作室：文化叙事与原则清单",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "editorial-burgundy"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": true,
+        "scripts": false,
+        "templates": false,
+        "assets": true
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-ppt-fidelity-audit",
+      "version": "1.0",
+      "kind": "tool",
+      "scope": [
+        "ppt"
+      ],
+      "summary": "HTML 与 PPTX 导出保真度对照与修复",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "fidelity-audit"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": true,
+        "scripts": true,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-ppt-fintech-swiss",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "ppt"
+      ],
+      "summary": "金融科技瑞系风格：数据驱动、瑞士网格",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "fintech-swiss"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": true,
+        "scripts": false,
+        "templates": false,
+        "assets": true
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-ppt-guizang-editorial",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "ppt"
+      ],
+      "summary": "归藏编辑墨水：杂志风叙事与多调色板",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "guizang-editorial"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-ppt-html-studio",
+      "version": "1.0",
+      "kind": "tool",
+      "scope": [
+        "chat",
+        "ppt"
+      ],
+      "summary": "HTML PPT Studio：多风格静态 HTML 幻灯片主技能",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "html-studio"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": true,
+        "scripts": true,
+        "templates": true,
+        "assets": true
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-ppt-knowledge-arch",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "ppt"
+      ],
+      "summary": "知识架构梳理与体系化呈现",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "knowledge-arch"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-ppt-open-canvas",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "ppt"
+      ],
+      "summary": "自由画布 1920×1080 自定义排版",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "open-canvas"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-ppt-pitch-deck",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "ppt"
+      ],
+      "summary": "路演 Pitch 十页结构与叙事；PPT 模块默认模板",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "pitch-deck"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-ppt-pptx",
+      "version": "1.0",
+      "kind": "tool",
+      "scope": [
+        "ppt"
+      ],
+      "summary": "PPTX 读写与编辑（Anthropic 官方技能）",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "pptx"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-ppt-pptx-generator",
+      "version": "1.0",
+      "kind": "tool",
+      "scope": [
+        "ppt"
+      ],
+      "summary": "PptxGenJS 生成原生 PPTX",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "pptx-generator"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-ppt-quarterly-review",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "ppt"
+      ],
+      "summary": "季度回顾：复盘、路线图与关键指标",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "quarterly-review"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": true,
+        "scripts": false,
+        "templates": false,
+        "assets": true
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-ppt-slides",
+      "version": "1.0",
+      "kind": "tool",
+      "scope": [
+        "ppt"
+      ],
+      "summary": "Markdown 转幻灯片（OpenAI Slides）",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "slides"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-ppt-swiss-international",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "ppt"
+      ],
+      "summary": "瑞士国际主义：极简网格与强排版",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "swiss-international"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-ppt-tech-sharing",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "ppt"
+      ],
+      "summary": "技术分享：方法论与案例结构",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "tech-sharing"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-ppt-weekly-report",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "ppt"
+      ],
+      "summary": "周报幻灯片：品种跟踪与数据摘要",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "ppt",
+            "templateId": "weekly-report"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-qa",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "chat"
+      ],
+      "summary": "对话 · 自动问答策略",
+      "status": "disabled",
+      "selectableSources": [],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-qa-deep",
+      "version": "1.1",
+      "kind": "workflow",
+      "scope": [
+        "chat"
+      ],
+      "summary": "对话 · 深度",
+      "status": "disabled",
+      "selectableSources": [],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": true,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-qa-fast",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "chat"
+      ],
+      "summary": "对话 · 快速模式",
+      "status": "disabled",
+      "selectableSources": [],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-simulation-base",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "simulation"
+      ],
+      "summary": "推演基座：收敛复杂问题边界，拆解主体、变量、假设和多条情景路径，生成可继续深挖的推演报告",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "module",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [
+          "simulation"
+        ],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [
+        "skill-world-model"
+      ],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-tr-doc",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "translate"
+      ],
+      "summary": "文档翻译：保留层级与表格的整篇中英互译，可选对照模式",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "continuation",
+        "intent"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [
+        {
+          "id": "translate-full-document-zh",
+          "type": "regex",
+          "pattern": "(?:(?:翻译|译成|中英互译).{0,12}(?:整篇|全文|文档|文件)|(?:整篇|全文|文档|文件).{0,12}(?:翻译|译成|中英互译))"
+        },
+        {
+          "id": "translate-full-document-en",
+          "type": "regex",
+          "pattern": "translate.{0,12}(?:document|file)",
+          "flags": "i"
+        }
+      ],
+      "excludes": [
+        {
+          "id": "explain-translation-skill",
+          "type": "regex",
+          "pattern": "(?:什么是|解释|介绍).{0,20}(?:skill-tr-doc|文档翻译)"
+        }
+      ],
+      "priority": 100,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-tr-polish",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "translate"
+      ],
+      "summary": "译文润色：已有译文按语气/术语/文体方向打磨，给修改对照",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-tr-text",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "translate"
+      ],
+      "summary": "文本翻译：粘贴片段即时中英互译，必给 ≥ 2 个备选译文",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-vp-base",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "video"
+      ],
+      "summary": "视频制作基座：收敛视频 brief，P0 默认交接网页视频生产 Skill，产出可预览、可录屏的 presentation、studio 或 p5.js sketch；Remotion/MP4 属于 P1",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "module",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [
+          "video"
+        ],
+        "templates": [
+          {
+            "moduleId": "video",
+            "templateId": "auto"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-vp-poetic-visual-coding",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "video"
+      ],
+      "summary": "诗意短动画生产：把一个词、概念、情绪或参考画面转成 10-25 秒 p5.js/Processing 风格视觉诗，可选时间线同步声音设计",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "video",
+            "templateId": "poetic"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-vp-screenplay-canvas",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "video"
+      ],
+      "summary": "屏幕叙事生产：从源材料生成 cue 驱动的 screenplay-canvas studio，支持 ?preview=1 预览、?voice=1 配音检查、?capture=1 录屏路径",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "video",
+            "templateId": "screenplay"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": true,
+        "scripts": true,
+        "templates": true,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-vp-video-stage",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "video"
+      ],
+      "summary": "视频舞台生产：从文章或口播稿生成 Vite/React video-stage 项目，支持 ?reel=1 自动预览、?audio=1 配音检查、?auto=1 录屏出片路径",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "video",
+            "templateId": "stage"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": true,
+        "scripts": true,
+        "templates": true,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-world-model",
+      "version": "1.0",
+      "kind": "tool",
+      "scope": [
+        "chat",
+        "simulation"
+      ],
+      "summary": "世界模型：按 wave 增量构建逻辑自洽的推演画布，覆盖节点本体论、推导语法、上游依据、rationale 与 checkpoint",
+      "status": "active",
+      "selectableSources": [],
+      "bindings": {
+        "moduleIds": [],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": true,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-wr-industry",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "writing"
+      ],
+      "summary": "行业研究：产业链、市场规模、竞争格局、驱动与制约、可选投资视角",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "writing",
+            "templateId": "industry"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-wr-macro",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "writing"
+      ],
+      "summary": "宏观数据解读：当期/滚动数据点评（CPI、社融、PMI 等），含市场与政策含义",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "writing",
+            "templateId": "macro"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-wr-policy",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "writing"
+      ],
+      "summary": "政策解读：政策原文 → 一句话核心 + 逐条解读 + 风险与不确定性",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "writing",
+            "templateId": "policy"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-wr-sector-data",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "writing"
+      ],
+      "summary": "行业数据解读：高频量价/库存/产业链传导周月度点评",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "writing",
+            "templateId": "sector-data"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-wr-topic",
+      "version": "0.1",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "writing"
+      ],
+      "summary": "专题研究：围绕特定问题整合多源资料，含图表与情景推演",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "writing",
+            "templateId": "topic"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-writing-base",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "writing"
+      ],
+      "summary": "写作 · 需求采集基座",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "module",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [
+          "writing"
+        ],
+        "templates": []
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": true,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-writing-general",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "chat",
+        "writing"
+      ],
+      "summary": "默认写作流程：产出 Markdown 文稿并写入工作区，支持研报、政策解读、行业分析等",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "writing",
+            "templateId": "general"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-writing-meeting-minutes",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "writing"
+      ],
+      "summary": "会议纪要撰写：议题归纳、决议与待办表格，可基于要点或附件成稿",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "writing",
+            "templateId": "meeting-minutes"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    },
+    {
+      "manifestVersion": 1,
+      "slug": "skill-writing-official-doc",
+      "version": "1.0",
+      "kind": "workflow",
+      "scope": [
+        "writing"
+      ],
+      "summary": "公文写作：通知、请示、报告、函等机关公文体裁与规范用语",
+      "status": "active",
+      "selectableSources": [
+        "explicit",
+        "template",
+        "continuation"
+      ],
+      "bindings": {
+        "moduleIds": [],
+        "templates": [
+          {
+            "moduleId": "writing",
+            "templateId": "official-doc"
+          }
+        ]
+      },
+      "triggers": [],
+      "excludes": [],
+      "priority": 0,
+      "skillDependencies": [],
+      "capabilityRequirements": [],
+      "assetPolicy": {
+        "references": false,
+        "scripts": false,
+        "templates": false,
+        "assets": false
+      }
+    }
+  ]
+}

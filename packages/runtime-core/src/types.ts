@@ -1,5 +1,10 @@
 import type { ChatModeId } from "./chat-mode.js";
-import type { CanonicalEvent, CanonicalTurnOutput } from "@jlc/contracts";
+import type {
+  AssistantSegmentOperation,
+  AssistantSegmentRole,
+  CanonicalEvent,
+  CanonicalTurnOutput,
+} from "@jlc/contracts";
 
 export const AGENT_IDS = [
   "codex",
@@ -77,6 +82,14 @@ export type AgentStreamEvent =
       output?: unknown;
     }
   | { type: "narration"; text: string }
+  | {
+      type: "assistant_segment";
+      segmentId: string;
+      operation: AssistantSegmentOperation;
+      role: AssistantSegmentRole;
+      text?: string;
+      streamSeq?: number;
+    }
   | { type: "error"; message: string; code?: string }
   | { type: "status"; label: string }
   | { type: "thread_started"; threadId: string };
@@ -138,6 +151,13 @@ export type RunAgentCallbacks = {
     output?: unknown;
   }) => void;
   onNarration?: (text: string) => void;
+  onAssistantSegment?: (payload: {
+    segmentId: string;
+    operation: AssistantSegmentOperation;
+    role: AssistantSegmentRole;
+    text?: string;
+    streamSeq?: number;
+  }) => void;
   onError?: (message: string, code?: string) => void;
   onThreadStarted?: (threadId: string) => void;
 };

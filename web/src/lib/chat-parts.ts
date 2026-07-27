@@ -7,6 +7,9 @@ import type {
 
 export type {
   ActivityCollapse,
+  AssistantSegmentPayload,
+  AssistantSegmentOperation,
+  AssistantSegmentRole,
   ArtifactPart,
   CommandPart,
   CanonicalArtifact,
@@ -34,6 +37,7 @@ export type {
   ChatMessageStatus,
   ChatPart,
   ChatPartKind,
+  ChatPartPresentationRole,
   ChatPartZone,
   ClarificationPart,
   ClarificationQuestion,

@@ -1,8 +1,14 @@
 ---
 slug: skill-kb-qa
+version: "0.1"
+kind: workflow
+scope: ["chat","knowledge"]
+summary: "知识库 RAG 问答：限定在已上传文档内检索后作答，引用片段锚点"
+skillDependencies: []
+capabilityRequirements: ["knowledge-base"]
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
 module: knowledge
 task: kb-qa
-version: "0.1"
 ---
 
 # 知识库 · 库内问答

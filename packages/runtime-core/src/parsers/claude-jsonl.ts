@@ -150,8 +150,52 @@ export function createClaudeJsonlParser(onEvent: Handler) {
     { wireName: string; input: unknown; message?: string }
   >();
   const textStreamed = new Set<string>();
+  const committedSegments = new Set<string>();
   let currentMessageId: string | null = null;
+  let currentMessageHasToolUse = false;
+  let anonymousMessageSeq = 0;
   let reasoningOpen = false;
+
+  function currentSegmentId(): string {
+    return `claude-message-${currentMessageId ?? `anonymous-${anonymousMessageSeq}`}`;
+  }
+
+  function beginMessage(messageId?: string | null): void {
+    if (messageId && messageId !== currentMessageId) {
+      currentMessageId = messageId;
+      currentMessageHasToolUse = false;
+      return;
+    }
+    if (!currentMessageId) {
+      currentMessageId = messageId ?? `anonymous-${anonymousMessageSeq++}`;
+      currentMessageHasToolUse = false;
+    }
+  }
+
+  function emitPendingText(text: string): void {
+    if (!text) return;
+    beginMessage(currentMessageId);
+    onEvent({
+      type: "assistant_segment",
+      segmentId: currentSegmentId(),
+      operation: "delta",
+      role: "pending",
+      text,
+    });
+  }
+
+  function commitCurrentMessage(role?: "process" | "final"): void {
+    if (!currentMessageId) return;
+    const segmentId = currentSegmentId();
+    if (committedSegments.has(segmentId)) return;
+    committedSegments.add(segmentId);
+    onEvent({
+      type: "assistant_segment",
+      segmentId,
+      operation: "commit",
+      role: role ?? (currentMessageHasToolUse ? "process" : "final"),
+    });
+  }
 
   function blockKey(index: unknown): string {
     return `${currentMessageId ?? "anon"}:${index}`;
@@ -235,10 +279,11 @@ export function createClaudeJsonlParser(onEvent: Handler) {
 
   function handleStreamEvent(ev: Record<string, unknown>) {
     if (ev.type === "message_start") {
-      currentMessageId =
+      beginMessage(
         isRecord(ev.message) && typeof ev.message.id === "string"
           ? ev.message.id
-          : null;
+          : null,
+      );
       return;
     }
 
@@ -251,6 +296,7 @@ export function createClaudeJsonlParser(onEvent: Handler) {
         inputJson: "",
         initialInput: block.input,
       });
+      if (block.type === "tool_use") currentMessageHasToolUse = true;
       if (block.type === "thinking") {
         reasoningOpen = true;
         onEvent({
@@ -267,7 +313,7 @@ export function createClaudeJsonlParser(onEvent: Handler) {
 
       if (delta.type === "text_delta" && typeof delta.text === "string") {
         if (currentMessageId) textStreamed.add(currentMessageId);
-        onEvent({ type: "text_delta", delta: delta.text });
+        emitPendingText(delta.text);
         return;
       }
 
@@ -318,6 +364,23 @@ export function createClaudeJsonlParser(onEvent: Handler) {
         reasoningOpen = false;
       }
       blocks.delete(key);
+      return;
+    }
+
+    if (ev.type === "message_delta" && isRecord(ev.delta)) {
+      const stopReason =
+        typeof ev.delta.stop_reason === "string" ? ev.delta.stop_reason : null;
+      if (stopReason) {
+        commitCurrentMessage(stopReason === "tool_use" ? "process" : "final");
+        if (stopReason !== "tool_use") {
+          onEvent({ type: "status", label: "turn_end" });
+        }
+      }
+      return;
+    }
+
+    if (ev.type === "message_stop") {
+      commitCurrentMessage();
     }
   }
 
@@ -345,8 +408,9 @@ export function createClaudeJsonlParser(onEvent: Handler) {
     }
 
     if (obj.type === "assistant" && isRecord(obj.message)) {
-      currentMessageId =
-        typeof obj.message.id === "string" ? obj.message.id : currentMessageId;
+      beginMessage(
+        typeof obj.message.id === "string" ? obj.message.id : currentMessageId,
+      );
       const msgId = typeof obj.message.id === "string" ? obj.message.id : null;
       const alreadyStreamed = msgId ? textStreamed.has(msgId) : false;
       const content = obj.message.content;
@@ -355,6 +419,7 @@ export function createClaudeJsonlParser(onEvent: Handler) {
       for (const block of content) {
         if (!isRecord(block)) continue;
         if (block.type === "tool_use") {
+          currentMessageHasToolUse = true;
           const id = typeof block.id === "string" ? block.id : undefined;
           const wireName = typeof block.name === "string" ? block.name : "tool";
           if (id && streamedToolUseIds.has(id)) {
@@ -368,7 +433,7 @@ export function createClaudeJsonlParser(onEvent: Handler) {
           typeof block.text === "string" &&
           block.text.length > 0
         ) {
-          onEvent({ type: "text_delta", delta: block.text });
+          emitPendingText(block.text);
           if (msgId) textStreamed.add(msgId);
         } else if (
           !alreadyStreamed &&
@@ -391,6 +456,9 @@ export function createClaudeJsonlParser(onEvent: Handler) {
         typeof obj.message.stop_reason === "string"
           ? obj.message.stop_reason
           : null;
+      if (stopReason) {
+        commitCurrentMessage(stopReason === "tool_use" ? "process" : "final");
+      }
       if (stopReason && stopReason !== "tool_use") {
         onEvent({ type: "status", label: "turn_end" });
       }
@@ -409,6 +477,7 @@ export function createClaudeJsonlParser(onEvent: Handler) {
     }
 
     if (obj.type === "result") {
+      commitCurrentMessage();
       if (reasoningOpen) {
         onEvent({
           type: "tool_progress",

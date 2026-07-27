@@ -1,7 +1,13 @@
 ---
 slug: skill-ppt-pptx-generator
-module: ppt
 version: "1.0"
+kind: tool
+scope: ["ppt"]
+summary: "PptxGenJS 生成原生 PPTX"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
+module: ppt
 source: open-design/skills/pptx-generator
 role: utility
 description: "|"

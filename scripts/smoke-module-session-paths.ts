@@ -148,10 +148,10 @@ async function main() {
   if (
     videoPoeticRun.request.binding.moduleId !== "video" ||
     videoPoeticRun.request.binding.templateId !== "poetic" ||
-    videoPoeticRun.request.processSkill !== "skill-vp-poetic-visual-coding"
+    videoPoeticRun.request.processSkill !== undefined
   ) {
     throw new Error(
-      `video poetic type was not preserved: ${JSON.stringify({
+      `video poetic template fact or V2 authority boundary was not preserved: ${JSON.stringify({
         binding: videoPoeticRun.request.binding,
         processSkill: videoPoeticRun.request.processSkill,
       })}`,
@@ -169,7 +169,7 @@ async function main() {
           variable: simulationVariableRun.request.binding,
         },
         videoBinding: videoPoeticRun.request.binding,
-        videoProcessSkill: videoPoeticRun.request.processSkill,
+        videoProcessSkillOwnedBy: "companion",
       },
       null,
       2,

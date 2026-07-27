@@ -2,11 +2,17 @@
 
 import { hermesGatewayEventToProgress } from "@jlc/runtime-core/map-tool-progress";
 import type {
+  AssistantSegmentPayload,
   CanonicalEvent,
   CanonicalOutputPayload,
   CanonicalTurnOutput,
   ChatPart,
 } from "@/lib/chat-parts";
+import type {
+  SkillFailedEvent,
+  SkillReadyEvent,
+  SkillSelectedEvent,
+} from "@jlc/contracts";
 import type { TodoItem } from "@/lib/chat-parts";
 import {
   parseRunStartedPayload,
@@ -18,6 +24,7 @@ export type ToolProgressPayload = {
   status?: string;
   message?: string;
   callId?: string;
+  streamSeq?: number;
   input?: unknown;
   output?: unknown;
 };
@@ -47,12 +54,16 @@ export type ProjectEnsuredPayload = {
 export type ChatStreamCallbacks = {
   onStreamStart?: () => void;
   onRunStarted?: (payload: RunStartedPayload) => void;
+  onSkillLifecycle?: (
+    event: SkillSelectedEvent | SkillReadyEvent | SkillFailedEvent,
+  ) => void;
   onProjectEnsured?: (project: ProjectEnsuredPayload) => void;
   onDelta: (content: string) => void;
   onInterimAssistant?: (payload: {
     text: string;
     alreadyStreamed?: boolean;
   }) => void;
+  onAssistantSegment?: (payload: AssistantSegmentPayload) => void;
   onCanonicalEvent?: (event: CanonicalEvent) => void;
   onCanonicalOutput?: (output: CanonicalTurnOutput) => void;
   onToolProgress?: (payload: ToolProgressPayload) => void;
@@ -103,12 +114,14 @@ function parseCompanionPayload(
   canonicalOutput?: CanonicalTurnOutput;
   delta?: string;
   interim?: { text: string; alreadyStreamed?: boolean };
+  assistantSegment?: AssistantSegmentPayload;
   tool?: ToolProgressPayload;
   clarification?: ClarificationPayload;
   part?: ChatPart;
   partPatch?: { id: string; merge: Record<string, unknown> };
   todoItems?: TodoItem[];
   runStarted?: RunStartedPayload;
+  skillLifecycle?: SkillSelectedEvent | SkillReadyEvent | SkillFailedEvent;
   projectEnsured?: ProjectEnsuredPayload;
   status?: { label: string; phase?: string };
   error?: string;
@@ -133,6 +146,18 @@ function parseCompanionPayload(
           ? json.message
           : "正在准备运行环境…";
       return { status: { label: message, phase: "accepted" } };
+    }
+    if (
+      eventName === "skill.selected" ||
+      eventName === "skill.ready" ||
+      eventName === "skill.failed"
+    ) {
+      return {
+        skillLifecycle: {
+          ...json,
+          type: eventName,
+        } as SkillSelectedEvent | SkillReadyEvent | SkillFailedEvent,
+      };
     }
     if (eventName === "run.started") {
       return { runStarted: parseRunStartedPayload(json) };
@@ -167,6 +192,7 @@ function parseCompanionPayload(
       };
     }
     if (eventName === "message.delta") {
+      if (json.compatibility === "assistant.segment") return null;
       const content =
         typeof json.content === "string"
           ? json.content
@@ -192,6 +218,29 @@ function parseCompanionPayload(
         },
       };
     }
+    if (eventName === "assistant.segment") {
+      const segmentId =
+        typeof json.segmentId === "string" ? json.segmentId : "";
+      const operation = json.operation;
+      const role = json.role;
+      if (
+        !segmentId ||
+        (operation !== "start" && operation !== "delta" && operation !== "commit") ||
+        (role !== "pending" && role !== "process" && role !== "final")
+      ) {
+        return null;
+      }
+      return {
+        assistantSegment: {
+          segmentId,
+          operation,
+          role,
+          text: typeof json.text === "string" ? json.text : undefined,
+          streamSeq:
+            typeof json.streamSeq === "number" ? json.streamSeq : undefined,
+        },
+      };
+    }
     if (eventName === "tool.progress") {
       return {
         tool: {
@@ -200,7 +249,14 @@ function parseCompanionPayload(
             typeof json.status === "string" ? json.status : undefined,
           message:
             typeof json.message === "string" ? json.message : undefined,
-          callId: typeof json.callId === "string" ? json.callId : undefined,
+          callId:
+            typeof json.callId === "string"
+              ? json.callId
+              : typeof json.toolCallId === "string"
+                ? json.toolCallId
+                : undefined,
+          streamSeq:
+            typeof json.streamSeq === "number" ? json.streamSeq : undefined,
           input: json.input,
           output: json.output,
         },
@@ -390,6 +446,9 @@ export async function consumeChatSse(
           if (eventName === "run.started" && parsed?.runStarted) {
             callbacks.onRunStarted?.(parsed.runStarted);
           }
+          if (parsed?.skillLifecycle) {
+            callbacks.onSkillLifecycle?.(parsed.skillLifecycle);
+          }
           if (eventName === "project.ensured" && parsed?.projectEnsured) {
             callbacks.onProjectEnsured?.(parsed.projectEnsured);
           }
@@ -399,6 +458,9 @@ export async function consumeChatSse(
           if (parsed?.delta) callbacks.onDelta(parsed.delta);
           if (parsed?.interim) {
             callbacks.onInterimAssistant?.(parsed.interim);
+          }
+          if (parsed?.assistantSegment) {
+            callbacks.onAssistantSegment?.(parsed.assistantSegment);
           }
           if (parsed?.tool) callbacks.onToolProgress?.(parsed.tool);
           if (parsed?.clarification) {

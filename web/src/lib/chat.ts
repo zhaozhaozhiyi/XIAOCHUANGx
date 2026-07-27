@@ -28,6 +28,8 @@ export type ChatMessage = {
   status?: "complete" | "loading" | "streaming" | "error" | "cancelled";
   parts?: ChatPart[];
   activityCollapse?: ActivityCollapse;
+  /** One-shot system transition used when the final answer starts. */
+  finalCollapseRevision?: number;
   runId?: string;
   /** 本轮 Run 开始时间（用于步间「思考 Ns」） */
   runStartedAt?: number;

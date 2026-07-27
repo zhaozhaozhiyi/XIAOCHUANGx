@@ -1,6 +1,6 @@
 # @jlc/desktop
 
-Electron 桌面壳（**`0.1.6-rc.1` / Desktop Alpha 候选版**）。对 `web/` 的包装，无业务分叉；主进程提供系统选目录 + Companion `import-folder`。Companion 是 Desktop 本地文件夹工作区的本机运行时。
+Electron 桌面壳（**`0.1.7` / Desktop Alpha Skill 编排候选版**）。对 `web/` 的包装，无业务分叉；主进程提供系统选目录 + Companion `import-folder`。Companion 是 Desktop 本地文件夹工作区的本机运行时。
 
 ## 品牌图标
 
@@ -41,6 +41,7 @@ pnpm desktop:dev
 |------|------|------|
 | `JLC_WEB_URL` | 开发：`http://localhost:3000` | 渲染进程加载地址；设置后覆盖默认 |
 | `COMPANION_BASE_URL` | `http://127.0.0.1:9477` | 主进程 import-folder / health |
+| `JLC_DESKTOP_WEB_PORT` | `51247` | 打包态内嵌 Web 的稳定端口；保持 Origin 与本地会话状态不变 |
 | `JLC_DESKTOP_DEVTOOLS` | — | 设为 `1` 打开 DevTools |
 
 ## 内测安装包（Desktop Alpha S4.3）

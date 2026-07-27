@@ -20,6 +20,7 @@ export type ActivityOccurrenceStatus =
 
 export type ActivityOccurrence = {
   occurrenceId: string;
+  callId?: string;
   family: ActivityFamily;
   status: ActivityOccurrenceStatus;
   label: string;
@@ -50,6 +51,32 @@ export type ActivityEpisode = {
   sourcePartIds: string[];
 };
 
+export type ProcessTimelineNode =
+  | {
+      type: "narration";
+      nodeId: string;
+      streamSeq: number;
+      part: Extract<ChatPart, { kind: "narration" }>;
+    }
+  | {
+      type: "reasoning";
+      nodeId: string;
+      streamSeq: number;
+      part: Extract<ChatPart, { kind: "reasoning" }>;
+    }
+  | {
+      type: "actions";
+      nodeId: string;
+      streamSeq: number;
+      occurrences: ActivityOccurrence[];
+    }
+  | {
+      type: "checkpoint";
+      nodeId: string;
+      streamSeq: number;
+      part: ChatPart;
+    };
+
 export type ActivitySummarySegmentKind =
   | "stage"
   | "read"
@@ -71,11 +98,11 @@ export type ActivityViewModel = {
   activityParts: ChatPart[];
   occurrences: ActivityOccurrence[];
   episodes: ActivityEpisode[];
+  /** Business-first stream; explanations, action evidence and checkpoints stay interleaved. */
+  timelineNodes: ProcessTimelineNode[];
   /** Skill / filler / status noise / unknown technical payload sources */
   debugParts: ChatPart[];
-  /** Model reasoning / CoT — L1 “思考过程”, not技术详情 */
-  reasoningParts: ChatPart[];
-  /** Raw timeline for技术详情: excludes meaningful narration (shown in L1) */
+  /** Raw timeline for技术详情: excludes business explanations shown in L1. */
   technicalParts: ChatPart[];
   statusPart: Extract<ChatPart, { kind: "turn_meta" | "status" }> | null;
   state: TurnDisplayState;
@@ -89,8 +116,12 @@ export type ActivityViewModel = {
   hasErrors: boolean;
   errorCount: number;
   rawPartCount: number;
-  /** 0.1.7: active turns prefer expanded process unless user collapsed */
+  /** 0.1.6: active turns prefer expanded process unless user collapsed. */
   preferExpanded: boolean;
+  /** Final result has started, so system auto-collapse wins once. */
+  finalAnswerStarted: boolean;
+  /** Live/error/waiting views expose action evidence without another click. */
+  detailsExpanded: boolean;
 };
 
 type StageMarker = {
@@ -114,6 +145,35 @@ const INTERNAL_STATUS = new Set([
   "initializing",
   "initialized",
 ]);
+
+const DEFAULT_CHECKPOINT_KINDS = new Set<ChatPart["kind"]>([
+  "clarification",
+  "writing_requirements",
+  "ppt_requirements",
+  "3d_requirements",
+  "video_requirements",
+  "simulation_requirements",
+  "writing_requirement_summary",
+  "ppt_requirement_summary",
+  "3d_requirement_summary",
+  "video_requirement_summary",
+  "simulation_requirement_summary",
+  "writing_outline",
+  "ppt_outline",
+  "3d_outline",
+  "video_outline",
+  "simulation_scenario",
+  "simulation_summary",
+  "simulation_next_action",
+  "simulation_suggestion",
+]);
+
+export function isProcessCheckpointPart(part: ChatPart): boolean {
+  if (part.presentationRole) {
+    return part.presentationRole === "checkpoint";
+  }
+  return DEFAULT_CHECKPOINT_KINDS.has(part.kind);
+}
 
 function partSeq(part: ChatPart, fallback: number): number {
   return part.streamSeq ?? fallback;
@@ -273,8 +333,14 @@ function actionOccurrence(part: ChatPart, seq: number): ActivityOccurrence | nul
     const path = normalizedResource(part.path);
     return {
       occurrenceId: part.id,
+      callId: part.callId,
       family: "read",
-      status: part.streaming ? "running" : "success",
+      status:
+        statusFromTool(part.status) === "unknown"
+          ? part.streaming
+            ? "running"
+            : "success"
+          : statusFromTool(part.status),
       label: `读取 ${basename(path)}`,
       resourceKey: path,
       resourceLabel: basename(path),
@@ -289,8 +355,14 @@ function actionOccurrence(part: ChatPart, seq: number): ActivityOccurrence | nul
     const path = normalizedResource(part.path);
     return {
       occurrenceId: part.id,
+      callId: part.callId,
       family: "edit",
-      status: part.streaming ? "running" : "success",
+      status:
+        statusFromTool(part.status) === "unknown"
+          ? part.streaming
+            ? "running"
+            : "success"
+          : statusFromTool(part.status),
       label: `编辑 ${basename(path)}`,
       resourceKey: path,
       resourceLabel: basename(path),
@@ -305,12 +377,16 @@ function actionOccurrence(part: ChatPart, seq: number): ActivityOccurrence | nul
     const command = part.command.trim().replace(/\s+/g, " ");
     return {
       occurrenceId: part.id,
+      callId: part.callId,
       family: "command",
-      status: part.streaming
-        ? "running"
-        : part.exitCode != null && part.exitCode !== 0
-          ? "error"
-          : "success",
+      status:
+        statusFromTool(part.status) !== "unknown"
+          ? statusFromTool(part.status)
+          : part.streaming
+            ? "running"
+            : part.exitCode != null && part.exitCode !== 0
+              ? "error"
+              : "success",
       label: compactText(command, 120) || "运行命令",
       resourceKey: command || undefined,
       resourceLabel: compactText(command, 120) || undefined,
@@ -326,6 +402,7 @@ function actionOccurrence(part: ChatPart, seq: number): ActivityOccurrence | nul
     const resource = toolResource(family, part);
     return {
       occurrenceId: part.callId ? `call:${part.callId}` : part.id,
+      callId: part.callId,
       family,
       status: statusFromTool(part.status),
       label: compactText(part.message ?? "") || familyLabel(family),
@@ -392,9 +469,11 @@ function mergeCommandToolPairs(occurrences: ActivityOccurrence[]): ActivityOccur
         candidate !== command &&
         candidate.family === "command" &&
         candidate.representativePart.kind === "tool" &&
-        candidate.resourceKey != null &&
-        candidate.resourceKey === command.resourceKey &&
-        Math.abs(candidate.firstStreamSeq - command.firstStreamSeq) <= 3,
+        ((command.callId && candidate.callId === command.callId) ||
+          (!command.callId &&
+            candidate.resourceKey != null &&
+            candidate.resourceKey === command.resourceKey &&
+            Math.abs(candidate.firstStreamSeq - command.firstStreamSeq) <= 3)),
     );
     if (!pair) continue;
     command.status = combineStatus(command.status, pair.status);
@@ -428,6 +507,105 @@ export function buildActivityOccurrences(parts: ChatPart[]): ActivityOccurrence[
   );
 }
 
+export function buildProcessTimeline(
+  parts: ChatPart[],
+  occurrences: ActivityOccurrence[],
+): ProcessTimelineNode[] {
+  type TimelineEvent =
+    | {
+        type: "narration";
+        seq: number;
+        index: number;
+        part: Extract<ChatPart, { kind: "narration" }>;
+      }
+    | {
+        type: "reasoning";
+        seq: number;
+        index: number;
+        part: Extract<ChatPart, { kind: "reasoning" }>;
+      }
+    | { type: "checkpoint"; seq: number; index: number; part: ChatPart }
+    | {
+        type: "action";
+        seq: number;
+        index: number;
+        occurrence: ActivityOccurrence;
+      };
+
+  const events: TimelineEvent[] = [];
+  parts.forEach((part, index) => {
+    const seq = partSeq(part, index);
+    if (part.kind === "narration" && isMeaningfulStage(part.markdown)) {
+      events.push({ type: "narration", seq, index, part });
+    } else if (
+      part.kind === "reasoning" &&
+      (Boolean(normalizeMarkdown(part.markdown).trim()) || part.streaming)
+    ) {
+      events.push({ type: "reasoning", seq, index, part });
+    } else if (isProcessCheckpointPart(part)) {
+      events.push({ type: "checkpoint", seq, index, part });
+    }
+  });
+  occurrences.forEach((occurrence, index) => {
+    events.push({
+      type: "action",
+      seq: occurrence.firstStreamSeq,
+      index,
+      occurrence,
+    });
+  });
+  events.sort((left, right) => left.seq - right.seq || left.index - right.index);
+
+  const nodes: ProcessTimelineNode[] = [];
+  let actions: ActivityOccurrence[] = [];
+  const flushActions = () => {
+    if (actions.length === 0) return;
+    const ordered = aggregateEpisodeOccurrences(actions).sort(
+      (left, right) => left.firstStreamSeq - right.firstStreamSeq,
+    );
+    const first = ordered[0]!;
+    nodes.push({
+      type: "actions",
+      nodeId: `actions:${first.firstStreamSeq}:${first.occurrenceId}`,
+      streamSeq: first.firstStreamSeq,
+      occurrences: ordered,
+    });
+    actions = [];
+  };
+
+  for (const event of events) {
+    if (event.type === "action") {
+      actions.push(event.occurrence);
+      continue;
+    }
+    flushActions();
+    if (event.type === "narration") {
+      nodes.push({
+        type: "narration",
+        nodeId: `narration:${event.part.id}`,
+        streamSeq: event.seq,
+        part: event.part,
+      });
+    } else if (event.type === "reasoning") {
+      nodes.push({
+        type: "reasoning",
+        nodeId: `reasoning:${event.part.id}`,
+        streamSeq: event.seq,
+        part: event.part,
+      });
+    } else {
+      nodes.push({
+        type: "checkpoint",
+        nodeId: `checkpoint:${event.part.id}`,
+        streamSeq: event.seq,
+        part: event.part,
+      });
+    }
+  }
+  flushActions();
+  return nodes;
+}
+
 function stageMarkers(parts: ChatPart[]): StageMarker[] {
   const markers: StageMarker[] = [];
   parts.forEach((part, index) => {
@@ -454,30 +632,37 @@ function stageMarkers(parts: ChatPart[]): StageMarker[] {
   return markers;
 }
 
+function occurrenceAggregationKey(
+  occurrence: ActivityOccurrence,
+): string {
+  return occurrence.resourceKey
+    ? `${occurrence.family}:${occurrence.resourceKey}`
+    : `${occurrence.family}:${occurrence.label}:${occurrence.occurrenceId}`;
+}
+
 function aggregateEpisodeOccurrences(
   occurrences: ActivityOccurrence[],
 ): ActivityOccurrence[] {
   const result: ActivityOccurrence[] = [];
-  const byKey = new Map<string, ActivityOccurrence>();
   for (const occurrence of occurrences) {
-    const key = occurrence.resourceKey
-      ? `${occurrence.family}:${occurrence.resourceKey}`
-      : `${occurrence.family}:${occurrence.label}:${occurrence.occurrenceId}`;
-    const existing = byKey.get(key);
-    if (!existing) {
-      const copy = { ...occurrence, sourcePartIds: [...occurrence.sourcePartIds] };
-      byKey.set(key, copy);
-      result.push(copy);
+    const previous = result.at(-1);
+    const key = occurrenceAggregationKey(occurrence);
+    if (!previous || occurrenceAggregationKey(previous) !== key) {
+      result.push({ ...occurrence, sourcePartIds: [...occurrence.sourcePartIds] });
       continue;
     }
-    existing.count += occurrence.count;
-    existing.status = combineStatus(existing.status, occurrence.status);
-    existing.lastStreamSeq = Math.max(existing.lastStreamSeq, occurrence.lastStreamSeq);
-    existing.sourcePartIds = [
-      ...new Set([...existing.sourcePartIds, ...occurrence.sourcePartIds]),
+
+    previous.count += occurrence.count;
+    previous.status = combineStatus(previous.status, occurrence.status);
+    previous.lastStreamSeq = Math.max(previous.lastStreamSeq, occurrence.lastStreamSeq);
+    previous.sourcePartIds = [
+      ...new Set([...previous.sourcePartIds, ...occurrence.sourcePartIds]),
     ];
+    if (previous.callId !== occurrence.callId) {
+      previous.callId = undefined;
+    }
     if (occurrence.status === "error" || occurrence.status === "running") {
-      existing.representativePart = occurrence.representativePart;
+      previous.representativePart = occurrence.representativePart;
     }
   }
   return result;
@@ -659,10 +844,6 @@ function isReasoningPart(part: ChatPart): boolean {
   return part.kind === "reasoning";
 }
 
-function isMeaningfulNarrationPart(part: ChatPart): boolean {
-  return part.kind === "narration" && isMeaningfulStage(part.markdown);
-}
-
 export function shouldCollapseNarrationInline(markdown: string): boolean {
   return normalizeMarkdown(markdown).trim().length > NARRATION_INLINE_COLLAPSE_CHARS;
 }
@@ -681,9 +862,18 @@ export function prefersActivityExpanded(state: TurnDisplayState): boolean {
 export function resolveActivityProcessExpanded(
   collapse: ActivityCollapse | undefined,
   state: TurnDisplayState,
+  finalAnswerStarted = false,
 ): boolean {
   if (collapse === "user_expanded") return true;
   if (collapse === "user_collapsed") return false;
+  if (
+    state === "waiting_user" ||
+    state === "error" ||
+    state === "cancelled"
+  ) {
+    return true;
+  }
+  if (finalAnswerStarted) return false;
   if (prefersActivityExpanded(state)) return true;
   return collapse === "expanded";
 }
@@ -795,6 +985,7 @@ function buildSummarySegments(
   stage: string,
   episodes: ActivityEpisode[],
   durationMs: number | undefined,
+  finalAnswerStarted = false,
 ): ActivitySummarySegment[] {
   const flattened = episodes.flatMap((episode) => episode.occurrences);
   const readResources = new Set<string>();
@@ -830,7 +1021,9 @@ function buildSummarySegments(
     }
   }
 
-  const active = state === "preparing" || state === "running" || state === "restoring";
+  const active =
+    !finalAnswerStarted &&
+    (state === "preparing" || state === "running" || state === "restoring");
   const segments: ActivitySummarySegment[] = [];
   if (active || state === "waiting_user" || state === "error" || state === "cancelled") {
     segments.push({
@@ -917,15 +1110,33 @@ export function buildActivityViewModel(
     .map(({ part }) => part);
   const occurrences = buildActivityOccurrences(activityParts);
   const episodes = buildActivityEpisodes(activityParts, occurrences);
+  const timelineNodes = buildProcessTimeline(message.parts ?? [], occurrences);
+  const finalAnswerStarted =
+    (message.parts ?? []).some(
+      (part) =>
+        (part.kind === "text" || part.kind === "summary") &&
+        part.presentationRole !== "process",
+    ) ||
+    Boolean(message.content.trim()) ||
+    Boolean(message.canonicalOutput?.finalAnswer.markdown.trim());
   const stage = currentStage(message, state, activityParts, occurrences);
   const durationMs = durationFromMessage(message, activityParts, options?.now ?? Date.now());
-  const summarySegments = buildSummarySegments(state, stage, episodes, durationMs);
+  const summarySegments = buildSummarySegments(
+    state,
+    stage,
+    episodes,
+    durationMs,
+    finalAnswerStarted,
+  );
   const errorCount = episodes
     .flatMap((episode) => episode.occurrences)
     .reduce((count, occurrence) => count + (occurrence.status === "error" ? occurrence.count : 0), 0);
   const meaningfulParts = activityParts.filter((part) => {
     if (part.kind === "turn_meta") return false;
     if (part.kind === "status") return isMeaningfulStage(part.label, part.phase);
+    if (part.kind === "reasoning") {
+      return Boolean(normalizeMarkdown(part.markdown).trim()) || Boolean(part.streaming);
+    }
     return true;
   });
   if (meaningfulParts.length > 0 && summarySegments.length === 0) {
@@ -941,10 +1152,14 @@ export function buildActivityViewModel(
     activityParts,
     occurrences,
     episodes,
+    timelineNodes,
     debugParts: activityParts.filter(isDebugPart),
-    reasoningParts: activityParts.filter(isReasoningPart),
     technicalParts: activityParts.filter(
-      (part) => !isMeaningfulNarrationPart(part) && !isReasoningPart(part),
+      (part) =>
+        !isReasoningPart(part) &&
+        (isDebugPart(part) ||
+          part.kind === "turn_meta" ||
+          part.kind === "status"),
     ),
     statusPart: latestStatusPart(activityParts),
     state,
@@ -953,10 +1168,21 @@ export function buildActivityViewModel(
     summarySegments,
     latestNarrationPreview: buildLatestNarrationPreview(activityParts),
     durationMs,
-    hasActivity: meaningfulParts.length > 0,
+    hasActivity: timelineNodes.length > 0 || meaningfulParts.length > 0,
     hasErrors: errorCount > 0,
     errorCount,
     rawPartCount: activityParts.length,
-    preferExpanded: prefersActivityExpanded(state),
+    preferExpanded:
+      prefersActivityExpanded(state) &&
+      (!finalAnswerStarted ||
+        state === "waiting_user" ||
+        state === "error" ||
+        state === "cancelled"),
+    finalAnswerStarted,
+    detailsExpanded:
+      state === "waiting_user" ||
+      state === "error" ||
+      state === "cancelled" ||
+      (!finalAnswerStarted && prefersActivityExpanded(state)),
   };
 }

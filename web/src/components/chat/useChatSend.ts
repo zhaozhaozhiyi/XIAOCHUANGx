@@ -33,11 +33,13 @@ import {
   applyPartsStateToMessage,
   initAssistantPartsState,
   reduceAppendPart,
+  reduceAssistantSegment,
   reducePartPatch,
   reduceRunStarted,
   reduceClarificationRequired,
   reduceInterimAssistant,
   reduceRunSkills,
+  reduceSkillLifecycle,
   reduceStatusLabel,
   reduceStreamCancelled,
   reduceStreamError,
@@ -448,6 +450,7 @@ export function useChatSend(
       };
 
       let result: Awaited<ReturnType<typeof streamChatCompletion>>;
+      let streamErrorHandled = false;
       try {
         result = await streamChatCompletion({
           sessionId,
@@ -463,8 +466,12 @@ export function useChatSend(
           },
           onRunStarted: (payload) => {
             setCompanionRunId(payload.runId);
-            schedulePatch((s) =>
-              reduceRunSkills(reduceRunStarted(s, payload), {
+            schedulePatch((s) => {
+              const started = reduceRunStarted(s, payload);
+              if (payload.orchestrationMode === "companion-select-v2") {
+                return started;
+              }
+              return reduceRunSkills(started, {
                 processSkill: payload.processSkill,
                 platformNormSkill: payload.platformNormSkill,
                 catalogSlugs: payload.catalogSlugs,
@@ -474,14 +481,20 @@ export function useChatSend(
                     ...(payload.supportSkillSlugs ?? []),
                   ]),
                 ),
-              }),
-            );
+              });
+            });
+          },
+          onSkillLifecycle: (event) => {
+            schedulePatch((state) => reduceSkillLifecycle(state, event));
           },
           onDelta: (chunk) => {
             schedulePatch((s) => reduceTextDelta(s, chunk));
           },
           onInterimAssistant: (payload) => {
             schedulePatch((s) => reduceInterimAssistant(s, payload));
+          },
+          onAssistantSegment: (payload) => {
+            schedulePatch((s) => reduceAssistantSegment(s, payload));
           },
           onCanonicalEvent: (event) => {
             appendAssistantCanonicalEvent(assistantId, runId, event);
@@ -537,9 +550,15 @@ export function useChatSend(
           },
           onRunError: (message) => {
             if (!isCurrentRun(runId)) return;
+            streamErrorHandled = true;
             partsStateRef.current = reduceStreamError(
               partsStateRef.current,
-              message,
+              accumulatedErrorMessage(
+                message,
+                context.agentId,
+                context.executionSource,
+                settings.agentAliases,
+              ),
             );
           },
           onProjectEnsured: (project) => {
@@ -567,15 +586,17 @@ export function useChatSend(
         }
 
         drainRunPatches(runId);
-        partsStateRef.current = reduceStreamError(
-          partsStateRef.current,
-          accumulatedErrorMessage(
-            errorMessage(error),
-            context.agentId,
-            context.executionSource,
-            settings.agentAliases,
-          ),
-        );
+        if (!streamErrorHandled) {
+          partsStateRef.current = reduceStreamError(
+            partsStateRef.current,
+            accumulatedErrorMessage(
+              errorMessage(error),
+              context.agentId,
+              context.executionSource,
+              settings.agentAliases,
+            ),
+          );
+        }
         commitAssistantSnapshot(assistantId, { status: "error" });
         finishRunUiState(runId, controller);
         return;
@@ -588,15 +609,17 @@ export function useChatSend(
 
       if (!result.ok) {
         drainRunPatches(runId);
-        partsStateRef.current = reduceStreamError(
-          partsStateRef.current,
-          accumulatedErrorMessage(
-            result.error,
-            context.agentId,
-            context.executionSource,
-            settings.agentAliases,
-          ),
-        );
+        if (!streamErrorHandled) {
+          partsStateRef.current = reduceStreamError(
+            partsStateRef.current,
+            accumulatedErrorMessage(
+              result.error,
+              context.agentId,
+              context.executionSource,
+              settings.agentAliases,
+            ),
+          );
+        }
         commitAssistantSnapshot(assistantId, { status: "error" });
         finishRunUiState(runId, controller);
         return;

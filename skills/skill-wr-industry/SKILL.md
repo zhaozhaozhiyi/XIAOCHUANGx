@@ -1,9 +1,15 @@
 ---
 slug: skill-wr-industry
+version: "0.1"
+kind: workflow
+scope: ["chat","writing"]
+summary: "行业研究：产业链、市场规模、竞争格局、驱动与制约、可选投资视角"
+skillDependencies: []
+capabilityRequirements: []
+assetPolicy: {"references":false,"scripts":false,"templates":false,"assets":false}
 module: writing
 task: writing
 templateId: industry
-version: "0.1"
 ---
 
 # 写作 · 行业研究
