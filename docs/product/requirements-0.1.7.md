@@ -1,6 +1,6 @@
 # 小窗 XIAOCHUANGx 0.1.7 版本规划
 
-> 状态：**需求已冻结；T01-T07A 已完成，T07B macOS 已完成，Windows 制品与回滚验收待完成**
+> 状态：**正式发布冻结版；T00-T07B 与双平台发布验收全部完成**
 > 建立日期：2026-07-23
 > 修订日期：2026-07-25
 > 产品确认日期：2026-07-24
@@ -420,3 +420,14 @@ T01 还必须冻结：
 - `SkillManifestV1`、持久化 `SkillSelectionDecisionV1` 和三个 bundle 级 Skill Event 的 JSON Schema；
 - `0.1.6` 对比 fixture、普通回答质量 rubric、Prompt 大小、I/O 计数和参考设备耗时基线；
 - 新旧请求兼容矩阵和回滚开关验证方式。
+
+## 14. 验收与发布结论
+
+截至 `2026-07-27`，本需求定义的目标、计划与验收标准均已闭环：
+
+- 统一任务、统一 Template Catalog/页面、TemplateApplication 和多交付阶段确认完全不进入 `0.1.7`，继续由后续版本承接；
+- Companion 是平台 Registry 和最终 Skill Decision 的唯一持有者，Web 与 Codex、Claude、Hermes 均不再依据完整 Catalog 各自决定平台 Skill；
+- 自动意图首批仅包含 `skill-tr-doc` 的明确整篇文档翻译规则，模糊、冲突、引用、日志、URL 和否定表达均不猜 Skill；
+- AC-01 至 AC-25、三 Agent 真流、普通回答质量、五个业务模块、macOS DMG、Windows NSIS、升级、开关回滚、降级和用户数据隔离均通过；
+- Desktop Alpha 正式发布允许使用 macOS ad-hoc 与 Windows 测试签名制品，不把测试签名表述为生产级 Apple 公证或 Authenticode 签名；
+- `v0.1.7` tag、GitHub Release、双平台制品及其 SHA-256 清单共同构成冻结基线，后续 `0.1.8` 迁移验收不得用本地脏工作区或其他临时候选替代。

@@ -2,9 +2,9 @@
 
 | 属性 | 内容 |
 |------|------|
-| 文档版本 | v1.5 |
-| 日期 | 2026-07-25 |
-| 状态 | T01-T07A 已完成；T07B macOS 已完成，待 Windows NSIS 制品与 Windows 安装/回滚验收 |
+| 文档版本 | v1.6 |
+| 日期 | 2026-07-27 |
+| 状态 | T00-T07B 全部完成；双平台正式发布基线已冻结 |
 | 目标版本 | `0.1.7` |
 | 上级需求 | [requirements-0.1.7.md](../product/requirements-0.1.7.md) |
 | 适用范围 | `packages/contracts`、`packages/runtime-core`、Companion、Web、Desktop、Codex / Claude / Hermes 真流 |
@@ -349,6 +349,8 @@ explicit UI / 动作 + slug
 
 ### T07B：桌面制品、升级降级和回滚
 
+状态：已完成。
+
 目标：验证开发环境之外的打包、升级和故障恢复。
 
 执行动作：
@@ -597,10 +599,10 @@ pnpm skill-orchestration:installed-windows-acceptance
 - [x] T05 bundle、依赖、缓存和 Agent Kit 验收通过；
 - [x] T06 Decision、事件、UI、取消和历史回放通过；
 - [x] T07A 自动化、质量、模块和三 Agent 真流通过；
-- [ ] T07B 双平台制品、升级、降级和回滚通过；
-- [ ] 所有 Stop-Ship 条件均为 false；
+- [x] T07B 双平台制品、升级、降级和回滚通过；
+- [x] 所有 Stop-Ship 条件均为 false；
 - [x] release notes 与当前候选实现行为一致。
 
 截至 2026-07-25，T07A 已完成：确定性测试、浏览器 E2E、五个业务模块回归、三 Agent none/selected 真流和三 Agent 成对回答质量门禁全部通过。Codex、Claude、Hermes 均使用最终 Prompt 哈希 `sha256:7454b60990ec18a93124ba3dc76d9fcaed7e970c996020f9da241f804af8c95d` 完成 24/24 样例，三者均满足 P0=0、平均下降不超过 0.25、下降至少 1 分比例不超过 10% 的门槛。普通 Prompt 为 1833 字符，是 `0.1.6` 5463 字符的 33.6%；正文读取、Agent Kit 创建和文件扫描均为 0，Selector 与 Registry 查询 p95 约 0.004 ms。
 
-T07B 的 macOS 部分已完成：`小窗-macos-0.1.7.dmg` 已通过 ad-hoc 签名、资源完整性、临时安装、冷启动、`0.1.6-rc.3 -> 0.1.7 -> 0.1.6-rc.3`、V2 -> legacy -> V2、历史消息/Run、交付物、工作区和真实用户数据保护验收。当前只剩 Windows NSIS 制品及 Windows 安装态升级、降级和回滚；在 Windows Stop-Ship 清零前不得发布 `0.1.7`。
+T07B 已完成双平台闭环：`小窗-macos-0.1.7.dmg` 已通过 ad-hoc 测试签名、资源完整性、临时安装、冷启动、`0.1.6-rc.3 -> 0.1.7 -> 0.1.6-rc.3`、V2 -> legacy -> V2、历史消息/Run、交付物、工作区和真实用户数据保护验收；`小窗-win-0.1.7.exe` 已在 GitHub Actions Windows x64 runner 完成 NSIS 构建、资源校验、冷启动、原位升级、V2 none/selected/rejected/cancelled、历史回放、V2 -> legacy -> V2、原位降级和用户数据隔离。Windows 安装态使用 `simulate` Run，并为 `0.1.6-rc.3` 的旧版“模拟前仍探测 CLI”行为提供仅支持 `--version` 的隔离 Codex 探测垫片；三 Agent 真实执行能力仍由 T07A 的 6/6 CLI 真流证明。工作流 `30147288225` 全部通过，所有 Stop-Ship 条件为 false。Desktop Alpha 正式发布使用测试签名制品，`v0.1.7` tag、Release 资产和 SHA-256 清单共同构成冻结基线。

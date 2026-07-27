@@ -1,6 +1,6 @@
 # 文档中心
 
-> 当前平台候选版本为 **`0.1.6-rc.3`（Desktop Alpha 对话结果与业务过程体验收口候选版）**，最近正式基线为 `0.1.5`。`0.1.7` 聚焦 Skill 按需选择、加载和真实状态；统一任务、模板、多交付物与导航改造已拆分为独立的 `0.2.0` 规划。产品边界以 [平台与工作区边界定义](./product/platform-workspace-boundary.md) 为准：**Desktop = 本地文件夹工作区**；**Web 在线沙箱工作区 = 下一大版本目标**。需求、技术、计划、归档文档统一收纳在本目录下；运行时资产文档（如 `skills/*/SKILL.md`、`prompts/*`）仍保留在对应资产目录。
+> 当前正式版本为 **`0.1.7`（Desktop Alpha Skill 编排优化版）**，`v0.1.7` tag、GitHub Release、双平台测试签名制品和 SHA-256 清单构成冻结升级基线。统一任务、模板、多交付物与导航改造由后续版本承接。产品边界以 [平台与工作区边界定义](./product/platform-workspace-boundary.md) 为准：**Desktop = 本地文件夹工作区**；**Web 在线沙箱工作区 = 下一大版本目标**。需求、技术、计划、归档文档统一收纳在本目录下；运行时资产文档（如 `skills/*/SKILL.md`、`prompts/*`）仍保留在对应资产目录。
 
 ## 目录约定
 
@@ -29,7 +29,7 @@
 | [requirements-0.1.6.md](./product/requirements-0.1.6.md) | `0.1.6` 对话结果与过程体验收口版本边界 |
 | [release-notes-0.1.6.md](./release-notes/0.1.6.md) | `0.1.6` 对话结果与过程体验收口更新说明 |
 | [requirements-0.1.7.md](./product/requirements-0.1.7.md) | `0.1.7` 聚焦规划：业务 Skill 按需选择、加载和真实状态 |
-| [release-notes-0.1.7.md](./release-notes/0.1.7.md) | `0.1.7` 规划中用户变化摘要 |
+| [release-notes-0.1.7.md](./release-notes/0.1.7.md) | `0.1.7` 正式更新说明 |
 | [requirements-0.2.0.md](./product/requirements-0.2.0.md) | `0.2.0` 规划：统一任务、模板、多交付物工作台和迁移 |
 | [platform-workspace-boundary.md](./product/platform-workspace-boundary.md) | Web / Desktop / Sandbox / Companion 边界定义 |
 | [功能清单.md](./product/功能清单.md) | 当前模块与功能清单 |
